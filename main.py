@@ -355,4 +355,3 @@ if __name__ == "__main__":
     except Exception as e:
         st.error(f"Dashboard initialization failed: {str(e)}. Ensure dependencies, 'industrial_workplace_simulation.py', and 'config.py' are available.")
         st.stop()
-```
