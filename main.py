@@ -25,6 +25,7 @@ def main():
     """, icon="ℹ️")
 
     # Sidebar controls
+    st.image("assets/FOBO2.png", width=250, caption="LEAN 2.0 Institute")
     st.sidebar.header("Shift Controls")
     show_forecast = st.sidebar.checkbox("Show Predictive Trends", value=True, key="forecast-checkbox")
     export_data = st.sidebar.button("Export Shift Data", key="export-button")
