@@ -314,14 +314,23 @@ def plot_oee(oee_df):
 def plot_worker_density(history_df, factory_size):
     """Plot factory floor activity and congestion."""
     fig, ax = plt.subplots(figsize=(10, 6))
-    plt.hexbin(
+    hb = plt.hexbin(
         history_df['x'], history_df['y'],
         gridsize=20, cmap='viridis', mincnt=1,
         extent=(0, factory_size, 0, factory_size)
     )
-    cb = plt.colorbar(label='Activity Level (Low to High Congestion)')
-    cb.set_ticks([cb.get_clim()[0], cb.get_clim()[1]])
-    cb.set_ticklabels(['Low Activity', 'High Congestion'])
+    cb = plt.colorbar(hb, label='Activity Level (Low to High Congestion)')
+    # Set ticks to min and max counts
+    counts = hb.get_array()
+    if len(counts) > 0:
+        min_count = 1  # mincnt=1 ensures no zero
+        max_count = np.max(counts)
+        cb.set_ticks([min_count, max_count])
+        cb.set_ticklabels(['Low Activity', 'High Congestion'])
+    else:
+        logging.warning("No data in hexbin plot, setting default colorbar ticks")
+        cb.set_ticks([1, 10])
+        cb.set_ticklabels(['Low Activity', 'High Congestion'])
     
     # Add factory layout
     ax.plot([0, factory_size], [0, 0], 'k-', lw=1)
