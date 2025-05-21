@@ -21,7 +21,7 @@ def main():
 
     # Transparency statement
     st.info("""
-    **Transparency Notice**: This dashboard uses aggregated, synthetic data to monitor zone-level performance and well-being, ensuring worker privacy. Metrics and actions aim to improve working conditions through rest, workload balance, and psychological safety. Worker suggestions are valued and simulated to enhance team health and engagement. Feedback is encouraged to shape a supportive workplace.
+    **Transparency Notice**: This dashboard uses aggregated, synthetic data to monitor zone-level performance and well-being, ensuring worker privacy. The activity and congestion visualization helps optimize factory layouts and task assignments to improve working conditions, not to track individuals. Actions like breaks and workload adjustments aim to enhance team health and collaboration. Worker suggestions are valued and simulated to shape a supportive workplace.
     """, icon="ℹ️")
 
     # Sidebar controls
@@ -60,10 +60,10 @@ def main():
     # Feedback impact
     st.subheader("Worker Feedback Impact", anchor="feedback-impact")
     st.metric("Well-Being Boost from Suggestions", f"{feedback_impact['wellbeing']:.2%}")
-    st.metric("Cohesion Boost from Suggestions", f"{feedback_impact['cohesion']:.2%}")
-    st.caption("Reflects how worker-initiated actions improve team outcomes.")
+    st.metric("Collaboration Boost from Suggestions", f"{feedback_impact['cohesion']:.2%}")
+    st.caption("Shows how worker suggestions improve team health and teamwork.")
 
-    # Well-being actions
+    # Well-being opportunities
     st.subheader("Team Well-Being Opportunities", anchor="wellbeing-opportunities")
     if wellbeing_triggers['threshold']:
         steps = wellbeing_triggers['threshold']
@@ -84,63 +84,63 @@ def main():
     if not any(wellbeing_triggers.values()):
         st.success("Team well-being is strong! Maintain support with regular breaks and recognition.")
 
-    # Performance and cohesion opportunities
+    # Performance and collaboration opportunities
     anomalies = [(i, e, c) for i, (e, c) in enumerate(zip(compliance_entropy['z_scores'], clustering_index['z_scores']))
                  if abs(e) > ANOMALY_THRESHOLD or abs(c) > ANOMALY_THRESHOLD]
     if anomalies:
-        st.info(f"💡 Opportunity: Enhance team performance or cohesion in {len(anomalies)} intervals. "
+        st.info(f"💡 Opportunity: Enhance team performance or collaboration in {len(anomalies)} intervals. "
                 "Actions: Offer training resources, foster team-building activities.")
 
     # Productivity loss summary
     st.metric("Average Productivity Loss During Disruptions", f"{np.mean([loss for i, loss in enumerate(productivity_loss) if i in DISRUPTION_STEPS]):.1f}%")
 
     # Plots
-    st.subheader("Team SOP Compliance Variability", anchor="compliance-plot")
+    st.subheader("Team SOP Compliance Consistency", anchor="compliance-plot")
     try:
         st.pyplot(plot_compliance_variability(compliance_entropy['data'], DISRUPTION_STEPS, compliance_entropy['forecast'] if show_forecast else None))
-        st.caption("High variability suggests opportunities for clearer SOPs or team support.")
+        st.caption("Inconsistent compliance may suggest opportunities for clearer procedures or additional training support.")
     except Exception as e:
         st.error(f"Failed to render compliance plot: {str(e)}. Ensure matplotlib is installed.")
 
-    st.subheader("Team Cohesion Across Zones", anchor="cohesion-plot")
+    st.subheader("Team Collaboration Strength", anchor="cohesion-plot")
     try:
         st.pyplot(plot_team_clustering(clustering_index['data'], clustering_index['forecast'] if show_forecast else None))
-        st.caption("Strong cohesion supports collaboration. Foster with team-building.")
+        st.caption("Strong collaboration supports efficient teamwork. Foster with team-building or recognition programs.")
     except Exception as e:
-        st.error(f"Failed to render cohesion plot: {str(e)}.")
+        st.error(f"Failed to render collaboration plot: {str(e)}.")
 
-    st.subheader("Production Resilience After Disruptions", anchor="resilience-plot")
+    st.subheader("Team Recovery After Disruptions", anchor="resilience-plot")
     try:
         st.pyplot(plot_resilience(resilience_scores))
-        st.caption("High resilience reflects team strength. Support with resources.")
+        st.caption("Strong recovery reflects team resilience. Support with resources or supervisor guidance.")
     except Exception as e:
         st.error(f"Failed to render resilience plot: {str(e)}.")
 
-    st.subheader("Overall Equipment Effectiveness (OEE)", anchor="oee-plot")
+    st.subheader("Equipment Efficiency (OEE)", anchor="oee-plot")
     try:
         st.pyplot(plot_oee(oee_df))
-        st.caption("OEE reflects efficiency. Target: Availability >90%, Performance >85%, Quality >97%.")
+        st.caption("High OEE indicates efficient operations. Target: Availability >90%, Performance >85%, Quality >97%. Support with maintenance or training.")
     except Exception as e:
         st.error(f"Failed to render OEE plot: {str(e)}.")
 
-    st.subheader("Team Density on Factory Floor", anchor="density-plot")
+    st.subheader("Factory Floor Activity and Congestion", anchor="density-plot")
     try:
         st.pyplot(plot_worker_density(history_df, FACTORY_SIZE))
-        st.caption("High-density areas may indicate collaboration or bottlenecks. Optimize layouts.")
+        st.caption("High congestion areas may need layout adjustments or task reassignments to reduce bottlenecks and improve workflow.")
     except Exception as e:
-        st.error(f"Failed to render density plot: {str(e)}.")
+        st.error(f"Failed to render activity plot: {str(e)}.")
 
     st.subheader("Team Well-Being Trends", anchor="wellbeing-plot")
     try:
         st.pyplot(plot_wellbeing(wellbeing_scores))
-        st.caption("Strong well-being supports health. Enhance with breaks and resources.")
+        st.caption("Strong well-being supports team health. Enhance with regular breaks, ergonomic tools, or wellness programs.")
     except Exception as e:
         st.error(f"Failed to render well-being plot: {str(e)}.")
 
     st.subheader("Team Psychological Safety Trends", anchor="safety-plot")
     try:
         st.pyplot(plot_psychological_safety(safety_scores))
-        st.caption("High safety fosters trust. Encourage feedback and recognition.")
+        st.caption("High psychological safety fosters trust and collaboration. Encourage open feedback and team recognition.")
     except Exception as e:
         st.error(f"Failed to render safety plot: {str(e)}.")
 
@@ -158,6 +158,10 @@ def main():
         else:
             st.error("No shift data available to export.")
 
+    st.success("Shift dashboard loaded — use insights to create a healthier, more collaborative workplace.")
+
+if __name__ == "__main__":
+    main()
     st.success("Shift dashboard loaded — use insights to create a healthier, more supportive workplace.")
 
 if __name__ == "__main__":
