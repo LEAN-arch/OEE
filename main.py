@@ -3,8 +3,8 @@ try:
     import pandas as pd
     import matplotlib.pyplot as plt
     import numpy as np
-    from simulation import generate_synthetic_data, plot_compliance_variability, plot_team_clustering, plot_resilience, plot_oee, plot_worker_density, plot_wellbeing
-    from config import NUM_OPERATORS, NUM_STEPS, FACTORY_SIZE, ADAPTATION_RATE, SUPERVISOR_INFLUENCE, DISRUPTION_STEPS, ANOMALY_THRESHOLD, WELLBEING_THRESHOLD
+    from simulation import generate_synthetic_data, plot_compliance_variability, plot_team_clustering, plot_resilience, plot_oee, plot_worker_density, plot_wellbeing, plot_psychological_safety
+    from config import NUM_OPERATORS, NUM_STEPS, FACTORY_SIZE, ADAPTATION_RATE, SUPERVISOR_INFLUENCE, DISRUPTION_STEPS, ANOMALY_THRESHOLD, WELLBEING_THRESHOLD, WELLBEING_TREND_LENGTH, WELLBEING_DISRUPTION_WINDOW, BREAK_INTERVAL, WORKLOAD_CAP_STEPS
 except ImportError as e:
     st.error(f"Failed to import required libraries: {str(e)}. Ensure all dependencies are installed using 'uv pip install -r requirements.txt'.")
     st.error("If deploying on Streamlit Cloud, use Python 3.10 and verify requirements.txt.")
@@ -17,92 +17,132 @@ def main():
     if sys.version_info >= (3, 13):
         st.warning("Python 3.13 detected. This version may not be fully supported. Use Python 3.10 for best results.")
 
-    st.title("Factory Shift Monitoring Dashboard")
+    st.title("Factory Shift Monitoring Dashboard", anchor="dashboard-title")
 
     # Transparency statement
     st.info("""
-    **Transparency Notice**: This dashboard uses aggregated, synthetic data to monitor team and zone performance, prioritizing worker privacy. Data is used to improve operations, training, and well-being, not to penalize individuals. For real-world use, workers are encouraged to provide feedback to ensure fair and supportive outcomes.
-    """)
+    **Transparency Notice**: This dashboard uses aggregated, synthetic data to monitor zone-level performance and well-being, ensuring worker privacy. Metrics and actions aim to improve working conditions through rest, workload balance, and psychological safety. Worker suggestions are valued and simulated to enhance team health and engagement. Feedback is encouraged to shape a supportive workplace.
+    """, icon="ℹ️")
 
     # Sidebar controls
     st.sidebar.header("Shift Controls")
-    show_forecast = st.sidebar.checkbox("Show Predictive Trends", value=True)
-    export_data = st.sidebar.button("Export Shift Data")
+    show_forecast = st.sidebar.checkbox("Show Predictive Trends", value=True, key="forecast-checkbox")
+    export_data = st.sidebar.button("Export Shift Data", key="export-button")
 
-    # Worker feedback placeholder
-    st.sidebar.subheader("Worker Feedback")
-    st.sidebar.text_area("Share concerns or suggestions (placeholder for real-world implementation)", placeholder="E.g., workload concerns, training needs...")
+    # Worker feedback and priorities
+    st.sidebar.subheader("Worker Suggestions")
+    worker_feedback = st.sidebar.text_area(
+        "Share ideas to improve conditions (placeholder for real-world input)",
+        placeholder="E.g., more breaks, ergonomic tools, training...",
+        key="feedback-input"
+    )
+    st.sidebar.subheader("Worker Priorities")
+    priority = st.sidebar.selectbox(
+        "Simulated worker priority for this shift",
+        ["More frequent breaks", "Task reduction", "Wellness resources", "Team recognition"],
+        key="priority-select",
+        help="Reflects team preferences for improving conditions."
+    )
 
     # Generate synthetic data
     try:
-        history_df, compliance_entropy, clustering_index, resilience_scores, oee_history, productivity_loss, wellbeing_scores = generate_synthetic_data(
-            NUM_OPERATORS, NUM_STEPS, FACTORY_SIZE, ADAPTATION_RATE, SUPERVISOR_INFLUENCE, DISRUPTION_STEPS
+        history_df, compliance_entropy, clustering_index, resilience_scores, oee_history, productivity_loss, wellbeing_data, safety_scores, feedback_impact = generate_synthetic_data(
+            NUM_OPERATORS, NUM_STEPS, FACTORY_SIZE, ADAPTATION_RATE, SUPERVISOR_INFLUENCE, DISRUPTION_STEPS, priority
         )
         oee_df = pd.DataFrame(oee_history)
+        wellbeing_scores = wellbeing_data['scores']
+        wellbeing_triggers = wellbeing_data['triggers']
     except Exception as e:
-        st.error(f"Data generation failed: {str(e)}. Check logs or verify dependency installation with 'uv pip install -r requirements.txt'.")
+        st.error(f"Failed to generate data: {str(e)}. Check logs or verify dependencies with 'uv pip install -r requirements.txt'.")
         st.error("If on Streamlit Cloud, ensure Python 3.10 is set and rebuild the app.")
         st.stop()
 
-    # Anomaly detection with supportive alerts
+    # Feedback impact
+    st.subheader("Worker Feedback Impact", anchor="feedback-impact")
+    st.metric("Well-Being Boost from Suggestions", f"{feedback_impact['wellbeing']:.2%}")
+    st.metric("Cohesion Boost from Suggestions", f"{feedback_impact['cohesion']:.2%}")
+    st.caption("Reflects how worker-initiated actions improve team outcomes.")
+
+    # Well-being actions
+    st.subheader("Team Well-Being Opportunities", anchor="wellbeing-opportunities")
+    if wellbeing_triggers['threshold']:
+        steps = wellbeing_triggers['threshold']
+        st.info(f"💡 Opportunity: Support teams in {len(steps)} intervals with low well-being (Steps: {', '.join(map(str, steps[:3]))}{', ...' if len(steps) > 3 else ''}). "
+                "Actions: Extend breaks by 15 minutes, provide ergonomic tools.")
+    if wellbeing_triggers['trend']:
+        steps = wellbeing_triggers['trend']
+        st.info(f"💡 Opportunity: Address sustained well-being decline in {len(steps)} intervals (Steps: {', '.join(map(str, steps[:3]))}{', ...' if len(steps) > 3 else ''}). "
+                "Actions: Reduce tasks by 10%, offer stress management workshops.")
+    if wellbeing_triggers['zone']:
+        for zone, steps in wellbeing_triggers['zone'].items():
+            st.info(f"💡 Opportunity: Support {zone.capitalize()} zone in {len(steps)} intervals (Steps: {', '.join(map(str, steps[:3]))}{', ...' if len(steps) > 3 else ''}). "
+                    f"Actions: Add supervisors, implement ergonomic adjustments.")
+    if wellbeing_triggers['disruption']:
+        steps = wellbeing_triggers['disruption']
+        st.info(f"💡 Opportunity: Support teams near disruptions in {len(steps)} intervals (Steps: {', '.join(map(str, steps[:3]))}{', ...' if len(steps) > 3 else ''}). "
+                "Actions: Recognize resilient teams, schedule post-disruption breaks.")
+    if not any(wellbeing_triggers.values()):
+        st.success("Team well-being is strong! Maintain support with regular breaks and recognition.")
+
+    # Performance and cohesion opportunities
     anomalies = [(i, e, c) for i, (e, c) in enumerate(zip(compliance_entropy['z_scores'], clustering_index['z_scores']))
                  if abs(e) > ANOMALY_THRESHOLD or abs(c) > ANOMALY_THRESHOLD]
     if anomalies:
-        st.warning(f"⚠️ NOTICE: Detected {len(anomalies)} variations in team performance or cohesion. "
-                   "Suggestions: Provide additional training resources, adjust workloads, or recognize high-performing teams.")
-
-    # Well-being alerts
-    low_wellbeing_steps = [i for i, score in enumerate(wellbeing_scores) if score < WELLBEING_THRESHOLD]
-    if low_wellbeing_steps:
-        st.warning(f"⚠️ NOTICE: Low team well-being detected in {len(low_wellbeing_steps)} time intervals. "
-                   "Suggestions: Increase break frequency, review workload distribution, or offer wellness support.")
+        st.info(f"💡 Opportunity: Enhance team performance or cohesion in {len(anomalies)} intervals. "
+                "Actions: Offer training resources, foster team-building activities.")
 
     # Productivity loss summary
-    avg_loss = np.mean([loss for i, loss in enumerate(productivity_loss) if i in DISRUPTION_STEPS])
-    st.metric("Average Productivity Loss During Disruptions", f"{avg_loss:.1f}%", delta=-avg_loss)
+    st.metric("Average Productivity Loss During Disruptions", f"{np.mean([loss for i, loss in enumerate(productivity_loss) if i in DISRUPTION_STEPS]):.1f}%")
 
     # Plots
-    st.subheader("Team SOP Compliance Variability")
+    st.subheader("Team SOP Compliance Variability", anchor="compliance-plot")
     try:
         st.pyplot(plot_compliance_variability(compliance_entropy['data'], DISRUPTION_STEPS, compliance_entropy['forecast'] if show_forecast else None))
-        st.caption("High variability may indicate need for clearer SOPs or additional team support.")
+        st.caption("High variability suggests opportunities for clearer SOPs or team support.")
     except Exception as e:
-        st.error(f"Failed to render compliance plot: {str(e)}. Ensure matplotlib is installed correctly.")
+        st.error(f"Failed to render compliance plot: {str(e)}. Ensure matplotlib is installed.")
 
-    st.subheader("Team Cohesion Across Zones")
+    st.subheader("Team Cohesion Across Zones", anchor="cohesion-plot")
     try:
         st.pyplot(plot_team_clustering(clustering_index['data'], clustering_index['forecast'] if show_forecast else None))
-        st.caption("Lower clustering suggests strong team collaboration. Consider team-building initiatives to maintain cohesion.")
+        st.caption("Strong cohesion supports collaboration. Foster with team-building.")
     except Exception as e:
         st.error(f"Failed to render cohesion plot: {str(e)}.")
 
-    st.subheader("Production Resilience After Disruptions")
+    st.subheader("Production Resilience After Disruptions", anchor="resilience-plot")
     try:
         st.pyplot(plot_resilience(resilience_scores))
-        st.caption("Scores close to 1 indicate strong team recovery. Support teams with resources to sustain resilience.")
+        st.caption("High resilience reflects team strength. Support with resources.")
     except Exception as e:
         st.error(f"Failed to render resilience plot: {str(e)}.")
 
-    st.subheader("Overall Equipment Effectiveness (OEE)")
+    st.subheader("Overall Equipment Effectiveness (OEE)", anchor="oee-plot")
     try:
         st.pyplot(plot_oee(oee_df))
-        st.caption("OEE reflects team efficiency. Target: Availability >90%, Performance >85%, Quality >97%. Support teams to maintain high OEE.")
+        st.caption("OEE reflects efficiency. Target: Availability >90%, Performance >85%, Quality >97%.")
     except Exception as e:
         st.error(f"Failed to render OEE plot: {str(e)}.")
 
-    st.subheader("Team Density on Factory Floor")
+    st.subheader("Team Density on Factory Floor", anchor="density-plot")
     try:
         st.pyplot(plot_worker_density(history_df, FACTORY_SIZE))
-        st.caption("High-density areas may indicate collaboration or bottlenecks. Adjust layouts or schedules as needed.")
+        st.caption("High-density areas may indicate collaboration or bottlenecks. Optimize layouts.")
     except Exception as e:
         st.error(f"Failed to render density plot: {str(e)}.")
 
-    st.subheader("Team Well-Being Trends")
+    st.subheader("Team Well-Being Trends", anchor="wellbeing-plot")
     try:
         st.pyplot(plot_wellbeing(wellbeing_scores))
-        st.caption("Lower scores may indicate high workload or stress. Prioritize breaks and support to improve well-being.")
+        st.caption("Strong well-being supports health. Enhance with breaks and resources.")
     except Exception as e:
         st.error(f"Failed to render well-being plot: {str(e)}.")
+
+    st.subheader("Team Psychological Safety Trends", anchor="safety-plot")
+    try:
+        st.pyplot(plot_psychological_safety(safety_scores))
+        st.caption("High safety fosters trust. Encourage feedback and recognition.")
+    except Exception as e:
+        st.error(f"Failed to render safety plot: {str(e)}.")
 
     # Data export
     if export_data:
@@ -112,12 +152,13 @@ def main():
                 label="Download Aggregated Shift Data",
                 data=csv,
                 file_name='factory_shift_data.csv',
-                mime='text/csv'
+                mime='text/csv',
+                key="download-button"
             )
         else:
             st.error("No shift data available to export.")
 
-    st.success("Shift dashboard loaded — use insights to support team performance, well-being, and operational efficiency.")
+    st.success("Shift dashboard loaded — use insights to create a healthier, more supportive workplace.")
 
 if __name__ == "__main__":
     main()
