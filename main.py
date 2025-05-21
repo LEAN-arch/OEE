@@ -1,235 +1,373 @@
 try:
-    import streamlit as st
-    import pandas as pd
-    import matplotlib.pyplot as plt
-    import numpy as np
-    import plotly.express as px
-    import plotly.figure_factory as ff
-    from simulation import generate_synthetic_data, plot_compliance_variability, plot_team_clustering, plot_resilience, plot_oee, plot_worker_density, plot_wellbeing, plot_psychological_safety
-    from config import NUM_TEAM_MEMBERS, NUM_STEPS, WORKPLACE_SIZE, ADAPTATION_RATE, SUPERVISOR_INFLUENCE, DISRUPTION_STEPS, ANOMALY_THRESHOLD, WELLBEING_THRESHOLD, WELLBEING_TREND_LENGTH, WELLBEING_DISRUPTION_WINDOW, BREAK_INTERVAL, WORKLOAD_CAP_STEPS, WORK_AREAS
-except ImportError as e:
-    st.error(f"Failed to import libraries: {str(e)}. Run 'uv pip install -r requirements.txt'.")
-    st.error("Ensure Python 3.10 on Streamlit Cloud and verify requirements.txt.")
-    st.stop()
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import plotly.express as px
+import plotly.figure_factory as ff
+import sys
+import logging
+from industrial_workplace_simulation import (
+    simulate_workplace_operations,
+    plot_task_compliance_trend,
+    plot_worker_collaboration_trend,
+    plot_operational_resilience,
+    plot_operational_efficiency,
+    plot_worker_distribution,
+    plot_worker_wellbeing,
+    plot_psychological_safety
+)
+
+# Configure logging for operational diagnostics
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Default configuration (same as simulation)
+DEFAULT_CONFIG = {
+    'WORKSTATIONS': {
+        'production_line': {'center': [50, 50], 'label': 'Production Line'},
+        'assembly_zone': {'center': [150, 50], 'label': 'Assembly Zone'},
+        'quality_control': {'center': [50, 150], 'label': 'Quality Control'},
+        'logistics_hub': {'center': [150, 150], 'label': 'Logistics Hub'}
+    },
+    'COMPLIANCE_THRESHOLD': 0.7,
+    'COMPLIANCE_TREND_WINDOW': 5,
+    'DISRUPTION_IMPACT_WINDOW': 3,
+    'BREAK_SCHEDULE_INTERVAL': 10,
+    'WORKLOAD_LIMIT_STEPS': 5,
+    'NUM_WORKERS': 20,
+    'NUM_SHIFTS': 50,
+    'FACILITY_SIZE': 200,
+    'COMPLIANCE_ADJUSTMENT_RATE': 0.1,
+    'SUPERVISOR_IMPACT_FACTOR': 0.2,
+    'DISRUPTION_SHIFTS': [10, 30],
+    'ANOMALY_THRESHOLD': 2.0  # Z-score threshold for anomalies
+}
+
+def validate_config(config):
+    """Validate configuration parameters for the dashboard."""
+    try:
+        if config['NUM_WORKERS'] < 1 or config['NUM_SHIFTS'] < 1 or config['FACILITY_SIZE'] <= 0:
+            raise ValueError("Invalid config: NUM_WORKERS, NUM_SHIFTS, and FACILITY_SIZE must be positive.")
+        if not config['WORKSTATIONS'] or not all(
+            "center" in ws and "label" in ws for ws in config['WORKSTATIONS'].values()
+        ):
+            raise ValueError("Invalid WORKSTATIONS: Must define center coordinates and labels.")
+        for name, ws in config['WORKSTATIONS'].items():
+            x, y = ws["center"]
+            if not (0 <= x <= config['FACILITY_SIZE'] and 0 <= y <= config['FACILITY_SIZE']):
+                raise ValueError(
+                    f"Invalid center for {name}: Coordinates must be within [0, {config['FACILITY_SIZE']}]."
+                )
+    except ValueError as e:
+        st.error(f"Configuration error: {str(e)}. Verify configuration settings.")
+        st.stop()
 
 def main():
-    """Workplace Shift Monitoring Dashboard."""
-    # Warn about Python version
-    import sys
+    """Industrial Workplace Operations Dashboard."""
+    # Warn about Python version compatibility
     if sys.version_info >= (3, 13):
-        st.warning("Python 3.13 detected. Use Python 3.10 for compatibility.")
+        st.warning("Python 3.13 detected. Use Python 3.10 for optimal compatibility with Streamlit Cloud.")
 
-    st.title("Workplace Shift Monitoring Dashboard", anchor="dashboard-title")
+    st.title("Industrial Workplace Operations Dashboard", anchor="dashboard-title")
 
     # Transparency statement
     st.info("""
-    **Transparency Notice**: This dashboard uses aggregated, synthetic data to monitor work area performance and well-being, ensuring team member privacy. Activity visualizations optimize layouts and tasks to improve conditions, not track individuals. Actions like breaks enhance team health. Team suggestions shape a supportive workplace.
+    **Transparency Notice**: This dashboard uses aggregated, synthetic data to monitor workstation performance, worker well-being, and operational efficiency. Visualizations optimize facility layouts and schedules to enhance productivity and worker health, not to track individuals. Interventions like breaks and ergonomic adjustments improve team conditions. Worker feedback shapes a supportive workplace environment.
     """, icon="ℹ️")
 
-    # Validate config
-    try:
-        if NUM_TEAM_MEMBERS < 1 or NUM_STEPS < 1 or WORKPLACE_SIZE <= 0:
-            raise ValueError("Invalid config: NUM_TEAM_MEMBERS, NUM_STEPS, and WORKPLACE_SIZE must be positive.")
-        if not WORK_AREAS or not all("center" in area and "label" in area for area in WORK_AREAS.values()):
-            raise ValueError("Invalid WORK_AREAS: Must define center coordinates and labels.")
-        for name, area in WORK_AREAS.items():
-            x, y = area["center"]
-            if not (0 <= x <= WORKPLACE_SIZE and 0 <= y <= WORKPLACE_SIZE):
-                raise ValueError(f"Invalid center for {name}: Coordinates must be within [0, {WORKPLACE_SIZE}].")
-    except ValueError as e:
-        st.error(f"Configuration error: {str(e)}. Check config.py.")
-        st.stop()
+    # Load configuration
+    config = DEFAULT_CONFIG
+    validate_config(config)
 
     # Sidebar controls
-    st.sidebar.header("Shift Controls")
-    show_forecast = st.sidebar.checkbox("Show Predictive Trends", value=True, key="forecast-checkbox")
-    export_data = st.sidebar.button("Export Shift Data", key="export-button")
+    st.sidebar.header("Operational Controls")
+    show_forecast = st.sidebar.checkbox(
+        "Show Predictive Trends", value=True, key="forecast-checkbox",
+        help="Display forecasted trends for compliance and collaboration."
+    )
+    export_data = st.sidebar.button("Export Operational Data", key="export-button")
 
-    # Collapsible feedback section
-    with st.sidebar.expander("Team Suggestions & Priorities"):
+    # Collapsible worker feedback section
+    with st.sidebar.expander("Worker Feedback & Initiatives"):
         worker_feedback = st.text_area(
-            "Share ideas to improve conditions",
-            placeholder="E.g., more breaks, ergonomic tools...",
+            "Submit feedback to improve workplace conditions",
+            placeholder="E.g., request more breaks, ergonomic equipment, or wellness programs...",
             key="feedback-input"
         )
-        priority = st.selectbox(
-            "Team priority for this shift",
-            ["More frequent breaks", "Task reduction", "Wellness resources", "Team recognition"],
-            key="priority-select",
-            help="Reflects team preferences."
+        initiative = st.selectbox(
+            "Worker Initiative Priority",
+            ["More frequent breaks", "Task reduction", "Wellness programs", "Team recognition"],
+            key="initiative-select",
+            help="Select the primary worker-driven initiative for this shift."
         )
 
-    # Generate synthetic data
+    # Generate operational data
     try:
-        history_df, compliance_entropy, clustering_index, resilience_scores, efficiency_history, productivity_loss, wellbeing_data, safety_scores, feedback_impact = generate_synthetic_data(
-            NUM_TEAM_MEMBERS, NUM_STEPS, WORKPLACE_SIZE, ADAPTATION_RATE, SUPERVISOR_INFLUENCE, DISRUPTION_STEPS, priority
+        (
+            worker_positions_df,
+            compliance_variability,
+            collaboration_index,
+            operational_resilience,
+            efficiency_metrics_df,
+            productivity_loss,
+            worker_wellbeing,
+            safety_scores,
+            worker_feedback_impact
+        ) = simulate_workplace_operations(
+            num_workers=config['NUM_WORKERS'],
+            num_shifts=config['NUM_SHIFTS'],
+            facility_size=config['FACILITY_SIZE'],
+            compliance_adjustment_rate=config['COMPLIANCE_ADJUSTMENT_RATE'],
+            supervisor_impact_factor=config['SUPERVISOR_IMPACT_FACTOR'],
+            disruption_shifts=config['DISRUPTION_SHIFTS'],
+            worker_initiative=initiative,
+            config=config
         )
-        efficiency_df = pd.DataFrame(efficiency_history)
-        wellbeing_scores = wellbeing_data['scores']
-        wellbeing_triggers = wellbeing_data['triggers']
     except Exception as e:
         st.error(f"Data generation failed: {str(e)}.")
-        st.error("Possible cause: Invalid data (e.g., NaN). Check logs or simulation.py.")
-        st.error("Try disabling 'Show Predictive Trends' or verify config.py.")
+        st.error("Possible cause: Invalid data or configuration. Check logs or simulation settings.")
         try:
-            history_df, compliance_entropy, clustering_index, resilience_scores, efficiency_history, productivity_loss, wellbeing_data, safety_scores, feedback_impact = generate_synthetic_data(
-                NUM_TEAM_MEMBERS, NUM_STEPS, WORKPLACE_SIZE, ADAPTATION_RATE, SUPERVISOR_INFLUENCE, DISRUPTION_STEPS, priority, skip_forecast=True
+            (
+                worker_positions_df,
+                compliance_variability,
+                collaboration_index,
+                operational_resilience,
+                efficiency_metrics_df,
+                productivity_loss,
+                worker_wellbeing,
+                safety_scores,
+                worker_feedback_impact
+            ) = simulate_workplace_operations(
+                num_workers=config['NUM_WORKERS'],
+                num_shifts=config['NUM_SHIFTS'],
+                facility_size=config['FACILITY_SIZE'],
+                compliance_adjustment_rate=config['COMPLIANCE_ADJUSTMENT_RATE'],
+                supervisor_impact_factor=config['SUPERVISOR_IMPACT_FACTOR'],
+                disruption_shifts=config['DISRUPTION_SHIFTS'],
+                worker_initiative=initiative,
+                skip_forecast=True,
+                config=config
             )
-            efficiency_df = pd.DataFrame(efficiency_history)
-            wellbeing_scores = wellbeing_data['scores']
-            wellbeing_triggers = wellbeing_data['triggers']
             show_forecast = False
-            st.warning("Running in fallback mode without predictive trends.")
+            st.warning("Running in fallback mode without predictive trends due to data issues.")
         except Exception as e2:
-            st.error(f"Fallback failed: {str(e2)}. Contact support.")
+            st.error(f"Fallback mode failed: {str(e2)}. Contact support or verify configuration.")
             st.stop()
 
     # Summary section
-    st.subheader("Shift Summary", anchor="summary")
+    st.subheader("Shift Performance Summary", anchor="summary")
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Productivity Loss (Disruptions)", f"{np.mean([loss for i, loss in enumerate(productivity_loss) if i in DISRUPTION_STEPS]):.1f}%", help="Loss during disruptions.")
+        st.metric(
+            "Productivity Loss (Disruptions)",
+            f"{np.mean([loss for i, loss in enumerate(productivity_loss) if i in config['DISRUPTION_SHIFTS']]):.1f}%",
+            help="Average productivity loss during disruptions (e.g., equipment failures)."
+        )
     with col2:
-        st.metric("Well-Being Boost (Suggestions)", f"{feedback_impact['wellbeing']:.2%}", help="Impact of team suggestions.")
+        st.metric(
+            "Well-Being Improvement",
+            f"{worker_feedback_impact['wellbeing']:.2%}",
+            help="Improvement in worker well-being from feedback-driven initiatives."
+        )
     with col3:
-        st.metric("Collaboration Boost", f"{feedback_impact['cohesion']:.2%}", help="Impact on teamwork.")
+        st.metric(
+            "Team Cohesion Improvement",
+            f"{worker_feedback_impact['cohesion']:.2%}",
+            help="Improvement in team collaboration from worker initiatives."
+        )
 
-    # Tabbed navigation
-    tab1, tab2, tab3 = st.tabs(["Performance", "Team Health", "Operations"])
+    # Tabbed navigation for metrics
+    tab1, tab2, tab3 = st.tabs(["Operational Performance", "Worker Health & Collaboration", "Facility Operations"])
 
     with tab1:
-        st.subheader("Performance Metrics")
-        # Task Adherence
-        with st.expander("Recommendations: Task Adherence"):
-            st.write("Inconsistent adherence may suggest clearer guidelines or training.")
+        st.subheader("Operational Performance Metrics")
+        # Task Compliance
+        with st.expander("Action: Improve Task Compliance"):
+            st.markdown("""
+            - **High variability**: Implement standardized operating procedures (SOPs) or additional training.
+            - **Post-disruption dips**: Schedule supervisor oversight or process reviews.
+            """)
         try:
-            st.markdown('<div aria-label="Line plot of task adherence trends over shift time">', unsafe_allow_html=True)
-            st.pyplot(plot_compliance_variability(compliance_entropy['data'], DISRUPTION_STEPS, compliance_entropy['forecast'] if show_forecast else None))
-            st.caption("Line plot showing task adherence trends over shift time, with lower values indicating uniform adherence.")
+            st.markdown('<div aria-label="Line plot of task compliance variability over shift intervals">', unsafe_allow_html=True)
+            st.pyplot(plot_task_compliance_trend(
+                compliance_variability['data'],
+                config['DISRUPTION_SHIFTS'],
+                compliance_variability['forecast'] if show_forecast else None
+            ))
+            st.caption("Line plot showing task compliance consistency over shift intervals. Lower values indicate uniform compliance across workers.")
             st.markdown('</div>', unsafe_allow_html=True)
         except Exception as e:
-            st.error(f"Failed to render adherence plot: {str(e)}.")
+            st.error(f"Failed to render task compliance plot: {str(e)}. Check simulation data.")
 
-        # Operational Efficiency
-        with st.expander("Recommendations: Operational Efficiency"):
-            st.write("Target: Uptime >90%, Throughput >85%, Quality >97%. Support with resources or training.")
+        # Operational Efficiency (OEE)
+        with st.expander("Action: Enhance Operational Efficiency"):
+            st.markdown("""
+            - **Target**: Uptime >90%, Throughput >85%, Quality >97%.
+            - **Low OEE**: Review equipment maintenance, worker training, or process bottlenecks.
+            """)
         try:
-            st.markdown('<div aria-label="Line plot of operational efficiency metrics over shift time">', unsafe_allow_html=True)
-            st.pyplot(plot_oee(efficiency_df))
-            st.caption("Line plot showing operational efficiency metrics (uptime, throughput, quality) over shift time.")
+            st.markdown('<div aria-label="Line plot of operational efficiency metrics (OEE) over shift intervals">', unsafe_allow_html=True)
+            st.pyplot(plot_operational_efficiency(efficiency_metrics_df))
+            st.caption("Line plot showing operational efficiency metrics (uptime, throughput, quality, OEE) over shift intervals.")
             st.markdown('</div>', unsafe_allow_html=True)
         except Exception as e:
-            st.error(f"Failed to render efficiency plot: {str(e)}.")
+            st.error(f"Failed to render OEE plot: {str(e)}. Verify efficiency data.")
 
-        # Resilience
-        with st.expander("Recommendations: Resilience"):
-            st.write("Strong recovery reflects resilience. Support with resources or guidance.")
+        # Operational Resilience
+        with st.expander("Action: Strengthen Operational Resilience"):
+            st.markdown("""
+            - **Low resilience**: Provide resources (e.g., backup equipment) or cross-training.
+            - **Post-disruption recovery**: Implement rapid response protocols.
+            """)
         try:
-            st.markdown('<div aria-label="Line plot of team resilience over shift time">', unsafe_allow_html=True)
-            st.pyplot(plot_resilience(resilience_scores))
-            st.caption("Line plot showing team resilience trends over shift time, with 1 indicating full recovery.")
+            st.markdown('<div aria-label="Line plot of operational resilience over shift intervals">', unsafe_allow_html=True)
+            st.pyplot(plot_operational_resilience(operational_resilience))
+            st.caption("Line plot showing operational resilience over shift intervals, with 1 indicating full recovery from disruptions.")
             st.markdown('</div>', unsafe_allow_html=True)
         except Exception as e:
-            st.error(f"Failed to render resilience plot: {str(e)}.")
+            st.error(f"Failed to render resilience plot: {str(e)}. Check resilience data.")
 
     with tab2:
-        st.subheader("Team Health Metrics")
+        st.subheader("Worker Health & Collaboration Metrics")
         col1, col2 = st.columns(2)
-        # Well-Being
+        # Worker Well-Being
         with col1:
-            with st.expander("Recommendations: Well-Being"):
-                st.write("Enhance with regular breaks, ergonomic tools, or wellness programs.")
+            with st.expander("Action: Improve Worker Well-Being"):
+                st.markdown("""
+                - **Low scores**: Increase break frequency, provide ergonomic equipment, or offer wellness programs.
+                - **Sustained declines**: Review workload or shift schedules.
+                """)
             try:
-                st.markdown('<div aria-label="Line plot of team well-being trends over shift time">', unsafe_allow_html=True)
-                st.pyplot(plot_wellbeing(wellbeing_scores))
-                st.caption("Line plot showing team well-being trends over shift time, with 1 indicating optimal well-being.")
+                st.markdown('<div aria-label="Line plot of worker well-being over shift intervals">', unsafe_allow_html=True)
+                st.pyplot(plot_worker_wellbeing(worker_wellbeing['scores']))
+                st.caption("Line plot showing worker well-being trends over shift intervals, with 1 indicating optimal health and morale.")
                 st.markdown('</div>', unsafe_allow_html=True)
             except Exception as e:
-                st.error(f"Failed to render well-being plot: {str(e)}.")
+                st.error(f"Failed to render well-being plot: {str(e)}. Verify well-being data.")
 
         # Psychological Safety
         with col2:
-            with st.expander("Recommendations: Psychological Safety"):
-                st.write("Encourage open feedback and team recognition.")
+            with st.expander("Action: Enhance Psychological Safety"):
+                st.markdown("""
+                - **Low trust**: Encourage open communication through feedback sessions.
+                - **Team recognition**: Implement reward programs to boost morale.
+                """)
             try:
-                st.markdown('<div aria-label="Line plot of psychological safety trends over shift time">', unsafe_allow_html=True)
+                st.markdown('<div aria-label="Line plot of psychological safety over shift intervals">', unsafe_allow_html=True)
                 st.pyplot(plot_psychological_safety(safety_scores))
-                st.caption("Line plot showing psychological safety trends over shift time, with 1 indicating high trust.")
+                st.caption("Line plot showing psychological safety trends over shift intervals, with 1 indicating high trust and communication.")
                 st.markdown('</div>', unsafe_allow_html=True)
             except Exception as e:
-                st.error(f"Failed to render safety plot: {str(e)}.")
+                st.error(f"Failed to render psychological safety plot: {str(e)}. Check safety data.")
 
-        # Collaboration
-        with st.expander("Recommendations: Collaboration"):
-            st.write("Foster with team-building or recognition programs.")
+        # Worker Collaboration
+        with st.expander("Action: Boost Worker Collaboration"):
+            st.markdown("""
+            - **Low collaboration**: Organize team-building activities or cross-workstation training.
+            - **High distances**: Optimize workstation layouts for better interaction.
+            """)
         try:
-            st.markdown('<div aria-label="Line plot of team collaboration strength over shift time">', unsafe_allow_html=True)
-            st.pyplot(plot_team_clustering(clustering_index['data'], clustering_index['forecast'] if show_forecast else None))
-            st.caption("Line plot showing team collaboration strength over shift time, with higher values indicating stronger collaboration.")
+            st.markdown('<div aria-label="Line plot of worker collaboration strength over shift intervals">', unsafe_allow_html=True)
+            st.pyplot(plot_worker_collaboration_trend(
+                collaboration_index['data'],
+                collaboration_index['forecast'] if show_forecast else None
+            ))
+            st.caption("Line plot showing worker collaboration strength over shift intervals, with higher values indicating stronger teamwork.")
             st.markdown('</div>', unsafe_allow_html=True)
         except Exception as e:
-            st.error(f"Failed to render collaboration plot: {str(e)}.")
+            st.error(f"Failed to render collaboration plot: {str(e)}. Verify collaboration data.")
 
     with tab3:
-        st.subheader("Operational Insights")
-        # Activity & Density
-        with st.expander("Recommendations: Activity & Density"):
-            st.write("High density areas may need layout adjustments or task reassignments.")
+        st.subheader("Facility Operations Insights")
+        # Worker Distribution
+        with st.expander("Action: Optimize Facility Layout"):
+            st.markdown("""
+            - **High density areas**: Reconfigure workstations or reassign tasks to reduce congestion.
+            - **Low activity zones**: Investigate underutilization or equipment issues.
+            """)
         try:
-            # Toggle for plot mode
-            plot_mode = st.selectbox("Plot Mode", ["Hexbin + Scatter", "Hexbin Only"], key="plot-mode")
+            plot_mode = st.selectbox(
+                "Visualization Mode", ["Hexbin + Scatter", "Hexbin Only"], key="plot-mode",
+                help="Choose between combined hexbin and scatter plot or hexbin only."
+            )
             use_scatter = plot_mode == "Hexbin + Scatter"
-            fig = plot_worker_density(history_df, WORKPLACE_SIZE, use_plotly=True)
+            fig = plot_worker_distribution(worker_positions_df, config['FACILITY_SIZE'], config=config, use_plotly=True)
             st.plotly_chart(fig, use_container_width=True)
-            st.caption("Interactive plot showing workplace activity and density with hexbin and scatter points, filterable by area and time step. Use dropdown to filter areas, slider to animate time, and reset zoom button.")
+            st.caption(
+                "Interactive plot showing worker distribution and density in the facility. Use the dropdown to filter by workstation, "
+                "the slider to animate across shift intervals, and the reset zoom button to restore the view."
+            )
         except Exception as e:
-            st.warning(f"Plotly failed: {str(e)}. Using Matplotlib fallback.")
+            st.warning(f"Interactive visualization failed: {str(e)}. Using Matplotlib fallback.")
             try:
-                st.markdown('<div aria-label="Hexbin plot of workplace activity and density with scatter points">', unsafe_allow_html=True)
-                st.pyplot(plot_worker_density(history_df, WORKPLACE_SIZE, use_plotly=False))
-                st.caption("Hexbin plot with scatter points showing workplace activity and density, colored by area with team member counts.")
+                st.markdown('<div aria-label="Hexbin plot of worker distribution and density in facility">', unsafe_allow_html=True)
+                st.pyplot(plot_worker_distribution(worker_positions_df, config['FACILITY_SIZE'], config=config, use_plotly=False))
+                st.caption("Hexbin plot with scatter points showing worker distribution and density, colored by workstation with worker counts.")
                 st.markdown('</div>', unsafe_allow_html=True)
             except Exception as e2:
-                st.error(f"Failed to render activity plot: {str(e2)}.")
+                st.error(f"Failed to render distribution plot: {str(e2)}. Check worker position data.")
 
-    # Well-being opportunities
-    st.subheader("Team Well-Being Opportunities", anchor="wellbeing-opportunities")
-    if wellbeing_triggers['threshold']:
-        steps = wellbeing_triggers['threshold']
-        st.info(f"💡 Support teams in {len(steps)} intervals with low well-being (Steps: {', '.join(map(str, steps[:3]))}{', ...' if len(steps) > 3 else ''}). Actions: Extend breaks, provide ergonomic tools.")
-    if wellbeing_triggers['trend']:
-        steps = wellbeing_triggers['trend']
-        st.info(f"💡 Address well-being decline in {len(steps)} intervals (Steps: {', '.join(map(str, steps[:3]))}{', ...' if len(steps) > 3 else ''}). Actions: Reduce tasks, offer workshops.")
-    if wellbeing_triggers['zone']:
-        for area, steps in wellbeing_triggers['zone'].items():
-            st.info(f"💡 Support {area} in {len(steps)} intervals (Steps: {', '.join(map(str, steps[:3]))}{', ...' if len(steps) > 3 else ''}). Actions: Add supervisors, adjust ergonomics.")
-    if wellbeing_triggers['disruption']:
-        steps = wellbeing_triggers['disruption']
-        st.info(f"💡 Support teams near disruptions in {len(steps)} intervals (Steps: {', '.join(map(str, steps[:3]))}{', ...' if len(steps) > 3 else ''}). Actions: Recognize teams, schedule breaks.")
-    if not any(wellbeing_triggers.values()):
-        st.success("Team well-being is strong! Maintain support with breaks and recognition.")
+    # Worker well-being opportunities
+    st.subheader("Worker Well-Being Opportunities", anchor="wellbeing-opportunities")
+    triggers = worker_wellbeing['triggers']
+    if triggers['threshold']:
+        shifts = triggers['threshold']
+        st.info(
+            f"💡 Address low well-being in {len(shifts)} shift intervals (Shifts: {', '.join(map(str, shifts[:3]))}"
+            f"{', ...' if len(shifts) > 3 else ''}). **Actions**: Increase break frequency, provide ergonomic equipment, or launch wellness programs."
+        )
+    if triggers['trend']:
+        shifts = triggers['trend']
+        st.info(
+            f"💡 Address declining well-being trends in {len(shifts)} shift intervals (Shifts: {', '.join(map(str, shifts[:3]))}"
+            f"{', ...' if len(shifts) > 3 else ''}). **Actions**: Reduce task loads, offer stress management workshops."
+        )
+    if triggers['workstation']:
+        for ws, shifts in triggers['workstation'].items():
+            st.info(
+                f"💡 Support {config['WORKSTATIONS'][ws]['label']} in {len(shifts)} shift intervals (Shifts: {', '.join(map(str, shifts[:3]))}"
+                f"{', ...' if len(shifts) > 3 else ''}). **Actions**: Assign additional supervisors, improve workstation ergonomics."
+            )
+    if triggers['disruption']:
+        shifts = triggers['disruption']
+        st.info(
+            f"💡 Support recovery post-disruptions in {len(shifts)} shift intervals (Shifts: {', '.join(map(str, shifts[:3]))}"
+            f"{', ...' if len(shifts) > 3 else ''}). **Actions**: Recognize team efforts, schedule additional breaks."
+        )
+    if not any(triggers.values()):
+        st.success("Worker well-being is strong! Maintain with regular breaks, ergonomic support, and recognition programs.")
 
-    # Performance opportunities
-    anomalies = [(i, e, c) for i, (e, c) in enumerate(zip(compliance_entropy['z_scores'], clustering_index['z_scores']))
-                 if abs(e) > ANOMALY_THRESHOLD or abs(c) > ANOMALY_THRESHOLD]
+    # Performance anomalies
+    anomalies = [
+        (i, e, c) for i, (e, c) in enumerate(zip(compliance_variability['z_scores'], collaboration_index['z_scores']))
+        if abs(e) > config['ANOMALY_THRESHOLD'] or abs(c) > config['ANOMALY_THRESHOLD']
+    ]
     if anomalies:
-        st.info(f"💡 Enhance performance or collaboration in {len(anomalies)} intervals. Actions: Offer training, foster team-building.")
+        st.info(
+            f"💡 Address performance or collaboration anomalies in {len(anomalies)} shift intervals. "
+            "**Actions**: Provide targeted training, enhance team-building activities."
+        )
 
     # Data export
     if export_data:
-        if not history_df.empty:
-            csv = history_df.to_csv(index=False)
+        if not worker_positions_df.empty:
+            csv = worker_positions_df.to_csv(index=False)
             st.download_button(
-                label="Download Aggregated Shift Data",
+                label="Download Worker Position Data",
                 data=csv,
-                file_name='workplace_shift_data.csv',
+                file_name='worker_position_data.csv',
                 mime='text/csv',
                 key="download-button"
             )
         else:
-            st.error("No shift data available to export.")
+            st.error("No worker position data available to export.")
 
-    st.success("Shift dashboard loaded — use insights to create a healthier workplace.")
+    st.success("Operations dashboard loaded successfully. Use insights to optimize performance and worker well-being.")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        st.error(f"Dashboard initialization failed: {str(e)}. Ensure dependencies are installed and configuration is valid.")
+        st.stop()
+```
