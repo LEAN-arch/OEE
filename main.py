@@ -1,22 +1,27 @@
+```python
 try:
-import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
-import plotly.express as px
-import plotly.figure_factory as ff
-import sys
-import logging
-from industrial_workplace_simulation import (
-    simulate_workplace_operations,
-    plot_task_compliance_trend,
-    plot_worker_collaboration_trend,
-    plot_operational_resilience,
-    plot_operational_efficiency,
-    plot_worker_distribution,
-    plot_worker_wellbeing,
-    plot_psychological_safety
-)
+    import streamlit as st
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import plotly.express as px
+    import plotly.figure_factory as ff
+    import sys
+    import logging
+    from industrial_workplace_simulation import (
+        simulate_workplace_operations,
+        plot_task_compliance_trend,
+        plot_worker_collaboration_trend,
+        plot_operational_resilience,
+        plot_operational_efficiency,
+        plot_worker_distribution,
+        plot_worker_wellbeing,
+        plot_psychological_safety
+    )
+except ImportError as e:
+    st.error(f"Failed to import libraries: {str(e)}. Run 'pip install -r requirements.txt'.")
+    st.error("Ensure Python 3.10 is used and verify requirements.txt.")
+    st.stop()
 
 # Configure logging for operational diagnostics
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -118,7 +123,9 @@ def main():
             num_shifts=config['NUM_SHIFTS'],
             facility_size=config['FACILITY_SIZE'],
             compliance_adjustment_rate=config['COMPLIANCE_ADJUSTMENT_RATE'],
-            supervisor_impact_factor=config['SUPERVISOR_IMPACT_FACTOR'],
+            supervisor_impact
+
+_factor=config['SUPERVISOR_IMPACT_FACTOR'],
             disruption_shifts=config['DISRUPTION_SHIFTS'],
             worker_initiative=initiative,
             config=config
