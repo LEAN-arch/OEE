@@ -176,15 +176,18 @@ def main():
         with st.expander("Recommendations: Activity & Density"):
             st.write("High density areas may need layout adjustments or task reassignments.")
         try:
+            # Toggle for plot mode
+            plot_mode = st.selectbox("Plot Mode", ["Hexbin + Scatter", "Hexbin Only"], key="plot-mode")
+            use_scatter = plot_mode == "Hexbin + Scatter"
             fig = plot_worker_density(history_df, WORKPLACE_SIZE, use_plotly=True)
             st.plotly_chart(fig, use_container_width=True)
-            st.caption("Interactive hexbin plot showing workplace activity and density, with tooltips for area and activity level.")
+            st.caption("Interactive plot showing workplace activity and density with hexbin and scatter points, filterable by area and time step. Use dropdown to filter areas, slider to animate time, and reset zoom button.")
         except Exception as e:
             st.warning(f"Plotly failed: {str(e)}. Using Matplotlib fallback.")
             try:
-                st.markdown('<div aria-label="Hexbin plot of workplace activity and density">', unsafe_allow_html=True)
+                st.markdown('<div aria-label="Hexbin plot of workplace activity and density with scatter points">', unsafe_allow_html=True)
                 st.pyplot(plot_worker_density(history_df, WORKPLACE_SIZE, use_plotly=False))
-                st.caption("Hexbin plot showing workplace activity and density, with color indicating activity level from low to high.")
+                st.caption("Hexbin plot with scatter points showing workplace activity and density, colored by area with team member counts.")
                 st.markdown('</div>', unsafe_allow_html=True)
             except Exception as e2:
                 st.error(f"Failed to render activity plot: {str(e2)}.")
