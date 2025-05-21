@@ -1,4 +1,4 @@
-
+```python
 try:
     import streamlit as st
     import pandas as pd
@@ -123,9 +123,7 @@ def main():
             num_shifts=config['NUM_SHIFTS'],
             facility_size=config['FACILITY_SIZE'],
             compliance_adjustment_rate=config['COMPLIANCE_ADJUSTMENT_RATE'],
-            supervisor_impact
-
-_factor=config['SUPERVISOR_IMPACT_FACTOR'],
+            supervisor_impact_factor=config['SUPERVISOR_IMPACT_FACTOR'],
             disruption_shifts=config['DISRUPTION_SHIFTS'],
             worker_initiative=initiative,
             config=config
