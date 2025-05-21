@@ -1,4 +1,3 @@
-
 try:
     import streamlit as st
     import pandas as pd
@@ -375,4 +374,3 @@ if __name__ == "__main__":
     except Exception as e:
         st.error(f"Dashboard initialization failed: {str(e)}. Ensure dependencies are installed and configuration is valid.")
         st.stop()
-```
