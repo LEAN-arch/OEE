@@ -1,4 +1,3 @@
-```python
 # Configuration for workplace shift monitoring dashboard
 
 CONFIG = {
@@ -23,4 +22,3 @@ CONFIG = {
     'HEXBIN_GRIDSIZE': 20,
     'WORKPLACE_TYPE': 'generic'
 }
-```
