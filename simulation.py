@@ -6,6 +6,8 @@ from scipy.stats import entropy, zscore
 from sklearn.linear_model import LinearRegression
 import random
 import logging
+import plotly.figure_factory as ff
+import plotly.graph_objects as go
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -222,7 +224,6 @@ def generate_synthetic_data(num_operators, num_steps, factory_size, adaptation_r
     if not skip_forecast:
         try:
             X = np.arange(num_steps).reshape(-1, 1)
-            # Ensure no NaN in inputs
             compliance_entropy = np.nan_to_num(compliance_entropy, nan=0.0)
             clustering_index = np.nan_to_num(clustering_index, nan=0.5)
             if np.any(~np.isfinite(compliance_entropy)) or np.any(~np.isfinite(clustering_index)):
@@ -257,73 +258,115 @@ def generate_synthetic_data(num_operators, num_steps, factory_size, adaptation_r
     )
 
 def plot_compliance_variability(compliance_entropy, disruption_steps, forecast=None):
-    """Plot SOP compliance consistency."""
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(compliance_entropy, label="Compliance Consistency (Lower = More Uniform)", color='#1f77b4')
+    """Plot SOP compliance trends."""
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(compliance_entropy, label="Compliance (Lower = Uniform)", color='#1f77b4')
     if forecast is not None:
-        ax.plot(range(len(compliance_entropy), len(compliance_entropy) + 10), forecast, '--', label="Predicted Consistency", color='#ff7f0e')
+        ax.plot(range(len(compliance_entropy), len(compliance_entropy) + 10), forecast, '--', label="Predicted", color='#ff7f0e')
     for i, s in enumerate(disruption_steps):
-        label = "Machine Breakdown" if i == 0 else "Shift Change"
+        label = "Breakdown" if i == 0 else "Shift Change"
         ax.axvline(x=s, color='red', linestyle='--', label=label)
-    ax.set_xlabel("Shift Time (2-min Intervals)")
+    ax.set_xlabel("Shift Time (2-min)")
     ax.set_ylabel("Compliance Variation")
-    ax.set_title("Team SOP Compliance Consistency")
+    ax.set_title("SOP Compliance Trends")
     ax.legend(loc='upper right')
     ax.grid(True, linestyle='--', alpha=0.7)
     return fig
 
 def plot_team_clustering(clustering_index, forecast=None):
-    """Plot team collaboration strength."""
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(clustering_index, label="Collaboration Strength (Higher = Stronger Teams)", color='#2ca02c')
+    """Plot team collaboration trends."""
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(clustering_index, label="Collaboration (Higher = Stronger)", color='#2ca02c')
     if forecast is not None:
-        ax.plot(range(len(clustering_index), len(clustering_index) + 10), forecast, '--', label="Predicted Collaboration", color='#d62728')
-    ax.set_xlabel("Shift Time (2-min Intervals)")
+        ax.plot(range(len(clustering_index), len(clustering_index) + 10), forecast, '--', label="Predicted", color='#d62728')
+    ax.set_xlabel("Shift Time (2-min)")
     ax.set_ylabel("Collaboration Score")
-    ax.set_title("Team Collaboration Strength")
+    ax.set_title("Team Collaboration Trends")
     ax.legend(loc='upper right')
     ax.grid(True, linestyle='--', alpha=0.7)
     return fig
 
 def plot_resilience(resilience_scores):
-    """Plot team recovery after disruptions."""
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(resilience_scores, label="Recovery Strength (1 = Full Recovery)", color='#9467bd')
-    ax.set_xlabel("Shift Time (2-min Intervals)")
-    ax.set_ylabel("Recovery Score")
-    ax.set_title("Team Recovery After Disruptions")
+    """Plot team resilience trends."""
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(resilience_scores, label="Resilience (1 = Full Recovery)", color='#9467bd')
+    ax.set_xlabel("Shift Time (2-min)")
+    ax.set_ylabel("Resilience Score")
+    ax.set_title("Team Resilience Trends")
     ax.legend(loc='upper right')
     ax.grid(True, linestyle='--', alpha=0.7)
     return fig
 
 def plot_oee(oee_df):
-    """Plot equipment efficiency (OEE)."""
-    fig, ax = plt.subplots(figsize=(10, 4))
+    """Plot equipment efficiency trends."""
+    fig, ax = plt.subplots(figsize=(8, 4))
     oee_df.set_index('step')[['availability', 'performance', 'quality', 'oee']].plot(
         ax=ax,
         color=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'],
-        label=['Availability (>90% Target)', 'Performance (>85% Target)', 'Quality (>97% Target)', 'Overall OEE']
+        label=['Availability (>90%)', 'Performance (>85%)', 'Quality (>97%)', 'OEE']
     )
     ax.set_ylabel("Efficiency (%)")
-    ax.set_xlabel("Shift Time (2-min Intervals)")
-    ax.set_title("Equipment Efficiency (OEE)")
+    ax.set_xlabel("Shift Time (2-min)")
+    ax.set_title("Equipment Efficiency Trends")
     ax.legend(loc='lower left')
     ax.grid(True, linestyle='--', alpha=0.7)
     return fig
 
-def plot_worker_density(history_df, factory_size):
+def plot_worker_density(history_df, factory_size, use_plotly=True):
     """Plot factory floor activity and congestion."""
-    fig, ax = plt.subplots(figsize=(10, 6))
+    if use_plotly:
+        try:
+            # Aggregate counts per hexbin for tooltips
+            fig = ff.create_hexbin_mapbox(
+                data_frame=history_df,
+                lat='y', lon='x',
+                nx_hexagon=20,
+                opacity=0.7,
+                min_count=1,
+                color_continuous_scale='cividis',
+                labels={'color': 'Activity Level'},
+                show_original_data=False
+            )
+            # Add factory layout
+            fig.update_layout(
+                xaxis_title="Factory Width (m)",
+                yaxis_title="Factory Length (m)",
+                title="Factory Activity & Congestion",
+                xaxis_range=[0, factory_size],
+                yaxis_range=[0, factory_size],
+                showlegend=False
+            )
+            # Add zone labels
+            fig.add_trace(go.Scatter(
+                x=[20, 60, 80], y=[20, 60, 80],
+                text=['Assembly', 'Maintenance', 'Packaging'],
+                mode='text',
+                textfont=dict(color='white', size=12),
+                showlegend=False
+            ))
+            # Add factory border
+            fig.add_trace(go.Scatter(
+                x=[0, factory_size, factory_size, 0, 0],
+                y=[0, 0, factory_size, factory_size, 0],
+                mode='lines',
+                line=dict(color='black', width=1),
+                showlegend=False
+            ))
+            return fig
+        except Exception as e:
+            logging.warning(f"Plotly hexbin failed: {str(e)}. Falling back to Matplotlib.")
+    
+    # Matplotlib fallback
+    fig, ax = plt.subplots(figsize=(8, 6))
     hb = plt.hexbin(
         history_df['x'], history_df['y'],
-        gridsize=20, cmap='viridis', mincnt=1,
+        gridsize=20, cmap='cividis', mincnt=1,
         extent=(0, factory_size, 0, factory_size)
     )
-    cb = plt.colorbar(hb, label='Activity Level (Low to High Congestion)')
-    # Set ticks to min and max counts
+    cb = plt.colorbar(hb, label='Activity Level')
     counts = hb.get_array()
     if len(counts) > 0:
-        min_count = 1  # mincnt=1 ensures no zero
+        min_count = 1
         max_count = np.max(counts)
         cb.set_ticks([min_count, max_count])
         cb.set_ticklabels(['Low Activity', 'High Congestion'])
@@ -332,7 +375,6 @@ def plot_worker_density(history_df, factory_size):
         cb.set_ticks([1, 10])
         cb.set_ticklabels(['Low Activity', 'High Congestion'])
     
-    # Add factory layout
     ax.plot([0, factory_size], [0, 0], 'k-', lw=1)
     ax.plot([0, factory_size], [factory_size, factory_size], 'k-', lw=1)
     ax.plot([0, 0], [0, factory_size], 'k-', lw=1)
@@ -341,7 +383,7 @@ def plot_worker_density(history_df, factory_size):
     ax.text(60, 60, 'Maintenance', color='white', ha='center', va='center', bbox=dict(facecolor='black', alpha=0.5))
     ax.text(80, 80, 'Packaging', color='white', ha='center', va='center', bbox=dict(facecolor='black', alpha=0.5))
     
-    ax.set_title("Factory Floor Activity and Congestion")
+    ax.set_title("Factory Activity & Congestion")
     ax.set_xlabel("Factory Width (m)")
     ax.set_ylabel("Factory Length (m)")
     ax.set_xlim(0, factory_size)
@@ -351,9 +393,9 @@ def plot_worker_density(history_df, factory_size):
 
 def plot_wellbeing(wellbeing_scores):
     """Plot team well-being trends."""
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(wellbeing_scores, label="Well-Being Score (1 = Optimal Health)", color='#17becf')
-    ax.set_xlabel("Shift Time (2-min Intervals)")
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(wellbeing_scores, label="Well-Being (1 = Optimal)", color='#17becf')
+    ax.set_xlabel("Shift Time (2-min)")
     ax.set_ylabel("Well-Being Score")
     ax.set_title("Team Well-Being Trends")
     ax.legend(loc='upper right')
@@ -361,12 +403,12 @@ def plot_wellbeing(wellbeing_scores):
     return fig
 
 def plot_psychological_safety(safety_scores):
-    """Plot team psychological safety trends."""
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(safety_scores, label="Psychological Safety (1 = High Trust)", color='#ff9896')
-    ax.set_xlabel("Shift Time (2-min Intervals)")
+    """Plot psychological safety trends."""
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(safety_scores, label="Safety (1 = High Trust)", color='#ff9896')
+    ax.set_xlabel("Shift Time (2-min)")
     ax.set_ylabel("Safety Score")
-    ax.set_title("Team Psychological Safety Trends")
+    ax.set_title("Psychological Safety Trends")
     ax.legend(loc='upper right')
     ax.grid(True, linestyle='--', alpha=0.7)
     return fig
