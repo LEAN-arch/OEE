@@ -53,9 +53,22 @@ def main():
         wellbeing_scores = wellbeing_data['scores']
         wellbeing_triggers = wellbeing_data['triggers']
     except Exception as e:
-        st.error(f"Failed to generate data: {str(e)}. Check logs or verify dependencies with 'uv pip install -r requirements.txt'.")
-        st.error("If on Streamlit Cloud, ensure Python 3.10 is set and rebuild the app.")
-        st.stop()
+        st.error(f"Data generation failed: {str(e)}.")
+        st.error("Possible cause: Invalid data (e.g., NaN values) in compliance, well-being, or safety calculations. Check logs for details or verify simulation.py logic.")
+        st.error("If on Streamlit Cloud, ensure Python 3.10 is set and rebuild the app. Try disabling 'Show Predictive Trends' to bypass forecasting issues.")
+        # Fallback: Generate data without forecasting
+        try:
+            history_df, compliance_entropy, clustering_index, resilience_scores, oee_history, productivity_loss, wellbeing_data, safety_scores, feedback_impact = generate_synthetic_data(
+                NUM_OPERATORS, NUM_STEPS, FACTORY_SIZE, ADAPTATION_RATE, SUPERVISOR_INFLUENCE, DISRUPTION_STEPS, priority, skip_forecast=True
+            )
+            oee_df = pd.DataFrame(oee_history)
+            wellbeing_scores = wellbeing_data['scores']
+            wellbeing_triggers = wellbeing_data['triggers']
+            show_forecast = False
+            st.warning("Running in fallback mode without predictive trends due to data issues.")
+        except Exception as e2:
+            st.error(f"Fallback data generation also failed: {str(e2)}. Contact support or review simulation.py for data validation issues.")
+            st.stop()
 
     # Feedback impact
     st.subheader("Worker Feedback Impact", anchor="feedback-impact")
@@ -100,7 +113,7 @@ def main():
         st.pyplot(plot_compliance_variability(compliance_entropy['data'], DISRUPTION_STEPS, compliance_entropy['forecast'] if show_forecast else None))
         st.caption("Inconsistent compliance may suggest opportunities for clearer procedures or additional training support.")
     except Exception as e:
-        st.error(f"Failed to render compliance plot: {str(e)}. Ensure matplotlib is installed.")
+        st.error(f"Failed to render compliance plot: {str(e)}. Ensure matplotlib is installed and data is valid.")
 
     st.subheader("Team Collaboration Strength", anchor="cohesion-plot")
     try:
@@ -159,10 +172,6 @@ def main():
             st.error("No shift data available to export.")
 
     st.success("Shift dashboard loaded — use insights to create a healthier, more collaborative workplace.")
-
-if __name__ == "__main__":
-    main()
-    st.success("Shift dashboard loaded — use insights to create a healthier, more supportive workplace.")
 
 if __name__ == "__main__":
     main()
