@@ -3,15 +3,20 @@ try:
     import pandas as pd
     import matplotlib.pyplot as plt
     import numpy as np
-    from simulation import run_simulation, plot_compliance_variability, plot_team_clustering, plot_resilience, plot_oee, plot_worker_density
+    from simulation import generate_synthetic_data, plot_compliance_variability, plot_team_clustering, plot_resilience, plot_oee, plot_worker_density
     from config import NUM_OPERATORS, NUM_STEPS, FACTORY_SIZE, ADAPTATION_RATE, SUPERVISOR_INFLUENCE, DISRUPTION_STEPS, ANOMALY_THRESHOLD
 except ImportError as e:
-    st.error(f"Failed to import required libraries: {str(e)}. Please ensure all dependencies are installed (see requirements.txt).")
-    st.error("If deploying on Streamlit Cloud, check the app logs and verify requirements.txt.")
+    st.error(f"Failed to import required libraries: {str(e)}. Ensure all dependencies are installed using 'uv pip install -r requirements.txt'.")
+    st.error("If deploying on Streamlit Cloud, use Python 3.10 and verify requirements.txt.")
     st.stop()
 
 def main():
     """Factory Operations Dashboard for Shift Monitoring."""
+    # Warn about Python version
+    import sys
+    if sys.version_info >= (3, 13):
+        st.warning("Python 3.13 detected. This version may not be fully supported. Use Python 3.10 for best results.")
+
     st.title("Factory Shift Monitoring Dashboard")
 
     # Sidebar controls
@@ -19,15 +24,15 @@ def main():
     show_forecast = st.sidebar.checkbox("Show Predictive Trends", value=True)
     export_data = st.sidebar.button("Export Shift Data")
 
-    # Run simulation
+    # Generate synthetic data
     try:
-        history_df, compliance_entropy, clustering_index, resilience_scores, oee_history, productivity_loss = run_simulation(
+        history_df, compliance_entropy, clustering_index, resilience_scores, oee_history, productivity_loss = generate_synthetic_data(
             NUM_OPERATORS, NUM_STEPS, FACTORY_SIZE, ADAPTATION_RATE, SUPERVISOR_INFLUENCE, DISRUPTION_STEPS
         )
         oee_df = pd.DataFrame(oee_history)
     except Exception as e:
-        st.error(f"Simulation failed: {str(e)}. Check logs for details or verify dependency installation.")
-        st.error("If on Streamlit Cloud, ensure requirements.txt is correct and rebuild the app.")
+        st.error(f"Data generation failed: {str(e)}. Check logs or verify dependency installation with 'uv pip install -r requirements.txt'.")
+        st.error("If on Streamlit Cloud, ensure Python 3.10 is set and rebuild the app.")
         st.stop()
 
     # Anomaly detection with actionable alerts
@@ -47,7 +52,7 @@ def main():
         st.pyplot(plot_compliance_variability(compliance_entropy['data'], DISRUPTION_STEPS, compliance_entropy['forecast'] if show_forecast else None))
         st.caption("High variability indicates inconsistent SOP adherence. Consider targeted training.")
     except Exception as e:
-        st.error(f"Failed to render SOP compliance plot: {str(e)}.")
+        st.error(f"Failed to render SOP compliance plot: {str(e)}. Ensure matplotlib is installed correctly.")
 
     st.subheader("Team Cohesion on Factory Floor")
     try:
