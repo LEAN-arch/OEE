@@ -8,6 +8,7 @@ import random
 import logging
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
+import plotly.express as px
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -21,12 +22,18 @@ def generate_synthetic_data(num_team_members, num_steps, workplace_size, adaptat
     from config import WORK_AREAS
     areas = list(WORK_AREAS.keys())
     if not areas:
+        logging.error("No work areas defined in config.py")
         raise ValueError("No work areas defined in config.py")
-    members_per_area = num_team_members // len(areas)
+    
+    # Ensure at least one team member per area
+    members_per_area = max(1, num_team_members // len(areas))
+    total_team_members = members_per_area * len(areas)
+    logging.debug(f"Adjusted team members: {total_team_members} (min 1 per area)")
+
     team_data = pd.DataFrame({
-        'area': np.repeat(areas, members_per_area),
-        'task_adherence': np.random.uniform(0.75, 0.95, num_team_members),
-        'supervisor_present': np.random.choice([True, False], num_team_members, p=[0.2, 0.8]),
+        'area': np.repeat(areas, members_per_area)[:total_team_members],
+        'task_adherence': np.random.uniform(0.75, 0.95, total_team_members),
+        'supervisor_present': np.random.choice([True, False], total_team_members, p=[0.2, 0.8]),
     })
 
     history = []
@@ -141,84 +148,29 @@ def generate_synthetic_data(num_team_members, num_steps, workplace_size, adaptat
             worker_actions_applied += 1
             logging.debug(f"Step {step}: Applied worker action {worker_priority}")
 
-        # Generate synthetic positions
+        # Generate synthetic positions with validation
         positions = []
         for area in areas:
             center_x, center_y = WORK_AREAS[area]["center"]
             for _ in range(members_per_area):
                 x = np.clip(np.random.normal(center_x, 10), 0, workplace_size)
                 y = np.clip(np.random.normal(center_y, 10), 0, workplace_size)
+                if not (np.isfinite(x) and np.isfinite(y)):
+                    logging.warning(f"Step {step}, Area {area}: Invalid position (x={x}, y={y}), setting to center")
+                    x, y = center_x, center_y
                 positions.append({'area': area, 'x': x, 'y': y, 'step': step})
-        history.append(pd.DataFrame(positions))
+        if not positions:
+            logging.error(f"Step {step}: No positions generated")
+            raise ValueError("No positions generated for history_df")
+        step_df = pd.DataFrame(positions)
+        history.append(step_df)
+        logging.debug(f"Step {step}: Generated {len(step_df)} positions")
 
-        # Adherence variability
-        hist, _ = np.histogram(team_data['task_adherence'], bins=10, range=(0.5, 1.0), density=True)
-        if not np.all(np.isfinite(hist)) or np.sum(hist) == 0:
-            logging.warning(f"Step {step}: Invalid histogram for entropy, setting to 0")
-            adherence_entropy.append(0)
-        else:
-            ent = entropy(hist + 1e-9)
-            if not np.isfinite(ent):
-                logging.warning(f"Step {step}: Invalid entropy {ent}, setting to 0")
-                ent = 0
-            adherence_entropy.append(ent)
-        logging.debug(f"Step {step}: Adherence entropy {adherence_entropy[-1]}")
-
-        # Team clustering
-        cohesion_score = np.mean([1 / (1 + max(0, area_wellbeing[area][-1])) for area in areas])
-        if not np.isfinite(cohesion_score):
-            logging.warning(f"Step {step}: Invalid cohesion score {cohesion_score}, setting to 0.5")
-            cohesion_score = 0.5
-        clustering_index.append(cohesion_score + np.random.normal(0, 0.05))
-        logging.debug(f"Step {step}: Clustering index {clustering_index[-1]}")
-
-        # Resilience
-        deviation = abs(team_data['task_adherence'].mean() - initial_adherence_avg)
-        resilience_score = 1 - deviation / initial_adherence_avg
-        if not np.isfinite(resilience_score):
-            logging.warning(f"Step {step}: Invalid resilience score {resilience_score}, setting to 0.5")
-            resilience_score = 0.5
-        resilience_scores.append(resilience_score)
-        logging.debug(f"Step {step}: Resilience score {resilience_scores[-1]}")
-
-        # Operational Efficiency
-        avg_adherence = team_data['task_adherence'].mean()
-        uptime = min(0.92 + 0.08 * avg_adherence, 0.96) + np.random.normal(0, 0.004)
-        throughput = min(0.87 + 0.08 * avg_adherence, 0.92) + np.random.normal(0, 0.004)
-        quality = min(0.98 + 0.02 * avg_adherence, 0.99) + np.random.normal(0, 0.001)
-        efficiency = uptime * throughput * quality
-        if not np.isfinite(efficiency):
-            logging.warning(f"Step {step}: Invalid efficiency {efficiency}, setting to 0.8")
-            efficiency = 0.8
-        efficiency_history.append({
-            'step': step,
-            'uptime': uptime,
-            'throughput': throughput,
-            'quality': quality,
-            'efficiency': efficiency
-        })
-        logging.debug(f"Step {step}: Efficiency {efficiency}")
-
-        # Productivity loss
-        loss = max(0, initial_adherence_avg - team_data['task_adherence'].mean()) * 50
-        if not np.isfinite(loss):
-            logging.warning(f"Step {step}: Invalid productivity loss {loss}, setting to 0")
-            loss = 0
-        productivity_loss.append(loss)
-        logging.debug(f"Step {step}: Productivity loss {loss}")
-
-        # Well-being and psychological safety
-        wellbeing_score = avg_wellbeing
-        if not np.isfinite(wellbeing_score):
-            logging.warning(f"Step {step}: Invalid well-being score {wellbeing_score}, setting to 0.5")
-            wellbeing_score = 0.5
-        wellbeing_scores.append(wellbeing_score)
-        safety_score = np.mean([area_wellbeing[area][-1] * (1 + 0.3 if team_data[team_data['area'] == area]['supervisor_present'].any() else 0) * (1 + 0.2 * worker_actions_applied / (step + 1)) for area in areas])
-        if not np.isfinite(safety_score):
-            logging.warning(f"Step {step}: Invalid safety score {safety_score}, setting to 0.5")
-            safety_score = 0.5
-        safety_scores.append(safety_score)
-        logging.debug(f"Step {step}: Well-being {wellbeing_score}, Safety {safety_score}")
+    history_df = pd.concat(history).reset_index(drop=True)
+    if history_df.empty or not {'x', 'y', 'area', 'step'}.issubset(history_df.columns):
+        logging.error("Invalid history_df: Empty or missing required columns")
+        raise ValueError("Invalid history_df: Empty or missing required columns")
+    logging.debug(f"Generated history_df with {len(history_df)} rows")
 
     # Forecasting
     adherence_forecast = None
@@ -243,7 +195,7 @@ def generate_synthetic_data(num_team_members, num_steps, workplace_size, adaptat
                 raise
 
     return (
-        pd.concat(history).reset_index(drop=True),
+        history_df,
         {'data': adherence_entropy, 'z_scores': zscore(np.nan_to_num(adherence_entropy, nan=0.0)), 'forecast': adherence_forecast},
         {'data': clustering_index, 'z_scores': zscore(np.nan_to_num(clustering_index, nan=0.5)), 'forecast': clustering_forecast},
         resilience_scores,
@@ -315,90 +267,204 @@ def plot_oee(efficiency_df):
     return fig
 
 def plot_worker_density(history_df, workplace_size, use_plotly=True):
-    """Plot workplace activity and density."""
+    """Plot workplace activity and density with enhanced interactivity."""
     from config import WORK_AREAS
+    area_colors = px.colors.qualitative.Plotly[:len(WORK_AREAS)]  # Assign unique colors to areas
+    area_color_map = {area: color for area, color in zip(WORK_AREAS.keys(), area_colors)}
+
     if use_plotly:
         try:
-            if history_df.empty or not {'x', 'y', 'area'}.issubset(history_df.columns):
-                raise ValueError("Invalid history_df: Missing x, y, or area columns")
-            fig = ff.create_hexbin_mapbox(
+            if history_df.empty or not {'x', 'y', 'area', 'step'}.issubset(history_df.columns):
+                logging.error("Invalid history_df: Missing x, y, area, or step columns")
+                raise ValueError("Invalid history_df: Missing x, y, area, or step columns")
+
+            # Create hexbin plot
+            fig = go.Figure()
+
+            # Add hexbin trace
+            hexbin = ff.create_hexbin_mapbox(
                 data_frame=history_df,
                 lat='y', lon='x',
                 nx_hexagon=20,
                 opacity=0.7,
                 min_count=1,
-                color_continuous_scale='cividis',
-                labels={'color': 'Activity Level'},
+                color_continuous_scale='Viridis',
+                labels={'color': 'Team Members'},
                 show_original_data=False
-            )
-            fig.update_layout(
-                xaxis_title="Workplace Width (m)",
-                yaxis_title="Workplace Length (m)",
-                title="Workplace Activity & Density",
-                xaxis_range=[0, workplace_size],
-                yaxis_range=[0, workplace_size],
-                showlegend=False
-            )
-            # Add area labels
-            fig.add_trace(go.Scatter(
-                x=[WORK_AREAS[area]["center"][0] for area in WORK_AREAS],
-                y=[WORK_AREAS[area]["center"][1] for area in WORK_AREAS],
-                text=[WORK_AREAS[area]["label"] for area in WORK_AREAS],
-                mode='text',
-                textfont=dict(color='white', size=12),
-                showlegend=False
-            ))
-            # Add workplace border
+            ).data[0]
+            fig.add_trace(hexbin)
+
+            # Add scatter points for team members, colored by area
+            for area in WORK_AREAS:
+                area_df = history_df[history_df['area'] == area]
+                if not area_df.empty:
+                    fig.add_trace(go.Scatter(
+                        x=area_df['x'],
+                        y=area_df['y'],
+                        mode='markers',
+                        name=WORK_AREAS[area]["label"],
+                        marker=dict(size=8, color=area_color_map[area], opacity=0.5),
+                        text=[f"Area: {area}<br>Step: {row['step']}<br>Team Members: 1" for _, row in area_df.iterrows()],
+                        hoverinfo='text'
+                    ))
+
+            # Add area center annotations
+            for area in WORK_AREAS:
+                x, y = WORK_AREAS[area]["center"]
+                fig.add_annotation(
+                    x=x, y=y,
+                    text=WORK_AREAS[area]["label"],
+                    showarrow=False,
+                    font=dict(size=12, color='white', family='Arial Black'),
+                    bgcolor='black',
+                    opacity=0.8
+                )
+
+            # Add workplace boundary
             fig.add_trace(go.Scatter(
                 x=[0, workplace_size, workplace_size, 0, 0],
                 y=[0, 0, workplace_size, workplace_size, 0],
                 mode='lines',
-                line=dict(color='black', width=1),
+                line=dict(color='black', width=1, dash='dash'),
+                name='Workplace Boundary',
                 showlegend=False
             ))
+
+            # Update layout
+            fig.update_layout(
+                title="Workplace Activity & Density",
+                xaxis_title="Workplace Width (m)",
+                yaxis_title="Workplace Length (m)",
+                xaxis_range=[-10, workplace_size + 10],
+                yaxis_range=[-10, workplace_size + 10],
+                showlegend=True,
+                coloraxis_colorbar_title="Team Members",
+                margin=dict(l=40, r=40, t=60, b=40),
+                uirevision='constant'  # Preserve zoom state
+            )
+
+            # Add interactive controls
+            # Area filter dropdown
+            area_buttons = [
+                dict(
+                    label="All Areas",
+                    method="update",
+                    args=[{"visible": [True] * len(fig.data)},
+                          {"title": "Workplace Activity & Density"}]
+                )
+            ]
+            for i, area in enumerate(WORK_AREAS, start=1):
+                visible = [True if j == 0 or j == i or j == len(WORK_AREAS) + 1 else False for j in range(len(fig.data))]
+                area_buttons.append(
+                    dict(
+                        label=WORK_AREAS[area]["label"],
+                        method="update",
+                        args=[{"visible": visible},
+                              {"title": f"Activity & Density: {WORK_AREAS[area]['label']}"}]
+                    )
+                )
+
+            # Time slider for animation
+            steps = []
+            for step in sorted(history_df['step'].unique()):
+                step_visible = [True if j == 0 or j == len(WORK_AREAS) + 1 else history_df[history_df['step'] == step]['area'].isin([area for area, _ in zip(WORK_AREAS, range(j-1))]).any() for j in range(len(fig.data))]
+                steps.append(
+                    dict(
+                        method="update",
+                        args=[{"visible": step_visible},
+                              {"title": f"Activity & Density at Step {step}"}],
+                        label=str(step)
+                    )
+                )
+
+            fig.update_layout(
+                updatemenus=[
+                    dict(
+                        buttons=area_buttons,
+                        direction="down",
+                        showactive=True,
+                        x=0.1,
+                        xanchor="left",
+                        y=1.15,
+                        yanchor="top"
+                    ),
+                    dict(
+                        type="buttons",
+                        buttons=[dict(label="Reset Zoom", method="relayout", args=["xaxis.range", [-10, workplace_size + 10], "yaxis.range", [-10, workplace_size + 10]])],
+                        x=0.3,
+                        xanchor="left",
+                        y=1.15,
+                        yanchor="top"
+                    )
+                ],
+                sliders=[dict(
+                    active=0,
+                    steps=steps,
+                    x=0.1,
+                    xanchor="left",
+                    y=0,
+                    yanchor="top",
+                    len=0.9
+                )]
+            )
+
             return fig
         except Exception as e:
             logging.warning(f"Plotly hexbin failed: {str(e)}. Falling back to Matplotlib.")
-    
+
     # Matplotlib fallback
     fig, ax = plt.subplots(figsize=(8, 6))
-    if history_df.empty or not {'x', 'y'}.issubset(history_df.columns):
-        logging.warning("Empty or invalid history_df, returning empty plot")
+    if history_df.empty or not {'x', 'y', 'area'}.issubset(history_df.columns):
+        logging.warning("Empty or invalid history_df, returning minimal plot")
         ax.text(0.5, 0.5, "No activity data", ha='center', va='center')
         ax.set_xlim(0, workplace_size)
         ax.set_ylim(0, workplace_size)
-        return fig
-    hb = plt.hexbin(
-        history_df['x'], history_df['y'],
-        gridsize=20, cmap='cividis', mincnt=1,
-        extent=(0, workplace_size, 0, workplace_size)
-    )
-    cb = plt.colorbar(hb, label='Activity Level')
-    counts = hb.get_array()
-    if len(counts) > 0:
-        min_count = 1
-        max_count = np.max(counts)
-        cb.set_ticks([min_count, max_count])
-        cb.set_ticklabels(['Low Activity', 'High Density'])
     else:
-        logging.warning("No data in hexbin plot, setting default colorbar ticks")
-        cb.set_ticks([1, 10])
-        cb.set_ticklabels(['Low Activity', 'High Density'])
-    
-    ax.plot([0, workplace_size], [0, 0], 'k-', lw=1)
-    ax.plot([0, workplace_size], [workplace_size, workplace_size], 'k-', lw=1)
-    ax.plot([0, 0], [0, workplace_size], 'k-', lw=1)
-    ax.plot([workplace_size, workplace_size], [0, workplace_size], 'k-', lw=1)
+        # Hexbin plot
+        hb = plt.hexbin(
+            history_df['x'], history_df['y'],
+            gridsize=20, cmap='viridis', mincnt=1,
+            extent=(0, workplace_size, 0, workplace_size)
+        )
+        cb = plt.colorbar(hb, label='Team Members')
+        counts = hb.get_array()
+        if len(counts) > 0:
+            min_count = 1
+            max_count = np.max(counts)
+            cb.set_ticks([min_count, max_count])
+            cb.set_ticklabels(['1 Member', f'{int(max_count)} Members'])
+        else:
+            cb.set_ticks([1, 10])
+            cb.set_ticklabels(['1 Member', '10 Members'])
+
+        # Scatter points for team members
+        for area in WORK_AREAS:
+            area_df = history_df[history_df['area'] == area]
+            if not area_df.empty:
+                ax.scatter(
+                    area_df['x'], area_df['y'],
+                    c=area_color_map[area], s=50, alpha=0.5, label=WORK_AREAS[area]["label"]
+                )
+
+    # Workplace boundary
+    ax.plot([0, workplace_size], [0, 0], 'k--', lw=1)
+    ax.plot([0, workplace_size], [workplace_size, workplace_size], 'k--', lw=1)
+    ax.plot([0, 0], [0, workplace_size], 'k--', lw=1)
+    ax.plot([workplace_size, workplace_size], [0, workplace_size], 'k--', lw=1)
+
+    # Area labels
     for area in WORK_AREAS:
         x, y = WORK_AREAS[area]["center"]
-        ax.text(x, y, WORK_AREAS[area]["label"], color='white', ha='center', va='center', bbox=dict(facecolor='black', alpha=0.5))
-    
+        ax.text(x, y, WORK_AREAS[area]["label"], color='white', ha='center', va='center',
+                bbox=dict(facecolor='black', alpha=0.5, edgecolor='none'))
+
     ax.set_title("Workplace Activity & Density")
     ax.set_xlabel("Workplace Width (m)")
     ax.set_ylabel("Workplace Length (m)")
     ax.set_xlim(0, workplace_size)
     ax.set_ylim(0, workplace_size)
     ax.grid(True, linestyle='--', alpha=0.5)
+    ax.legend()
     return fig
 
 def plot_wellbeing(wellbeing_scores):
