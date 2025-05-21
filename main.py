@@ -103,8 +103,10 @@ def main():
         with st.expander("Recommendations: Task Adherence"):
             st.write("Inconsistent adherence may suggest clearer guidelines or training.")
         try:
-            st.pyplot(plot_compliance_variability(compliance_entropy['data'], DISRUPTION_STEPS, compliance_entropy['forecast'] if show_forecast else None), 
-                     alt="Line plot of task adherence trends over shift time")
+            st.markdown('<div aria-label="Line plot of task adherence trends over shift time">', unsafe_allow_html=True)
+            st.pyplot(plot_compliance_variability(compliance_entropy['data'], DISRUPTION_STEPS, compliance_entropy['forecast'] if show_forecast else None))
+            st.caption("Line plot showing task adherence trends over shift time, with lower values indicating uniform adherence.")
+            st.markdown('</div>', unsafe_allow_html=True)
         except Exception as e:
             st.error(f"Failed to render adherence plot: {str(e)}.")
 
@@ -112,7 +114,10 @@ def main():
         with st.expander("Recommendations: Operational Efficiency"):
             st.write("Target: Uptime >90%, Throughput >85%, Quality >97%. Support with resources or training.")
         try:
-            st.pyplot(plot_oee(efficiency_df), alt="Line plot of efficiency metrics over shift time")
+            st.markdown('<div aria-label="Line plot of operational efficiency metrics over shift time">', unsafe_allow_html=True)
+            st.pyplot(plot_oee(efficiency_df))
+            st.caption("Line plot showing operational efficiency metrics (uptime, throughput, quality) over shift time.")
+            st.markdown('</div>', unsafe_allow_html=True)
         except Exception as e:
             st.error(f"Failed to render efficiency plot: {str(e)}.")
 
@@ -120,7 +125,10 @@ def main():
         with st.expander("Recommendations: Resilience"):
             st.write("Strong recovery reflects resilience. Support with resources or guidance.")
         try:
-            st.pyplot(plot_resilience(resilience_scores), alt="Line plot of team resilience over shift time")
+            st.markdown('<div aria-label="Line plot of team resilience over shift time">', unsafe_allow_html=True)
+            st.pyplot(plot_resilience(resilience_scores))
+            st.caption("Line plot showing team resilience trends over shift time, with 1 indicating full recovery.")
+            st.markdown('</div>', unsafe_allow_html=True)
         except Exception as e:
             st.error(f"Failed to render resilience plot: {str(e)}.")
 
@@ -132,7 +140,10 @@ def main():
             with st.expander("Recommendations: Well-Being"):
                 st.write("Enhance with regular breaks, ergonomic tools, or wellness programs.")
             try:
-                st.pyplot(plot_wellbeing(wellbeing_scores), alt="Line plot of team well-being trends over shift time")
+                st.markdown('<div aria-label="Line plot of team well-being trends over shift time">', unsafe_allow_html=True)
+                st.pyplot(plot_wellbeing(wellbeing_scores))
+                st.caption("Line plot showing team well-being trends over shift time, with 1 indicating optimal well-being.")
+                st.markdown('</div>', unsafe_allow_html=True)
             except Exception as e:
                 st.error(f"Failed to render well-being plot: {str(e)}.")
 
@@ -141,7 +152,10 @@ def main():
             with st.expander("Recommendations: Psychological Safety"):
                 st.write("Encourage open feedback and team recognition.")
             try:
-                st.pyplot(plot_psychological_safety(safety_scores), alt="Line plot of psychological safety trends over shift time")
+                st.markdown('<div aria-label="Line plot of psychological safety trends over shift time">', unsafe_allow_html=True)
+                st.pyplot(plot_psychological_safety(safety_scores))
+                st.caption("Line plot showing psychological safety trends over shift time, with 1 indicating high trust.")
+                st.markdown('</div>', unsafe_allow_html=True)
             except Exception as e:
                 st.error(f"Failed to render safety plot: {str(e)}.")
 
@@ -149,8 +163,10 @@ def main():
         with st.expander("Recommendations: Collaboration"):
             st.write("Foster with team-building or recognition programs.")
         try:
-            st.pyplot(plot_team_clustering(clustering_index['data'], clustering_index['forecast'] if show_forecast else None), 
-                     alt="Line plot of team collaboration strength over shift time")
+            st.markdown('<div aria-label="Line plot of team collaboration strength over shift time">', unsafe_allow_html=True)
+            st.pyplot(plot_team_clustering(clustering_index['data'], clustering_index['forecast'] if show_forecast else None))
+            st.caption("Line plot showing team collaboration strength over shift time, with higher values indicating stronger collaboration.")
+            st.markdown('</div>', unsafe_allow_html=True)
         except Exception as e:
             st.error(f"Failed to render collaboration plot: {str(e)}.")
 
@@ -162,11 +178,14 @@ def main():
         try:
             fig = plot_worker_density(history_df, WORKPLACE_SIZE, use_plotly=True)
             st.plotly_chart(fig, use_container_width=True)
+            st.caption("Interactive hexbin plot showing workplace activity and density, with tooltips for area and activity level.")
         except Exception as e:
             st.warning(f"Plotly failed: {str(e)}. Using Matplotlib fallback.")
             try:
-                st.pyplot(plot_worker_density(history_df, WORKPLACE_SIZE, use_plotly=False), 
-                         alt="Hexbin plot of workplace activity and density")
+                st.markdown('<div aria-label="Hexbin plot of workplace activity and density">', unsafe_allow_html=True)
+                st.pyplot(plot_worker_density(history_df, WORKPLACE_SIZE, use_plotly=False))
+                st.caption("Hexbin plot showing workplace activity and density, with color indicating activity level from low to high.")
+                st.markdown('</div>', unsafe_allow_html=True)
             except Exception as e2:
                 st.error(f"Failed to render activity plot: {str(e2)}.")
 
