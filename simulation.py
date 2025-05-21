@@ -1,386 +1,494 @@
+```python
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.stats import entropy, zscore
+from scipy.spatial.distance import pdist
 from sklearn.linear_model import LinearRegression
 import random
 import logging
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
 import plotly.express as px
+from uuid import uuid4
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure logging for operational diagnostics
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Set global random seed
+# Set global random seed for reproducibility
 np.random.seed(42)
 random.seed(42)
 
-def generate_synthetic_data(num_team_members, num_steps, workplace_size, adaptation_rate, supervisor_influence, disruption_steps, worker_priority, skip_forecast=False):
-    """Generate synthetic workplace data with humane conditions."""
-    from config import WORK_AREAS
-    areas = list(WORK_AREAS.keys())
-    if not areas:
-        logging.error("No work areas defined in config.py")
-        raise ValueError("No work areas defined in config.py")
-    
-    # Ensure at least one team member per area
-    members_per_area = max(1, num_team_members // len(areas))
-    total_team_members = members_per_area * len(areas)
-    logging.debug(f"Adjusted team members: {total_team_members} (min 1 per area)")
+# Default configuration for industrial workplace
+DEFAULT_CONFIG = {
+    'WORKSTATIONS': {
+        'production_line': {'center': [50, 50], 'label': 'Production Line'},
+        'assembly_zone': {'center': [150, 50], 'label': 'Assembly Zone'},
+        'quality_control': {'center': [50, 150], 'label': 'Quality Control'},
+        'logistics_hub': {'center': [150, 150], 'label': 'Logistics Hub'}
+    },
+    'COMPLIANCE_THRESHOLD': 0.7,  # Minimum acceptable compliance score
+    'COMPLIANCE_TREND_WINDOW': 5,  # Steps to evaluate declining compliance trends
+    'DISRUPTION_IMPACT_WINDOW': 3,  # Steps to monitor post-disruption recovery
+    'BREAK_SCHEDULE_INTERVAL': 10,  # Steps between scheduled breaks
+    'WORKLOAD_LIMIT_STEPS': 5  # Steps to assess sustained low compliance
+}
 
-    team_data = pd.DataFrame({
-        'area': np.repeat(areas, members_per_area)[:total_team_members],
-        'task_adherence': np.random.uniform(0.75, 0.95, total_team_members),
-        'supervisor_present': np.random.choice([True, False], total_team_members, p=[0.2, 0.8]),
+def simulate_workplace_operations(
+    num_workers=20,
+    num_shifts=50,
+    facility_size=200,
+    compliance_adjustment_rate=0.1,
+    supervisor_impact_factor=0.2,
+    disruption_shifts=[10, 30],
+    worker_initiative='More frequent breaks',
+    skip_forecast=False,
+    config=None
+):
+    """
+    Simulate industrial workplace operations to monitor worker compliance, spatial distribution, and well-being.
+
+    Parameters:
+    - num_workers (int): Number of workers (adjusted to ensure min 1 per workstation).
+    - num_shifts (int): Number of 2-minute shift intervals to simulate.
+    - facility_size (float): Facility dimensions in meters (square).
+    - compliance_adjustment_rate (float): Rate at which workers adjust task compliance.
+    - supervisor_impact_factor (float): Supervisor's influence on compliance improvement.
+    - disruption_shifts (list): Shift intervals where operational disruptions occur (e.g., equipment failure).
+    - worker_initiative (str): Worker-initiated action to improve well-being (e.g., 'More frequent breaks').
+    - skip_forecast (bool): Skip compliance and collaboration forecasting if True.
+    - config (dict): Configuration dictionary; uses DEFAULT_CONFIG if None.
+
+    Returns:
+    - worker_positions_df (pd.DataFrame): Worker positions (x, y, workstation, shift).
+    - compliance_variability (dict): Task compliance variability data, z-scores, and forecast.
+    - collaboration_index (dict): Worker collaboration data, z-scores, and forecast.
+    - operational_resilience (list): Resilience scores per shift.
+    - efficiency_metrics (pd.DataFrame): Efficiency metrics (uptime, throughput, quality, oee).
+    - productivity_loss (list): Productivity loss percentage per shift.
+    - worker_wellbeing (dict): Well-being scores and intervention triggers.
+    - safety_scores (list): Psychological safety scores per shift.
+    - worker_feedback_impact (dict): Impact of worker initiatives on well-being and team cohesion.
+    """
+    # Use provided config or default
+    config = config if config is not None else DEFAULT_CONFIG
+    WORKSTATIONS = config['WORKSTATIONS']
+    COMPLIANCE_THRESHOLD = config['COMPLIANCE_THRESHOLD']
+    COMPLIANCE_TREND_WINDOW = config['COMPLIANCE_TREND_WINDOW']
+    DISRUPTION_IMPACT_WINDOW = config['DISRUPTION_IMPACT_WINDOW']
+    BREAK_SCHEDULE_INTERVAL = config['BREAK_SCHEDULE_INTERVAL']
+    WORKLOAD_LIMIT_STEPS = config['WORKLOAD_LIMIT_STEPS']
+
+    workstations = list(WORKSTATIONS.keys())
+    if not workstations:
+        logging.error("No workstations defined in configuration")
+        raise ValueError("No workstations defined in configuration")
+
+    # Ensure at least one worker per workstation
+    workers_per_workstation = max(1, num_workers // len(workstations))
+    total_workers = workers_per_workstation * len(workstations)
+    logging.info(f"Adjusted total workers: {total_workers} (min 1 per workstation)")
+
+    # Initialize worker data
+    worker_data = pd.DataFrame({
+        'workstation': np.repeat(workstations, workers_per_workstation)[:total_workers],
+        'task_compliance': np.random.uniform(0.75, 0.95, total_workers),  # Initial compliance score
+        'supervisor_present': np.random.choice([True, False], total_workers, p=[0.2, 0.8]),
     })
 
-    history = []
-    adherence_entropy = []
-    clustering_index = []
-    resilience_scores = []
-    efficiency_history = []
+    # Initialize metrics
+    worker_positions = []
+    compliance_variability = []
+    collaboration_index = []
+    operational_resilience = []
+    efficiency_metrics = []
     productivity_loss = []
-    wellbeing_scores = []
+    worker_wellbeing_scores = []
     safety_scores = []
-    area_wellbeing = {area: [] for area in areas}
-    area_rest_quality = {area: [] for area in areas}
-    initial_adherence_avg = team_data['task_adherence'].mean()
+    workstation_wellbeing = {ws: [] for ws in workstations}
+    workstation_rest_quality = {ws: [] for ws in workstations}
+    initial_compliance_avg = worker_data['task_compliance'].mean()
 
-    # Well-being action impacts
-    break_boost = 0.15
-    supervisor_boost = 0.1
-    workload_balance_boost = 0.15
-    ergonomic_boost = 0.12
-    worker_action_boost = {'More frequent breaks': 0.2, 'Task reduction': 0.18, 'Wellness resources': 0.15, 'Team recognition': 0.1}
+    # Intervention impacts
+    break_improvement = 0.15  # Compliance boost from scheduled breaks
+    supervisor_improvement = 0.1  # Compliance boost from supervisor oversight
+    workload_balance_improvement = 0.15  # Compliance boost from workload balancing
+    ergonomic_improvement = 0.12  # Compliance boost from ergonomic adjustments
+    worker_initiative_impact = {
+        'More frequent breaks': 0.2,
+        'Task reduction': 0.18,
+        'Wellness programs': 0.15,
+        'Team recognition': 0.1
+    }
 
-    # Triggers
-    threshold_triggers = []
-    trend_triggers = []
-    area_triggers = {area: [] for area in areas}
-    disruption_triggers = []
-    from config import WELLBEING_THRESHOLD, WELLBEING_TREND_LENGTH, WELLBEING_DISRUPTION_WINDOW, BREAK_INTERVAL, WORKLOAD_CAP_STEPS
+    # Intervention triggers
+    threshold_interventions = []
+    trend_interventions = []
+    workstation_interventions = {ws: [] for ws in workstations}
+    disruption_interventions = []
 
-    # Feedback impact
-    feedback_impact = {'wellbeing': 0, 'cohesion': 0}
-    worker_actions_applied = 0
+    # Worker feedback impact
+    worker_feedback_impact = {'wellbeing': 0, 'cohesion': 0}
+    worker_initiatives_applied = 0
 
-    # Synthetic positions
-    for step in range(num_steps):
-        logging.debug(f"Step {step}: Starting data generation")
-        
-        # Proactive breaks
-        if step % BREAK_INTERVAL == 0 and step > 0:
-            team_data['task_adherence'] += break_boost * 0.1
-            for area in areas:
-                rest_quality = np.random.uniform(0.8, 1.0)
-                area_rest_quality[area].append(rest_quality)
-                logging.debug(f"Step {step}, Area {area}: Rest quality {rest_quality}")
+    # Simulation loop
+    for shift in range(num_shifts):
+        logging.info(f"Shift {shift}: Simulating operations")
+
+        # Scheduled breaks
+        if shift % BREAK_SCHEDULE_INTERVAL == 0 and shift > 0:
+            worker_data['task_compliance'] += break_improvement * 0.1
+            rest_quality = np.random.uniform(0.8, 1.0, len(workstations))
         else:
-            for area in areas:
-                rest_quality = np.random.uniform(0.5, 0.7)
-                area_rest_quality[area].append(rest_quality)
-                logging.debug(f"Step {step}, Area {area}: Rest quality {rest_quality}")
+            rest_quality = np.random.uniform(0.5, 0.7, len(workstations))
+        for ws, rq in zip(workstations, rest_quality):
+            workstation_rest_quality[ws].append(rq)
+            logging.debug(f"Shift {shift}, Workstation {ws}: Rest quality {rq:.3f}")
 
-        # Simulate disruptions
-        if step in disruption_steps:
-            team_data['task_adherence'] *= 0.85
-            team_data['supervisor_present'] = team_data['supervisor_present'].sample(frac=1).values
-            logging.debug(f"Step {step}: Applied disruption")
+        # Simulate disruptions (e.g., equipment failure, supply chain issue)
+        if shift in disruption_shifts:
+            worker_data['task_compliance'] *= 0.85  # 15% compliance drop
+            worker_data['supervisor_present'] = worker_data['supervisor_present'].sample(frac=1).values
+            logging.info(f"Shift {shift}: Operational disruption applied")
 
-        # Update task adherence and well-being
-        for area in areas:
-            area_mask = team_data['area'] == area
-            area_data = team_data[area_mask]
-            adherence_noise = np.random.normal(0, 0.01)
-            if area_data['supervisor_present'].any():
-                avg_adherence = area_data['task_adherence'].mean()
-                team_data.loc[area_mask, 'task_adherence'] += adaptation_rate * supervisor_influence * (avg_adherence - area_data['task_adherence'].mean())
-            team_data.loc[area_mask, 'task_adherence'] += adherence_noise
-            team_data.loc[area_mask, 'task_adherence'] = np.clip(team_data.loc[area_mask, 'task_adherence'], 0.6, 1.0)
-            logging.debug(f"Step {step}, Area {area}: Task adherence mean {team_data.loc[area_mask, 'task_adherence'].mean()}")
+        # Update task compliance
+        for ws in workstations:
+            ws_mask = worker_data['workstation'] == ws
+            ws_data = worker_data[ws_mask]
+            compliance_noise = np.random.normal(0, 0.01, ws_data.shape[0])
+            if ws_data['supervisor_present'].any():
+                avg_compliance = ws_data['task_compliance'].mean()
+                worker_data.loc[ws_mask, 'task_compliance'] += (
+                    compliance_adjustment_rate * supervisor_impact_factor * (avg_compliance - ws_data['task_compliance'])
+                )
+            worker_data.loc[ws_mask, 'task_compliance'] += compliance_noise
+            worker_data.loc[ws_mask, 'task_compliance'] = np.clip(worker_data.loc[ws_mask, 'task_compliance'], 0.6, 1.0)
 
-            # Workload cap
-            if step >= WORKLOAD_CAP_STEPS and all(team_data.loc[area_mask, 'task_adherence'].mean() < 0.7 for _ in range(WORKLOAD_CAP_STEPS)):
-                team_data.loc[area_mask, 'task_adherence'] += workload_balance_boost * 0.1
-                area_triggers[area].append(step)
-                logging.debug(f"Step {step}, Area {area}: Applied workload cap")
+            # Workload management
+            if shift >= WORKLOAD_LIMIT_STEPS and all(
+                worker_data.loc[ws_mask, 'task_compliance'].mean() < 0.7 for _ in range(WORKLOAD_LIMIT_STEPS)
+            ):
+                worker_data.loc[ws_mask, 'task_compliance'] += workload_balance_improvement * 0.1
+                workstation_interventions[ws].append(shift)
+                logging.info(f"Shift {shift}, Workstation {ws}: Workload management intervention applied")
 
-            # Area well-being
-            workload_intensity = 0.5 * (1 - area_data['task_adherence'].mean())
-            disruption_impact = 0.05 if step in disruption_steps else 0
-            shift_fatigue = min(step / num_steps, 1) * 0.1
-            rest_quality = area_rest_quality[area][-1]
-            area_wellbeing_score = max(0, 1 - (workload_intensity + disruption_impact + shift_fatigue) + rest_quality * 0.3 + np.random.normal(0, 0.03))
-            if not np.isfinite(area_wellbeing_score):
-                logging.warning(f"Step {step}, Area {area}: Invalid well-being score {area_wellbeing_score}, setting to 0.5")
-                area_wellbeing_score = 0.5
-            area_wellbeing[area].append(area_wellbeing_score)
-            logging.debug(f"Step {step}, Area {area}: Well-being score {area_wellbeing_score}")
+            # Workstation well-being
+            workload_intensity = 0.5 * (1 - ws_data['task_compliance'].mean())
+            disruption_impact = 0.05 if shift in disruption_shifts else 0
+            shift_fatigue = min(shift / num_shifts, 1) * 0.1
+            rest_quality = workstation_rest_quality[ws][-1]
+            ws_wellbeing_score = max(0, 1 - (workload_intensity + disruption_impact + shift_fatigue) + rest_quality * 0.3)
+            if not np.isfinite(ws_wellbeing_score):
+                logging.warning(f"Shift {shift}, Workstation {ws}: Invalid well-being score, using previous or 0.5")
+                ws_wellbeing_score = workstation_wellbeing[ws][-1] if workstation_wellbeing[ws] else 0.5
+            workstation_wellbeing[ws].append(ws_wellbeing_score)
+            logging.debug(f"Shift {shift}, Workstation {ws}: Well-being score {ws_wellbeing_score:.3f}")
 
-        # Well-being actions
-        avg_wellbeing = np.mean([area_wellbeing[area][-1] for area in areas])
-        if not np.isfinite(avg_wellbeing):
-            logging.warning(f"Step {step}: Invalid avg well-being {avg_wellbeing}, setting to 0.5")
-            avg_wellbeing = 0.5
-        if avg_wellbeing < WELLBEING_THRESHOLD:
-            team_data['task_adherence'] += (break_boost + ergonomic_boost) * 0.1
-            threshold_triggers.append(step)
-        if step >= WELLBEING_TREND_LENGTH and all(area_wellbeing[area][-i] < area_wellbeing[area][-i-1] for area in areas for i in range(1, WELLBEING_TREND_LENGTH)):
-            team_data['task_adherence'] += workload_balance_boost * 0.1
-            trend_triggers.append(step)
-        for area in areas:
-            other_wellbeing = [area_wellbeing[z][-1] for z in areas if z != area]
-            if other_wellbeing and area_wellbeing[area][-1] < min(other_wellbeing) - 0.08:
-                team_data.loc[team_data['area'] == area, 'supervisor_present'] = True
-                team_data.loc[team_data['area'] == area, 'task_adherence'] += supervisor_boost * 0.1
-                area_triggers[area].append(step)
-        if any(abs(step - d) <= WELLBEING_DISRUPTION_WINDOW for d in disruption_steps) and avg_wellbeing < WELLBEING_THRESHOLD:
-            team_data['task_adherence'] += break_boost * 0.1
-            disruption_triggers.append(step)
+        # Calculate operational metrics
+        # Compliance variability (entropy of compliance distribution)
+        compliance_dist = worker_data['task_compliance'].value_counts(normalize=True)
+        shift_variability = entropy(compliance_dist) if not compliance_dist.empty else 0.0
+        compliance_variability.append(shift_variability)
+
+        # Worker positions
+        positions = []
+        for ws in workstations:
+            center_x, center_y = WORKSTATIONS[ws]["center"]
+            for _ in range(workers_per_workstation):
+                x = np.clip(np.random.normal(center_x, 10), 0, facility_size)
+                y = np.clip(np.random.normal(center_y, 10), 0, facility_size)
+                if not (np.isfinite(x) and np.isfinite(y)):
+                    logging.warning(f"Shift {shift}, Workstation {ws}: Invalid position (x={x}, y={y}), using center")
+                    x, y = center_x, center_y
+                positions.append({'workstation': ws, 'x': x, 'y': y, 'shift': shift})
+        shift_positions = pd.DataFrame(positions)
+        worker_positions.append(shift_positions)
+
+        # Collaboration index (average intra-workstation distance)
+        collaboration_score = 0
+        for ws in workstations:
+            ws_positions = shift_positions[shift_positions['workstation'] == ws][['x', 'y']].values
+            if len(ws_positions) > 1:
+                distances = pdist(ws_positions, metric='euclidean')
+                collaboration_score += np.mean(distances) if distances.size > 0 else 0
+        collaboration_index.append(collaboration_score / len(workstations) if collaboration_score > 0 else 0.5)
+
+        # Well-being and psychological safety
+        avg_wellbeing = np.mean([workstation_wellbeing[ws][-1] for ws in workstations])
+        worker_wellbeing_scores.append(avg_wellbeing if np.isfinite(avg_wellbeing) else 0.5)
+        safety_scores.append(avg_wellbeing * 0.8 + np.random.normal(0, 0.02))
+
+        # Operational resilience (recovery from initial compliance)
+        resilience = 1 - abs(worker_data['task_compliance'].mean() - initial_compliance_avg) / initial_compliance_avg
+        operational_resilience.append(max(0, min(1, resilience)))
+
+        # Efficiency metrics
+        uptime = worker_data['task_compliance'].mean() * 100  # % of time workers are compliant
+        throughput = (1 - (shift / num_shifts)) * 100 * worker_data['task_compliance'].mean()  # Output rate
+        quality = worker_data['task_compliance'].mean() * 100 * (1 - 0.1 * len([s for s in disruption_shifts if s <= shift]))
+        oee = (uptime * throughput * quality) / 10000  # Overall Equipment Effectiveness
+        efficiency_metrics.append({
+            'shift': shift,
+            'uptime': uptime,
+            'throughput': throughput,
+            'quality': quality,
+            'oee': oee
+        })
+        productivity_loss.append((1 - worker_data['task_compliance'].mean()) * 100)
+
+        # Well-being interventions
+        if avg_wellbeing < COMPLIANCE_THRESHOLD:
+            worker_data['task_compliance'] += (break_improvement + ergonomic_improvement) * 0.1
+            threshold_interventions.append(shift)
+            logging.info(f"Shift {shift}: Low well-being intervention applied")
+        if shift >= COMPLIANCE_TREND_WINDOW and all(
+            workstation_wellbeing[ws][-i] < workstation_wellbeing[ws][-i-1]
+            for ws in workstations for i in range(1, COMPLIANCE_TREND_WINDOW)
+        ):
+            worker_data['task_compliance'] += workload_balance_improvement * 0.1
+            trend_interventions.append(shift)
+            logging.info(f"Shift {shift}: Declining well-being trend intervention applied")
+        for ws in workstations:
+            other_wellbeing = [workstation_wellbeing[z][-1] for z in workstations if z != ws]
+            if other_wellbeing and workstation_wellbeing[ws][-1] < min(other_wellbeing) - 0.08:
+                worker_data.loc[worker_data['workstation'] == ws, 'supervisor_present'] = True
+                worker_data.loc[worker_data['workstation'] == ws, 'task_compliance'] += supervisor_improvement * 0.1
+                workstation_interventions[ws].append(shift)
+                logging.info(f"Shift {shift}, Workstation {ws}: Supervisor intervention applied")
+        if any(abs(shift - d) <= DISRUPTION_IMPACT_WINDOW for d in disruption_shifts) and avg_wellbeing < COMPLIANCE_THRESHOLD:
+            worker_data['task_compliance'] += break_improvement * 0.1
+            disruption_interventions.append(shift)
+            logging.info(f"Shift {shift}: Post-disruption recovery intervention applied")
 
         # Worker-initiated actions
         if random.random() < 0.1:
-            team_data['task_adherence'] += worker_action_boost[worker_priority] * 0.1
-            feedback_impact['wellbeing'] += worker_action_boost[worker_priority] * 0.05
-            feedback_impact['cohesion'] += worker_action_boost[worker_priority] * 0.03
-            worker_actions_applied += 1
-            logging.debug(f"Step {step}: Applied worker action {worker_priority}")
+            worker_data['task_compliance'] += worker_initiative_impact[worker_initiative] * 0.1
+            worker_feedback_impact['wellbeing'] += worker_initiative_impact[worker_initiative] * 0.05
+            worker_feedback_impact['cohesion'] += worker_initiative_impact[worker_initiative] * 0.03
+            worker_initiatives_applied += 1
+            logging.info(f"Shift {shift}: Worker-initiated action '{worker_initiative}' applied")
 
-        # Generate synthetic positions with validation
-        positions = []
-        for area in areas:
-            center_x, center_y = WORK_AREAS[area]["center"]
-            for _ in range(members_per_area):
-                x = np.clip(np.random.normal(center_x, 10), 0, workplace_size)
-                y = np.clip(np.random.normal(center_y, 10), 0, workplace_size)
-                if not (np.isfinite(x) and np.isfinite(y)):
-                    logging.warning(f"Step {step}, Area {area}: Invalid position (x={x}, y={y}), setting to center")
-                    x, y = center_x, center_y
-                positions.append({'area': area, 'x': x, 'y': y, 'step': step})
-        if not positions:
-            logging.error(f"Step {step}: No positions generated")
-            raise ValueError("No positions generated for history_df")
-        step_df = pd.DataFrame(positions)
-        history.append(step_df)
-        logging.debug(f"Step {step}: Generated {len(step_df)} positions")
+    worker_positions_df = pd.concat(worker_positions).reset_index(drop=True)
+    if worker_positions_df.empty or not {'x', 'y', 'workstation', 'shift'}.issubset(worker_positions_df.columns):
+        logging.error("Invalid worker_positions_df: Empty or missing required columns")
+        raise ValueError("Invalid worker_positions_df: Empty or missing required columns")
+    logging.info(f"Generated worker_positions_df with {len(worker_positions_df)} rows")
 
-    history_df = pd.concat(history).reset_index(drop=True)
-    if history_df.empty or not {'x', 'y', 'area', 'step'}.issubset(history_df.columns):
-        logging.error("Invalid history_df: Empty or missing required columns")
-        raise ValueError("Invalid history_df: Empty or missing required columns")
-    logging.debug(f"Generated history_df with {len(history_df)} rows")
+    efficiency_metrics_df = pd.DataFrame(efficiency_metrics)
 
-    # Forecasting
-    adherence_forecast = None
-    clustering_forecast = None
+    # Forecast compliance and collaboration trends
+    compliance_forecast = None
+    collaboration_forecast = None
     if not skip_forecast:
         try:
-            X = np.arange(num_steps).reshape(-1, 1)
-            adherence_entropy = np.nan_to_num(adherence_entropy, nan=0.0)
-            clustering_index = np.nan_to_num(clustering_index, nan=0.5)
-            if np.any(~np.isfinite(adherence_entropy)) or np.any(~np.isfinite(clustering_index)):
-                logging.error("Non-finite values in adherence_entropy or clustering_index")
+            X = np.arange(num_shifts).reshape(-1, 1)
+            compliance_variability = np.nan_to_num(compliance_variability, nan=0.0)
+            collaboration_index = np.nan_to_num(collaboration_index, nan=0.5)
+            if np.any(~np.isfinite(compliance_variability)) or np.any(~np.isfinite(collaboration_index)):
+                logging.error("Non-finite values in compliance_variability or collaboration_index")
                 raise ValueError("Invalid data for forecasting")
-            model_adherence = LinearRegression().fit(X, adherence_entropy)
-            model_clustering = LinearRegression().fit(X, clustering_index)
-            future_steps = np.arange(num_steps, num_steps + 10).reshape(-1, 1)
-            adherence_forecast = model_adherence.predict(future_steps)
-            clustering_forecast = model_clustering.predict(future_steps)
-            logging.debug("Forecasting completed successfully")
+            model_compliance = LinearRegression().fit(X, compliance_variability)
+            model_collaboration = LinearRegression().fit(X, collaboration_index)
+            future_shifts = np.arange(num_shifts, num_shifts + 10).reshape(-1, 1)
+            compliance_forecast = model_compliance.predict(future_shifts)
+            collaboration_forecast = model_collaboration.predict(future_shifts)
+            logging.info("Forecasting completed successfully")
         except Exception as e:
             logging.error(f"Forecasting failed: {str(e)}")
             if not skip_forecast:
                 raise
 
     return (
-        history_df,
-        {'data': adherence_entropy, 'z_scores': zscore(np.nan_to_num(adherence_entropy, nan=0.0)), 'forecast': adherence_forecast},
-        {'data': clustering_index, 'z_scores': zscore(np.nan_to_num(clustering_index, nan=0.5)), 'forecast': clustering_forecast},
-        resilience_scores,
-        efficiency_history,
+        worker_positions_df,
+        {'data': compliance_variability, 'z_scores': zscore(np.nan_to_num(compliance_variability, nan=0.0)), 'forecast': compliance_forecast},
+        {'data': collaboration_index, 'z_scores': zscore(np.nan_to_num(collaboration_index, nan=0.5)), 'forecast': collaboration_forecast},
+        operational_resilience,
+        efficiency_metrics_df,
         productivity_loss,
-        {'scores': wellbeing_scores, 'triggers': {
-            'threshold': threshold_triggers,
-            'trend': trend_triggers,
-            'zone': area_triggers,
-            'disruption': disruption_triggers
+        {'scores': worker_wellbeing_scores, 'triggers': {
+            'threshold': threshold_interventions,
+            'trend': trend_interventions,
+            'workstation': workstation_interventions,
+            'disruption': disruption_interventions
         }},
         safety_scores,
-        feedback_impact
+        worker_feedback_impact
     )
 
-def plot_compliance_variability(adherence_entropy, disruption_steps, forecast=None):
-    """Plot task adherence trends."""
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(adherence_entropy, label="Adherence (Lower = Uniform)", color='#1f77b4')
+def plot_task_compliance_trend(compliance_variability, disruption_shifts, forecast=None):
+    """Plot task compliance variability trend to identify operational inconsistencies."""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(compliance_variability, label="Task Compliance Variability (Lower = Consistent)", color='#1f77b4')
     if forecast is not None:
-        ax.plot(range(len(adherence_entropy), len(adherence_entropy) + 10), forecast, '--', label="Predicted", color='#ff7f0e')
-    for i, s in enumerate(disruption_steps):
-        label = "Disruption" if i == 0 else "Shift Change"
+        ax.plot(range(len(compliance_variability), len(compliance_variability) + 10), forecast, '--',
+                label="Forecasted Variability", color='#ff7f0e')
+    for i, s in enumerate(disruption_shifts):
+        label = "Equipment Failure" if i == 0 else "Shift Change Disruption"
         ax.axvline(x=s, color='red', linestyle='--', label=label)
-    ax.set_xlabel("Shift Time (2-min)")
-    ax.set_ylabel("Adherence Variation")
-    ax.set_title("Task Adherence Trends")
+    ax.set_xlabel("Shift Interval (2-min)")
+    ax.set_ylabel("Compliance Variability (Entropy)")
+    ax.set_title("Task Compliance Consistency Over Time")
     ax.legend(loc='upper right')
     ax.grid(True, linestyle='--', alpha=0.7)
     return fig
 
-def plot_team_clustering(clustering_index, forecast=None):
-    """Plot team collaboration trends."""
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(clustering_index, label="Collaboration (Higher = Stronger)", color='#2ca02c')
+def plot_worker_collaboration_trend(collaboration_index, forecast=None):
+    """Plot worker collaboration trend to assess teamwork strength."""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(collaboration_index, label="Collaboration Index (Higher = Stronger Teamwork)", color='#2ca02c')
     if forecast is not None:
-        ax.plot(range(len(clustering_index), len(clustering_index) + 10), forecast, '--', label="Predicted", color='#d62728')
-    ax.set_xlabel("Shift Time (2-min)")
-    ax.set_ylabel("Collaboration Score")
-    ax.set_title("Team Collaboration Trends")
+        ax.plot(range(len(collaboration_index), len(collaboration_index) + 10), forecast, '--',
+                label="Forecasted Collaboration", color='#d62728')
+    ax.set_xlabel("Shift Interval (2-min)")
+    ax.set_ylabel("Collaboration Index (m)")
+    ax.set_title("Worker Collaboration Strength Over Time")
     ax.legend(loc='upper right')
     ax.grid(True, linestyle='--', alpha=0.7)
     return fig
 
-def plot_resilience(resilience_scores):
-    """Plot team resilience trends."""
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(resilience_scores, label="Resilience (1 = Full Recovery)", color='#9467bd')
-    ax.set_xlabel("Shift Time (2-min)")
+def plot_operational_resilience(operational_resilience):
+    """Plot operational resilience to evaluate recovery from disruptions."""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(operational_resilience, label="Resilience Score (1 = Full Recovery)", color='#9467bd')
+    ax.set_xlabel("Shift Interval (2-min)")
     ax.set_ylabel("Resilience Score")
-    ax.set_title("Team Resilience Trends")
+    ax.set_title("Operational Resilience Over Time")
     ax.legend(loc='upper right')
     ax.grid(True, linestyle='--', alpha=0.7)
     return fig
 
-def plot_oee(efficiency_df):
-    """Plot operational efficiency trends."""
-    fig, ax = plt.subplots(figsize=(8, 4))
-    efficiency_df.set_index('step')[['uptime', 'throughput', 'quality', 'efficiency']].plot(
+def plot_operational_efficiency(efficiency_metrics_df):
+    """Plot operational efficiency metrics (OEE) to monitor performance."""
+    if efficiency_metrics_df.empty:
+        logging.warning("Empty efficiency_metrics_df, returning empty plot")
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.text(0.5, 0.5, "No efficiency data available", ha='center', va='center')
+        return fig
+    fig, ax = plt.subplots(figsize=(10, 5))
+    efficiency_metrics_df.set_index('shift')[['uptime', 'throughput', 'quality', 'oee']].plot(
         ax=ax,
         color=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'],
-        label=['Uptime (>90%)', 'Throughput (>85%)', 'Quality (>97%)', 'Efficiency']
+        label=['Uptime (% Operational)', 'Throughput (% Output)', 'Quality (% Defect-Free)', 'OEE (%)']
     )
-    ax.set_ylabel("Efficiency (%)")
-    ax.set_xlabel("Shift Time (2-min)")
-    ax.set_title("Operational Efficiency Trends")
+    ax.set_ylabel("Performance (%)")
+    ax.set_xlabel("Shift Interval (2-min)")
+    ax.set_title("Operational Efficiency (OEE) Metrics")
     ax.legend(loc='lower left')
     ax.grid(True, linestyle='--', alpha=0.7)
     return fig
 
-def plot_worker_density(history_df, workplace_size, use_plotly=True):
-    """Plot workplace activity and density with enhanced interactivity."""
-    from config import WORK_AREAS
-    area_colors = px.colors.qualitative.Plotly[:len(WORK_AREAS)]  # Assign unique colors to areas
-    area_color_map = {area: color for area, color in zip(WORK_AREAS.keys(), area_colors)}
+def plot_worker_distribution(worker_positions_df, facility_size, config=None, use_plotly=True):
+    """Plot worker distribution and density to optimize facility layout and movement."""
+    config = config if config is not None else DEFAULT_CONFIG
+    WORKSTATIONS = config['WORKSTATIONS']
+    area_colors = px.colors.qualitative.Plotly[:len(WORKSTATIONS)]
+    workstation_color_map = {ws: color for ws, color in zip(WORKSTATIONS.keys(), area_colors)}
 
     if use_plotly:
         try:
-            if history_df.empty or not {'x', 'y', 'area', 'step'}.issubset(history_df.columns):
-                logging.error("Invalid history_df: Missing x, y, area, or step columns")
-                raise ValueError("Invalid history_df: Missing x, y, area, or step columns")
+            if worker_positions_df.empty or not {'x', 'y', 'workstation', 'shift'}.issubset(worker_positions_df.columns):
+                logging.error("Invalid worker_positions_df: Missing x, y, workstation, or shift columns")
+                raise ValueError("Invalid worker_positions_df: Missing x, y, workstation, or shift columns")
 
-            # Create hexbin plot
             fig = go.Figure()
-
-            # Add hexbin trace
             hexbin = ff.create_hexbin_mapbox(
-                data_frame=history_df,
+                data_frame=worker_positions_df,
                 lat='y', lon='x',
                 nx_hexagon=20,
                 opacity=0.7,
                 min_count=1,
                 color_continuous_scale='Viridis',
-                labels={'color': 'Team Members'},
+                labels={'color': 'Worker Density'},
                 show_original_data=False
             ).data[0]
             fig.add_trace(hexbin)
 
-            # Add scatter points for team members, colored by area
-            for area in WORK_AREAS:
-                area_df = history_df[history_df['area'] == area]
-                if not area_df.empty:
+            for ws in WORKSTATIONS:
+                ws_df = worker_positions_df[worker_positions_df['workstation'] == ws]
+                if not ws_df.empty:
                     fig.add_trace(go.Scatter(
-                        x=area_df['x'],
-                        y=area_df['y'],
+                        x=ws_df['x'],
+                        y=ws_df['y'],
                         mode='markers',
-                        name=WORK_AREAS[area]["label"],
-                        marker=dict(size=8, color=area_color_map[area], opacity=0.5),
-                        text=[f"Area: {area}<br>Step: {row['step']}<br>Team Members: 1" for _, row in area_df.iterrows()],
+                        name=WORKSTATIONS[ws]["label"],
+                        marker=dict(size=8, color=workstation_color_map[ws], opacity=0.5),
+                        text=[f"Workstation: {ws}<br>Shift: {row['shift']}<br>Workers: 1" for _, row in ws_df.iterrows()],
                         hoverinfo='text'
                     ))
 
-            # Add area center annotations
-            for area in WORK_AREAS:
-                x, y = WORK_AREAS[area]["center"]
+            for ws in WORKSTATIONS:
+                x, y = WORKSTATIONS[ws]["center"]
                 fig.add_annotation(
                     x=x, y=y,
-                    text=WORK_AREAS[area]["label"],
+                    text=WORKSTATIONS[ws]["label"],
                     showarrow=False,
                     font=dict(size=12, color='white', family='Arial Black'),
                     bgcolor='black',
                     opacity=0.8
                 )
 
-            # Add workplace boundary
             fig.add_trace(go.Scatter(
-                x=[0, workplace_size, workplace_size, 0, 0],
-                y=[0, 0, workplace_size, workplace_size, 0],
+                x=[0, facility_size, facility_size, 0, 0],
+                y=[0, 0, facility_size, facility_size, 0],
                 mode='lines',
                 line=dict(color='black', width=1, dash='dash'),
-                name='Workplace Boundary',
+                name='Facility Boundary',
                 showlegend=False
             ))
 
-            # Update layout
             fig.update_layout(
-                title="Workplace Activity & Density",
-                xaxis_title="Workplace Width (m)",
-                yaxis_title="Workplace Length (m)",
-                xaxis_range=[-10, workplace_size + 10],
-                yaxis_range=[-10, workplace_size + 10],
+                title="Worker Distribution and Density in Facility",
+                xaxis_title="Facility Width (m)",
+                yaxis_title="Facility Length (m)",
+                xaxis_range=[-10, facility_size + 10],
+                yaxis_range=[-10, facility_size + 10],
                 showlegend=True,
-                coloraxis_colorbar_title="Team Members",
+                coloraxis_colorbar_title="Worker Density",
                 margin=dict(l=40, r=40, t=60, b=40),
-                uirevision='constant'  # Preserve zoom state
+                uirevision='constant'
             )
 
-            # Add interactive controls
-            # Area filter dropdown
-            area_buttons = [
+            workstation_buttons = [
                 dict(
-                    label="All Areas",
+                    label="All Workstations",
                     method="update",
                     args=[{"visible": [True] * len(fig.data)},
-                          {"title": "Workplace Activity & Density"}]
+                          {"title": "Worker Distribution and Density in Facility"}]
                 )
             ]
-            for i, area in enumerate(WORK_AREAS, start=1):
-                visible = [True if j == 0 or j == i or j == len(WORK_AREAS) + 1 else False for j in range(len(fig.data))]
-                area_buttons.append(
+            for i, ws in enumerate(WORKSTATIONS, start=1):
+                visible = [True if j == 0 or j == i or j == len(WORKSTATIONS) + 1 else False for j in range(len(fig.data))]
+                workstation_buttons.append(
                     dict(
-                        label=WORK_AREAS[area]["label"],
+                        label=WORKSTATIONS[ws]["label"],
                         method="update",
                         args=[{"visible": visible},
-                              {"title": f"Activity & Density: {WORK_AREAS[area]['label']}"}]
+                              {"title": f"Worker Distribution: {WORKSTATIONS[ws]['label']}"}]
                     )
                 )
 
-            # Time slider for animation
             steps = []
-            for step in sorted(history_df['step'].unique()):
-                step_visible = [True if j == 0 or j == len(WORK_AREAS) + 1 else history_df[history_df['step'] == step]['area'].isin([area for area, _ in zip(WORK_AREAS, range(j-1))]).any() for j in range(len(fig.data))]
+            for shift in sorted(worker_positions_df['shift'].unique()):
+                shift_visible = [
+                    True if j == 0 or j == len(WORKSTATIONS) + 1 else
+                    worker_positions_df[worker_positions_df['shift'] == shift]['workstation'].isin(
+                        [ws for ws, _ in zip(WORKSTATIONS, range(j-1))]
+                    ).any() for j in range(len(fig.data))
+                ]
                 steps.append(
                     dict(
                         method="update",
-                        args=[{"visible": step_visible},
-                              {"title": f"Activity & Density at Step {step}"}],
-                        label=str(step)
+                        args=[{"visible": shift_visible},
+                              {"title": f"Worker Distribution at Shift {shift}"}],
+                        label=str(shift)
                     )
                 )
 
             fig.update_layout(
                 updatemenus=[
                     dict(
-                        buttons=area_buttons,
+                        buttons=workstation_buttons,
                         direction="down",
                         showactive=True,
                         x=0.1,
@@ -390,7 +498,9 @@ def plot_worker_density(history_df, workplace_size, use_plotly=True):
                     ),
                     dict(
                         type="buttons",
-                        buttons=[dict(label="Reset Zoom", method="relayout", args=["xaxis.range", [-10, workplace_size + 10], "yaxis.range", [-10, workplace_size + 10]])],
+                        buttons=[dict(label="Reset Zoom", method="relayout",
+                                      args=["xaxis.range", [-10, facility_size + 10],
+                                            "yaxis.range", [-10, facility_size + 10]])],
                         x=0.3,
                         xanchor="left",
                         y=1.15,
@@ -410,81 +520,112 @@ def plot_worker_density(history_df, workplace_size, use_plotly=True):
 
             return fig
         except Exception as e:
-            logging.warning(f"Plotly hexbin failed: {str(e)}. Falling back to Matplotlib.")
+            logging.warning(f"Plotly visualization failed: {str(e)}. Falling back to Matplotlib.")
 
     # Matplotlib fallback
-    fig, ax = plt.subplots(figsize=(8, 6))
-    if history_df.empty or not {'x', 'y', 'area'}.issubset(history_df.columns):
-        logging.warning("Empty or invalid history_df, returning minimal plot")
-        ax.text(0.5, 0.5, "No activity data", ha='center', va='center')
-        ax.set_xlim(0, workplace_size)
-        ax.set_ylim(0, workplace_size)
+    fig, ax = plt.subplots(figsize=(10, 6))
+    if worker_positions_df.empty or not {'x', 'y', 'workstation'}.issubset(worker_positions_df.columns):
+        logging.warning("Empty or invalid worker_positions_df, returning minimal plot")
+        ax.text(0.5, 0.5, "No worker distribution data", ha='center', va='center')
+        ax.set_xlim(0, facility_size)
+        ax.set_ylim(0, facility_size)
     else:
-        # Hexbin plot
         hb = plt.hexbin(
-            history_df['x'], history_df['y'],
+            worker_positions_df['x'], worker_positions_df['y'],
             gridsize=20, cmap='viridis', mincnt=1,
-            extent=(0, workplace_size, 0, workplace_size)
+            extent=(0, facility_size, 0, facility_size)
         )
-        cb = plt.colorbar(hb, label='Team Members')
+        cb = plt.colorbar(hb, label='Worker Density')
         counts = hb.get_array()
         if len(counts) > 0:
             min_count = 1
             max_count = np.max(counts)
             cb.set_ticks([min_count, max_count])
-            cb.set_ticklabels(['1 Member', f'{int(max_count)} Members'])
+            cb.set_ticklabels(['1 Worker', f'{int(max_count)} Workers'])
         else:
             cb.set_ticks([1, 10])
-            cb.set_ticklabels(['1 Member', '10 Members'])
+            cb.set_ticklabels(['1 Worker', '10 Workers'])
 
-        # Scatter points for team members
-        for area in WORK_AREAS:
-            area_df = history_df[history_df['area'] == area]
-            if not area_df.empty:
+        for ws in WORKSTATIONS:
+            ws_df = worker_positions_df[worker_positions_df['workstation'] == ws]
+            if not ws_df.empty:
                 ax.scatter(
-                    area_df['x'], area_df['y'],
-                    c=area_color_map[area], s=50, alpha=0.5, label=WORK_AREAS[area]["label"]
+                    ws_df['x'], ws_df['y'],
+                    c=workstation_color_map[ws], s=50, alpha=0.5, label=WORKSTATIONS[ws]["label"]
                 )
 
-    # Workplace boundary
-    ax.plot([0, workplace_size], [0, 0], 'k--', lw=1)
-    ax.plot([0, workplace_size], [workplace_size, workplace_size], 'k--', lw=1)
-    ax.plot([0, 0], [0, workplace_size], 'k--', lw=1)
-    ax.plot([workplace_size, workplace_size], [0, workplace_size], 'k--', lw=1)
+    ax.plot([0, facility_size], [0, 0], 'k--', lw=1)
+    ax.plot([0, facility_size], [facility_size, facility_size], 'k--', lw=1)
+    ax.plot([0, 0], [0, facility_size], 'k--', lw=1)
+    ax.plot([facility_size, facility_size], [0, facility_size], 'k--', lw=1)
 
-    # Area labels
-    for area in WORK_AREAS:
-        x, y = WORK_AREAS[area]["center"]
-        ax.text(x, y, WORK_AREAS[area]["label"], color='white', ha='center', va='center',
+    for ws in WORKSTATIONS:
+        x, y = WORKSTATIONS[ws]["center"]
+        ax.text(x, y, WORKSTATIONS[ws]["label"], color='white', ha='center', va='center',
                 bbox=dict(facecolor='black', alpha=0.5, edgecolor='none'))
 
-    ax.set_title("Workplace Activity & Density")
-    ax.set_xlabel("Workplace Width (m)")
-    ax.set_ylabel("Workplace Length (m)")
-    ax.set_xlim(0, workplace_size)
-    ax.set_ylim(0, workplace_size)
+    ax.set_title("Worker Distribution and Density in Facility")
+    ax.set_xlabel("Facility Width (m)")
+    ax.set_ylabel("Facility Length (m)")
+    ax.set_xlim(0, facility_size)
+    ax.set_ylim(0, facility_size)
     ax.grid(True, linestyle='--', alpha=0.5)
     ax.legend()
     return fig
 
-def plot_wellbeing(wellbeing_scores):
-    """Plot team well-being trends."""
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(wellbeing_scores, label="Well-Being (1 = Optimal)", color='#17becf')
-    ax.set_xlabel("Shift Time (2-min)")
+def plot_worker_wellbeing(wellbeing_scores):
+    """Plot worker well-being trend to assess workforce health and morale."""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(wellbeing_scores, label="Well-Being Score (1 = Optimal Health)", color='#17becf')
+    ax.set_xlabel("Shift Interval (2-min)")
     ax.set_ylabel("Well-Being Score")
-    ax.set_title("Team Well-Being Trends")
+    ax.set_title("Worker Well-Being Over Time")
     ax.legend(loc='upper right')
     ax.grid(True, linestyle='--', alpha=0.7)
     return fig
 
 def plot_psychological_safety(safety_scores):
-    """Plot psychological safety trends."""
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(safety_scores, label="Safety (1 = High Trust)", color='#ff9896')
-    ax.set_xlabel("Shift Time (2-min)")
+    """Plot psychological safety trend to evaluate trust and communication."""
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(safety_scores, label="Psychological Safety (1 = High Trust)", color='#ff9896')
+    ax.set_xlabel("Shift Interval (2-min)")
     ax.set_ylabel("Safety Score")
-    ax.set_title("Psychological Safety Trends")
+    ax.set_title("Psychological Safety in Workplace")
     ax.legend(loc='upper right')
     ax.grid(True, linestyle='--', alpha=0.7)
     return fig
+
+# Example usage
+if __name__ == "__main__":
+    # Run simulation
+    results = simulate_workplace_operations(
+        num_workers=20,
+        num_shifts=50,
+        facility_size=200,
+        compliance_adjustment_rate=0.1,
+        supervisor_impact_factor=0.2,
+        disruption_shifts=[10, 30],
+        worker_initiative='More frequent breaks'
+    )
+    (
+        worker_positions_df,
+        compliance_variability,
+        collaboration_index,
+        operational_resilience,
+        efficiency_metrics_df,
+        productivity_loss,
+        worker_wellbeing,
+        safety_scores,
+        worker_feedback_impact
+    ) = results
+
+    # Generate plots
+    plt.figure(plot_task_compliance_trend(compliance_variability['data'], [10, 30], compliance_variability['forecast']))
+    plt.figure(plot_worker_collaboration_trend(collaboration_index['data'], collaboration_index['forecast']))
+    plt.figure(plot_operational_resilience(operational_resilience))
+    plt.figure(plot_operational_efficiency(efficiency_metrics_df))
+    plt.figure(plot_worker_distribution(worker_positions_df, 200))
+    plt.figure(plot_worker_wellbeing(worker_wellbeing['scores']))
+    plt.figure(plot_psychological_safety(safety_scores))
+    plt.show()
+```
