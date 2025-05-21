@@ -2,9 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.cluster import KMeans
-from sklearn.neighbors import KDTree
-from scipy.stats import entropy, zscore
+from scipy.stats import entropy, zscore, beta
 from sklearn.linear_model import LinearRegression
 import random
 
@@ -12,9 +10,11 @@ import random
 np.random.seed(42)
 random.seed(42)
 
-def initialize_operators(num_operators, factory_size):
-    """Initialize operators with positions, SOP compliance, and roles."""
-    return pd.DataFrame({
+def generate_synthetic_data(num_operators, num_steps, factory_size, adaptation_rate, supervisor_influence, disruption_steps):
+    """Generate synthetic factory operations data for one shift."""
+    # Initialize operator data
+    operators = pd.DataFrame({
+        'operator_id': range(num_operators),
         'x': np.random.uniform(0, factory_size, num_operators),
         'y': np.random.uniform(0, factory_size, num_operators),
         'sop_compliance': np.random.uniform(0.7, 0.95, num_operators),
@@ -22,25 +22,7 @@ def initialize_operators(num_operators, factory_size):
         'zone': np.random.choice(['assembly', 'maintenance', 'packaging'], num_operators)
     })
 
-def environmental_impact(x, y, zone):
-    """Apply environmental impact based on work zone."""
-    if zone == 'assembly' and 20 < x < 40 and 20 < y < 40:
-        return -0.05
-    elif zone == 'maintenance' and 60 < x < 80 and 60 < y < 80:
-        return -0.03
-    return 0.0
-
-def get_neighbors_kdtree(df, idx, radius=5):
-    """Find nearby operators using KDTree (5-meter radius)."""
-    tree = KDTree(df[['x', 'y']].values)
-    ax, ay = df.loc[idx, ['x', 'y']]
-    indices = tree.query_radius([[ax, ay]], r=radius)[0]
-    indices = indices[indices != idx]
-    return df.iloc[indices]
-
-def run_simulation(num_operators, num_steps, factory_size, adaptation_rate, supervisor_influence, disruption_steps):
-    """Simulate factory operations over one shift."""
-    operators = initialize_operators(num_operators, factory_size)
+    # Initialize time-series data
     history = []
     compliance_entropy = []
     clustering_index = []
@@ -49,30 +31,35 @@ def run_simulation(num_operators, num_steps, factory_size, adaptation_rate, supe
     productivity_loss = []
     initial_compliance_avg = operators['sop_compliance'].mean()
 
+    # Generate data for each time step
     for step in range(num_steps):
+        # Simulate disruptions
         if step in disruption_steps:
             event = "Machine Breakdown" if step == disruption_steps[0] else "Shift Change"
             leader_indices = operators[operators['role'] == 'supervisor'].sample(frac=0.3).index
             operators.loc[leader_indices, 'role'] = 'operator'
-            operators['sop_compliance'] *= 0.9
+            operators['sop_compliance'] *= 0.9  # 10% compliance drop
 
+        # Update SOP compliance with zone effects and supervisor influence
         for i in operators.index:
-            neighbors = get_neighbors_kdtree(operators, i)
-            if not neighbors.empty:
-                supervisors = neighbors[neighbors['role'] == 'supervisor']
-                operators_subset = neighbors[neighbors['role'] == 'operator']
-                avg_compliance = 0
-                if not supervisors.empty:
-                    avg_compliance += supervisor_influence * supervisors['sop_compliance'].mean()
-                if not operators_subset.empty:
-                    avg_compliance += (1 - supervisor_influence) * operators_subset['sop_compliance'].mean()
-                delta = avg_compliance - operators.loc[i, 'sop_compliance']
-                operators.loc[i, 'sop_compliance'] += adaptation_rate * np.tanh(delta)
-
-            x, y, zone = operators.loc[i, ['x', 'y', 'zone']]
-            operators.loc[i, 'sop_compliance'] += environmental_impact(x, y, zone)
+            zone = operators.loc[i, 'zone']
+            x, y = operators.loc[i, ['x', 'y']]
+            # Zone-specific compliance variability
+            compliance_noise = np.random.normal(0, 0.02 if zone == 'assembly' else 0.01)
+            # Supervisor influence
+            supervisors = operators[operators['role'] == 'supervisor']
+            if not supervisors.empty:
+                avg_supervisor_compliance = supervisors['sop_compliance'].mean()
+                operators.loc[i, 'sop_compliance'] += adaptation_rate * supervisor_influence * (avg_supervisor_compliance - operators.loc[i, 'sop_compliance'])
+            # Apply zone effects
+            if zone == 'assembly' and 20 < x < 40 and 20 < y < 40:
+                operators.loc[i, 'sop_compliance'] -= 0.05
+            elif zone == 'maintenance' and 60 < x < 80 and 60 < y < 80:
+                operators.loc[i, 'sop_compliance'] -= 0.03
+            operators.loc[i, 'sop_compliance'] += compliance_noise
             operators.loc[i, 'sop_compliance'] = np.clip(operators.loc[i, 'sop_compliance'], 0.5, 1.0)
 
+        # Simulate movement
         operators['x'] += np.random.uniform(-0.5, 0.5, num_operators)
         operators['y'] += np.random.uniform(-0.5, 0.5, num_operators)
         operators['x'] = operators['x'].clip(0, factory_size - 1)
@@ -80,17 +67,22 @@ def run_simulation(num_operators, num_steps, factory_size, adaptation_rate, supe
         operators['step'] = step
         history.append(operators.copy())
 
+        # Compliance variability (entropy)
         hist, _ = np.histogram(operators['sop_compliance'], bins=10, range=(0.5, 1.0), density=True)
         ent = entropy(hist + 1e-9)
         compliance_entropy.append(ent)
 
-        kmeans = KMeans(n_clusters=3, n_init=10, random_state=42)
-        kmeans.fit(operators[['x', 'y', 'sop_compliance']])
-        clustering_index.append(kmeans.inertia_)
+        # Team clustering (synthetic inertia based on positions and compliance)
+        distances = np.sqrt((operators['x'] - operators['x'].mean())**2 + (operators['y'] - operators['y'].mean())**2)
+        compliance_var = operators['sop_compliance'].std()
+        inertia = np.mean(distances) * (1 + compliance_var) + np.random.normal(0, 10)
+        clustering_index.append(max(inertia, 0))
 
+        # Resilience: recovery from initial compliance
         deviation = abs(operators['sop_compliance'].mean() - initial_compliance_avg)
         resilience_scores.append(1 - deviation / initial_compliance_avg)
 
+        # OEE: tied to compliance
         avg_compliance = operators['sop_compliance'].mean()
         availability = min(0.90 + 0.1 * avg_compliance, 0.95) + np.random.normal(0, 0.005)
         performance = min(0.85 + 0.1 * avg_compliance, 0.90) + np.random.normal(0, 0.005)
@@ -104,6 +96,7 @@ def run_simulation(num_operators, num_steps, factory_size, adaptation_rate, supe
             'oee': oee
         })
 
+        # Productivity loss
         loss = max(0, initial_compliance_avg - operators['sop_compliance'].mean()) * 100
         productivity_loss.append(loss)
 
@@ -116,7 +109,7 @@ def run_simulation(num_operators, num_steps, factory_size, adaptation_rate, supe
     clustering_forecast = model_clustering.predict(future_steps)
 
     return (
-        pd.concat(history).reset_index(),
+        pd.concat(history).reset_index(drop=True),
         {'data': compliance_entropy, 'z_scores': zscore(compliance_entropy), 'forecast': compliance_forecast},
         {'data': clustering_index, 'z_scores': zscore(clustering_index), 'forecast': clustering_forecast},
         resilience_scores,
