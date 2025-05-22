@@ -1,8 +1,6 @@
-"""
-main.py
-Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
-Enhanced for better display clarity, reduced overcrowding, and improved navigation flow.
-"""
+# main.py
+# Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
+# Enhanced for better display clarity, reduced overcrowding, and improved navigation flow.
 
 import logging
 import streamlit as st
@@ -437,8 +435,6 @@ def main():
     
     # Overview Tab
     with tabs[0]:
-        if quick_nav == "Overview":
-            st.session_state.quick_nav = 0
         st.header("Overview")
         st.markdown(
             '<div class="tooltip">Key Metrics Summary<span class="tooltiptext">High-level metrics for Task Compliance, Collaboration Proximity, Worker Well-Being, and Downtime with actionable recommendations.</span></div>',
@@ -468,8 +464,6 @@ def main():
 
     # Operational Metrics Tab
     with tabs[1]:
-        if quick_nav == "Operational Metrics":
-            st.session_state.quick_nav = 1
         st.header("Operational Metrics")
         st.markdown(
             '<div class="tooltip">Performance Trends<span class="tooltiptext">Trends for task compliance, collaboration, operational recovery, and efficiency metrics over time.</span></div>',
@@ -516,8 +510,6 @@ def main():
 
     # Worker Insights Tab
     with tabs[2]:
-        if quick_nav == "Worker Insights":
-            st.session_state.quick_nav = 2
         st.header("Worker Insights")
         st.markdown(
             '<div class="tooltip">Worker Metrics<span class="tooltiptext">Worker distribution, well-being, and psychological safety metrics.</span></div>',
@@ -635,8 +627,6 @@ def main():
 
     # Downtime Tab
     with tabs[3]:
-        if quick_nav == "Downtime":
-            st.session_state.quick_nav = 3
         st.header("Downtime Analysis")
         st.markdown(
             '<div class="tooltip">Downtime Trends<span class="tooltiptext">Downtime in minutes with alerts for high values.</span></div>',
@@ -661,8 +651,6 @@ def main():
 
     # Glossary Tab
     with tabs[4]:
-        if quick_nav == "Glossary":
-            st.session_state.quick_nav = 4
         st.header("Glossary")
         st.markdown("""
             ### Metric Definitions
@@ -776,7 +764,7 @@ def developer_guide():
     - **Testing**:
       - Run simulations with various parameters.
       - Test high-contrast mode and responsiveness.
-      - Check `dashboard.log` for errors (last error at 09:42 PM PDT; current time is 09:45 PM PDT).
+      - Check `dashboard.log` for errors (last error at 09:42 PM PDT; current time is 09:59 PM PDT).
     """
 
 if __name__ == "__main__":
