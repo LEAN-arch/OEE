@@ -233,6 +233,19 @@ if run_simulation:
         config['SHIFT_DURATION_INTERVALS'] = shift_duration // 2
         config['DISRUPTION_INTERVALS'] = [t // 2 for t in disruption_intervals]
         
+        # Update WORK_AREAS worker counts to match new TEAM_SIZE
+        total_current_workers = sum(zone['workers'] for zone in config['WORK_AREAS'].values())
+        if total_current_workers != team_size:
+            ratio = team_size / total_current_workers
+            for zone in config['WORK_AREAS'].values():
+                zone['workers'] = int(zone['workers'] * ratio)
+            # Adjust for rounding errors
+            current_sum = sum(zone['workers'] for zone in config['WORK_AREAS'].values())
+            if current_sum != team_size:
+                diff = team_size - current_sum
+                config['WORK_AREAS']['Assembly Line']['workers'] += diff
+        
+        validate_config(config)  # Validate the updated config
         logger.info("Running simulation with team_size=%d, shift_duration=%d min", team_size, shift_duration)
         simulation_results = simulate_workplace_operations(
             num_team_members=team_size,
