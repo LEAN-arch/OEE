@@ -91,69 +91,121 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
 
 def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_scores):
     """
-    Plot task compliance with enhanced interactivity.
+    Plot task compliance with enhanced interactivity and input validation.
     """
-    minutes = [i * 2 for i in range(len(compliance_scores))]
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=minutes,
-        y=compliance_scores,
-        mode='lines+markers',
-        name='Task Compliance',
-        line=dict(color='#4F46E5', width=2.5),
-        marker=dict(size=6, line=dict(width=1, color='#F5F7FA')),
-        hovertemplate='Time: %{x} min<br>Compliance: %{y:.1f}%<br>Z-Score: %{customdata:.2f}<extra></extra>',
-        customdata=z_scores
-    ))
-    if forecast is not None:
+    try:
+        # Validate inputs
+        if not (len(compliance_scores) == len(z_scores) and (forecast is None or len(forecast) == len(compliance_scores))):
+            logger.error(
+                f"Input length mismatch: compliance_scores={len(compliance_scores)}, "
+                f"z_scores={len(z_scores)}, forecast={'None' if forecast is None else len(forecast)}",
+                extra={'user_action': 'Plot Task Compliance'}
+            )
+            raise ValueError("Input arrays must have the same length")
+        
+        # Ensure numeric values
+        compliance_scores = np.array(compliance_scores, dtype=float)
+        z_scores = np.array(z_scores, dtype=float)
+        if forecast is not None:
+            forecast = np.array(forecast, dtype=float)
+        
+        # Check for NaN or invalid values
+        if np.any(np.isnan(compliance_scores)) or np.any(np.isnan(z_scores)) or (forecast is not None and np.any(np.isnan(forecast))):
+            logger.warning(
+                "NaN values detected in inputs; replacing with zeros",
+                extra={'user_action': 'Plot Task Compliance'}
+            )
+            compliance_scores = np.nan_to_num(compliance_scores, nan=0.0)
+            z_scores = np.nan_to_num(z_scores, nan=0.0)
+            if forecast is not None:
+                forecast = np.nan_to_num(forecast, nan=0.0)
+
+        minutes = [i * 2 for i in range(len(compliance_scores))]
+        fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=minutes,
-            y=forecast,
-            mode='lines',
-            name='Forecast',
-            line=dict(color='#FBBF24', width=1.5, dash='dash'),
-            hovertemplate='Time: %{x} min<br>Forecast: %{y:.1f}%<extra></extra>'
+            y=compliance_scores,
+            mode='lines+markers',
+            name='Task Compliance',
+            line=dict(color='#4F46E5', width=2.5),
+            marker=dict(size=6, line=dict(width=1, color='#F5F7FA')),
+            hovertemplate='Time: %{x} min<br>Compliance: %{y:.1f}%<br>Z-Score: %{customdata:.2f}<extra></extra>',
+            customdata=z_scores
         ))
-    for disruption in disruptions:
-        if 0 <= disruption < len(minutes):
-            fig.add_vline(
-                x=minutes[disruption],
-                line_dash="dot",
-                line_color="#EF4444",
-                annotation_text="Disruption",
-                annotation_position="top",
-                annotation_font=dict(size=10, color='#EF4444')
-            )
-    annotations = []
-    for i, (score, z) in enumerate(zip(compliance_scores, z_scores)):
-        if abs(z) > 2.0:
-            annotations.append(dict(
-                x=minutes[i],
-                y=score,
-                text=f"Anomaly: {score:.1f}%",
-                showarrow=True,
-                arrowhead=1,
-                ax=20,
-                ay=-30,
-                font=dict(color='#EF4444', size=10)
+        if forecast is not None:
+            fig.add_trace(go.Scatter(
+                x=minutes,
+                y=forecast,
+                mode='lines',
+                name='Forecast',
+                line=dict(color='#FBBF24', width=1.5, dash='dash'),
+                hovertemplate='Time: %{x} min<br>Forecast: %{y:.1f}%<extra></extra>'
             ))
-    fig.update_layout(
-        title=dict(text='Task Compliance Score', x=0.5, font=dict(size=20, family='Inter')),
-        xaxis_title='Time (minutes)',
-        yaxis_title='Score (%)',
-        yaxis=dict(range=[0, 100], gridcolor="#4B5EAA"),
-        font=dict(color='#F5F7FA', size=12, family='Inter'),
-        template='plotly_dark',
-        plot_bgcolor='#1E2A44',
-        paper_bgcolor='#1E2A44',
-        hovermode='x unified',
-        legend=dict(orientation='h', yanchor='top', y=1.1, keepachor='center', x=0.5),
-        annotations=annotations[:5],
-        transition={'duration': 500},
-        showlegend=True,
-        margin=dict(l=40, r=40, t=80, b=40)
-    )
-    return fig
+        for disruption in disruptions:
+            if 0 <= disruption < len(minutes):
+                fig.add_vline(
+                    x=minutes[disruption],
+                    line_dash="dot",
+                    line_color="#EF4444",
+                    annotation_text="Disruption",
+                    annotation_position="top",
+                    annotation_font=dict(size=10, color='#EF4444')
+                )
+        annotations = []
+        for i, (score, z) in enumerate(zip(compliance_scores, z_scores)):
+            if abs(z) > 2.0:
+                annotation = dict(
+                    x=minutes[i],
+                    y=float(score),  # Ensure numeric
+                    text=f"Anomaly: {score:.1f}%",
+                    showarrow=True,
+                    arrowhead=1,
+                    ax=20,
+                    ay=-30,
+                    font=dict(color='#EF4444', size=10)
+                )
+                annotations.append(annotation)
+        
+        # Validate annotations
+        valid_annotations = []
+        for ann in annotations[:5]:  # Limit to 5
+            if isinstance(ann, dict) and all(k in ann for k in ['x', 'y', 'text', 'showarrow']):
+                if isinstance(ann['x'], (int, float)) and isinstance(ann['y'], (int, float)):
+                    valid_annotations.append(ann)
+                else:
+                    logger.warning(
+                        f"Invalid annotation coordinates: x={ann.get('x')}, y={ann.get('y')}",
+                        extra={'user_action': 'Plot Task Compliance'}
+                    )
+            else:
+                logger.warning(
+                    f"Invalid annotation format: {ann}",
+                    extra={'user_action': 'Plot Task Compliance'}
+                )
+
+        fig.update_layout(
+            title=dict(text='Task Compliance Score', x=0.5, font=dict(size=20, family='Inter')),
+            xaxis_title='Time (minutes)',
+            yaxis_title='Score (%)',
+            yaxis=dict(range=[0, 100], gridcolor="#4B5EAA"),
+            font=dict(color='#F5F7FA', size=12, family='Inter'),
+            template='plotly_dark',
+            plot_bgcolor='#1E2A44',
+            paper_bgcolor='#1E2A44',
+            hovermode='x unified',
+            legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='center', x=0.5),
+            annotations=valid_annotations,  # Use validated annotations
+            transition={'duration': 500},
+            showlegend=True,
+            margin=dict(l=40, r=40, t=80, b=40)
+        )
+        return fig
+    except Exception as e:
+        logger.error(
+            f"Failed to plot task compliance: {str(e)}",
+            extra={'user_action': 'Plot Task Compliance'}
+        )
+        raise
 
 def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
     """
@@ -348,7 +400,7 @@ def plot_worker_distribution(df, facility_size, config, use_3d=False, selected_s
             for point in config.get('ENTRY_EXIT_POINTS', []):
                 try:
                     if not isinstance(point, (list, tuple)) or len(point) < 2:
-                        logger.warning(f"Invalid entry/exit point: {point}", extra={'user_action': 'Plot Worker Distribution'})
+                        logger.warning(f"Invalid entry/exit point: {point}", extra={'user_action ARN: Plot Worker Distribution'})
                         continue
                     fig.add_trace(go.Scatter3d(
                         x=[point[0]], y=[point[1]], z=[0],
