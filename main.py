@@ -1,7 +1,6 @@
 # main.py
-# Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
-# Enhanced for professional visuals, seamless UX, accessibility, fixed tab rendering, debug mode, and error handling for plot_task_compliance_score.
-# Improved Worker Insights section with actionable, high-quality visualizations.
+# Streamlit dashboard for Workplace Shift Monitoring Dashboard.
+# Robust fixes for blank Worker Insights display, professional visuals, accessibility, and error handling for plot_task_compliance_score.
 
 import logging
 import streamlit as st
@@ -42,7 +41,6 @@ st.set_page_config(
 # Custom CSS for professional, accessible design
 st.markdown("""
     <style>
-        /* Base Styles */
         .main {
             background-color: #1E2A44;
             color: #F5F7FA;
@@ -178,43 +176,27 @@ st.markdown("""
             padding: 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .summary-card {
-            background-color: #2D3B55;
-            border-radius: 6px;
-            padding: 16px;
-            margin: 12px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .summary-card h4 {
-            color: #F5F7FA;
-            font-size: 1.1rem;
-            margin: 0;
-        }
-        .summary-card p {
-            color: #FBBF24;
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin: 0;
-        }
-        .action-card {
+        .summary-card, .action-card {
             background-color: #2D3B55;
             border-radius: 6px;
             padding: 16px;
             margin: 12px 0;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .action-card h4 {
+        .summary-card h4, .action-card h4 {
             color: #F5F7FA;
             font-size: 1.1rem;
             margin: 0 0 8px;
         }
-        .action-card p {
+        .summary-card p, .action-card p {
             color: #D1D5DB;
             font-size: 0.9rem;
             margin: 0;
+        }
+        .summary-card p.metric {
+            color: #FBBF24;
+            font-size: 1.5rem;
+            font-weight: 600;
         }
         @media (max-width: 768px) {
             .stColumn {
@@ -232,9 +214,7 @@ st.markdown("""
                 font-size: 0.9rem;
             }
             .summary-card, .action-card {
-                flex-direction: column;
                 text-align: center;
-                gap: 8px;
             }
         }
         .spinner {
@@ -276,12 +256,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Function to display a loading spinner
-def display_loading(message):
-    with st.container():
-        st.markdown(f'<div class="spinner"></div><p style="text-align: center; color: #F5F7FA;">{message}</p>', unsafe_allow_html=True)
-
-# Sidebar for settings with improved UX and debug mode
+# Sidebar for settings
 def render_settings_sidebar():
     with st.sidebar:
         st.markdown(
@@ -294,64 +269,51 @@ def render_settings_sidebar():
             team_size = st.slider(
                 "Team Size",
                 min_value=10, max_value=100, value=DEFAULT_CONFIG['TEAM_SIZE'],
-                help="Number of workers in the simulation.",
                 key="team_size"
             )
             shift_duration = st.slider(
                 "Shift Duration (minutes)",
                 min_value=200, max_value=2000, value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'], step=2,
-                help="Shift duration in minutes (2-minute intervals).",
                 key="shift_duration"
             )
             disruption_intervals = st.multiselect(
                 "Disruption Times (minutes)",
                 options=[i * 2 for i in range(shift_duration // 2)],
                 default=[i * 2 for i in DEFAULT_CONFIG['DISRUPTION_INTERVALS']],
-                help="Times when disruptions occur.",
                 key="disruption_intervals"
             )
             team_initiative = st.selectbox(
                 "Team Initiative",
                 options=["More frequent breaks", "Team recognition"],
                 index=0,
-                help="Strategy to improve well-being and safety.",
                 key="team_initiative"
             )
             run_simulation = st.button(
                 "Run Simulation", 
                 key="run_simulation", 
-                help="Start a new simulation.",
                 type="primary"
             )
 
         with st.expander("🎨 Visualizations"):
             high_contrast = st.checkbox(
                 "High Contrast Mode", 
-                help="Enable high-contrast colors for accessibility.",
                 key="high_contrast"
             )
             use_3d_distribution = st.checkbox(
                 "3D Team Distribution", 
-                help="Use 3D scatter plot for team distribution.",
                 key="use_3d_distribution"
             )
             debug_mode = st.checkbox(
                 "Debug Mode", 
-                help="Show configuration data for debugging.",
                 key="debug_mode"
             )
 
         with st.expander("💾 Data"):
             load_data = st.button(
                 "Load Saved Data", 
-                key="load_data", 
-                help="Load previously saved simulation data."
+                key="load_data"
             )
-            if st.button(
-                "Download PDF Report", 
-                key="download_report", 
-                help="Generate a PDF report."
-            ) and 'simulation_results' in st.session_state:
+            if st.button("Download PDF Report", key="download_report") and 'simulation_results' in st.session_state:
                 try:
                     summary_df = pd.DataFrame({
                         'step': range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS']),
@@ -366,29 +328,31 @@ def render_settings_sidebar():
                         'task_completion_rate': st.session_state.simulation_results[10]
                     })
                     generate_pdf_report(summary_df)
-                    st.success("PDF report generated as 'workplace_report.tex'. Compile with LaTeX to view.")
+                    st.success("PDF report generated as 'workplace_report.tex'.")
                 except Exception as e:
                     logger.error(f"Failed to generate report: {str(e)}", extra={'user_action': 'Download PDF Report'})
-                    st.error(f"Failed to generate report: {str(e)}.")
+                    st.error(f"Failed to generate report: {str(e)}")
 
         if debug_mode:
             with st.expander("🛠️ Debug Info"):
-                st.write("**Entry/Exit Points:**")
-                st.write(DEFAULT_CONFIG.get('ENTRY_EXIT_POINTS', "Not defined"))
-                st.write("**Work Areas:**")
-                st.write(DEFAULT_CONFIG.get('WORK_AREAS', "Not defined"))
+                st.write("**Entry/Exit Points:**", DEFAULT_CONFIG.get('ENTRY_EXIT_POINTS', "Not defined"))
+                st.write("**Work Areas:**", DEFAULT_CONFIG.get('WORK_AREAS', "Not defined"))
+                if 'simulation_results' in st.session_state and st.session_state.simulation_results:
+                    st.write("**Simulation Data:**", {
+                        "team_positions_df_columns": list(st.session_state.simulation_results[0].columns),
+                        "team_positions_df_rows": len(st.session_state.simulation_results[0]),
+                        "worker_wellbeing_scores": len(st.session_state.simulation_results[6].get('scores', [])),
+                        "psychological_safety_length": len(st.session_state.simulation_results[7])
+                    })
 
         st.header("📋 Navigation", divider="grey")
         tab_names = ["Overview", "Operational Metrics", "Worker Insights", "Downtime", "Glossary"]
         for i, tab in enumerate(tab_names):
-            if st.button(tab, key=f"nav_{tab.lower().replace(' ', '_')}", help=f"Go to {tab}"):
+            if st.button(tab, key=f"nav_{tab.lower().replace(' ', '_')}"):
                 st.session_state.active_tab = i
 
         if st.button("ℹ️ Help", key="help_button"):
             st.session_state.show_help = True
-
-        if st.button("🚀 Take a Tour", key="tour_button"):
-            st.session_state.show_tour = True
 
     return team_size, shift_duration, disruption_intervals, team_initiative, run_simulation, load_data, high_contrast, use_3d_distribution, debug_mode
 
@@ -435,20 +399,11 @@ def main():
         st.session_state.simulation_results = None
     if 'active_tab' not in st.session_state:
         st.session_state.active_tab = 0
-    if 'show_tour' not in st.session_state:
-        st.session_state.show_tour = False
     if 'show_help' not in st.session_state:
         st.session_state.show_help = False
 
     # Sidebar settings
     team_size, shift_duration, disruption_intervals, team_initiative, run_simulation, load_data, high_contrast, use_3d_distribution, debug_mode = render_settings_sidebar()
-
-    # Precompute minutes
-    if st.session_state.simulation_results:
-        num_steps = len(st.session_state.simulation_results[0]['step'].unique())
-        minutes = [i * 2 for i in range(num_steps)]
-    else:
-        minutes = [i * 2 for i in range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS'])]
 
     # Handle simulation and data loading
     if run_simulation:
@@ -460,7 +415,7 @@ def main():
                 st.success("Simulation completed!", icon="✅")
             except Exception as e:
                 logger.error(f"Simulation failed: {str(e)}", extra={'user_action': 'Run Simulation'})
-                st.error(f"Simulation failed: {str(e)}.")
+                st.error(f"Simulation failed: {str(e)}")
 
     if load_data:
         with st.spinner("Loading saved data..."):
@@ -469,26 +424,7 @@ def main():
                 st.success("Data loaded!", icon="✅")
             except Exception as e:
                 logger.error(f"Failed to load data: {str(e)}", extra={'user_action': 'Load Data'})
-                st.error(f"Failed to load data: {str(e)}.")
-
-    # Onboarding Modal
-    if st.session_state.show_tour:
-        with st.container():
-            st.markdown("""
-                <div class="onboarding-modal" role="dialog" aria-label="Onboarding Tour">
-                    <h3>Welcome to the Dashboard!</h3>
-                    <p>Explore key features:</p>
-                    <ul style="color: #D1D5DB; line-height: 1.6;">
-                        <li><strong>Sidebar</strong>: Adjust simulation settings and navigate sections.</li>
-                        <li><strong>Tabs</strong>: View metrics, worker insights, and more.</li>
-                        <li><strong>Charts</strong>: Hover for details, use sliders to filter.</li>
-                        <li><strong>Export</strong>: Generate PDF reports for sharing.</li>
-                    </ul>
-                    <p>Click below to start exploring!</p>
-                </div>
-            """, unsafe_allow_html=True)
-            if st.button("Get Started", key="close_tour"):
-                st.session_state.show_tour = False
+                st.error(f"Failed to load data: {str(e)}")
 
     # Help Modal
     if st.session_state.show_help:
@@ -498,10 +434,10 @@ def main():
                     <h3>Help & Documentation</h3>
                     <p>Navigate the dashboard:</p>
                     <ul style="color: #D1D5DB; line-height: 1.6;">
-                        <li><strong>Overview</strong>: High-level metrics with insights.</li>
-                        <li><strong>Operational Metrics</strong>: Trends for performance.</li>
-                        <li><strong>Worker Insights</strong>: Well-being and safety data.</li>
-                        <li><strong>Downtime</strong>: Analyze downtime trends.</li>
+                        <li><strong>Overview</strong>: High-level metrics.</li>
+                        <li><strong>Operational Metrics</strong>: Performance trends.</li>
+                        <li><strong>Worker Insights</strong>: Distribution and well-being.</li>
+                        <li><strong>Downtime</strong>: Downtime trends.</li>
                         <li><strong>Glossary</strong>: Metric definitions.</li>
                     </ul>
                     <p>Contact support@xai.com for assistance.</p>
@@ -514,95 +450,158 @@ def main():
     tab_names = ["Overview", "Operational Metrics", "Worker Insights", "Downtime", "Glossary"]
     tabs = st.tabs(tab_names)
 
-    # Hidden selectbox to synchronize tab selection
-    tab_index = st.selectbox(
-        "Select Tab",
-        options=range(len(tab_names)),
-        format_func=lambda x: tab_names[x],
-        key="tab_selector",
-        label_visibility="collapsed"
-    )
-    if tab_index != st.session_state.active_tab:
-        st.session_state.active_tab = tab_index
+    # Overview Tab
+    with tabs[0]:
+        st.header("Overview", divider="grey")
+        if st.session_state.simulation_results:
+            (team_positions_df, task_compliance, collaboration_proximity, operational_recovery,
+             efficiency_metrics_df, productivity_loss, worker_wellbeing, psychological_safety,
+             feedback_impact, downtime_minutes, task_completion_rate) = st.session_state.simulation_results
+            compliance_mean = np.mean(task_compliance['data'])
+            proximity_mean = np.mean(collaboration_proximity['data'])
+            wellbeing_mean = np.mean(worker_wellbeing['scores']) if worker_wellbeing['scores'] else 0
+            total_downtime = np.sum(downtime_minutes)
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.markdown(f'<div class="summary-card"><h4>Task Compliance</h4><p class="metric">{compliance_mean:.1f}%</p></div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown(f'<div class="summary-card"><h4>Collaboration</h4><p class="metric">{proximity_mean:.1f}%</p></div>', unsafe_allow_html=True)
+            with col3:
+                st.markdown(f'<div class="summary-card"><h4>Well-Being</h4><p class="metric">{wellbeing_mean:.1f}%</p></div>', unsafe_allow_html=True)
+            with col4:
+                st.markdown(f'<div class="summary-card"><h4>Downtime</h4><p class="metric">{total_downtime:.1f} min</p></div>', unsafe_allow_html=True)
+            
+            col1, col2 = st.columns(2)
+            summary_figs = plot_key_metrics_summary(compliance_mean, proximity_mean, wellbeing_mean, total_downtime)
+            with col1:
+                st.plotly_chart(summary_figs[0], use_container_width=True)
+                st.plotly_chart(summary_figs[1], use_container_width=True)
+            with col2:
+                st.plotly_chart(summary_figs[2], use_container_width=True)
+                st.plotly_chart(summary_figs[3], use_container_width=True)
+        else:
+            st.info("Run a simulation or load data to view metrics.", icon="ℹ️")
 
-    # Worker Insights Tab (Enhanced)
-    with tabs[2]:
-        with st.container():
-            st.header("Worker Insights", divider="grey")
-            st.markdown(
-                '<div class="tooltip">Worker Metrics<span class="tooltiptext">Analyze worker distribution, well-being, and psychological safety with actionable insights.</span></div>',
-                unsafe_allow_html=True
+    # Operational Metrics Tab
+    with tabs[1]:
+        st.header("Operational Metrics", divider="grey")
+        if st.session_state.simulation_results:
+            time_range = st.slider(
+                "Time Range (minutes)",
+                min_value=0,
+                max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
+                value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
+                step=2,
+                key="time_range_op"
             )
-            if st.session_state.simulation_results:
+            time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
+            try:
+                filtered_compliance = task_compliance['data'][time_indices[0]:time_indices[1]]
+                filtered_z_scores = task_compliance['z_scores'][time_indices[0]:time_indices[1]]
+                filtered_forecast = task_compliance['forecast'][time_indices[0]:time_indices[1]] if task_compliance['forecast'] is not None else None
+                filtered_disruptions = [t for t in DEFAULT_CONFIG['DISRUPTION_INTERVALS'] if time_indices[0] <= t < time_indices[1]]
+                
+                if not filtered_compliance or not filtered_z_scores:
+                    st.error("No data available for the selected time range.")
+                else:
+                    compliance_fig = plot_task_compliance_score(filtered_compliance, filtered_disruptions, filtered_forecast, filtered_z_scores)
+                    st.plotly_chart(compliance_fig, use_container_width=True)
+            except Exception as e:
+                logger.error(f"Failed to render task compliance: {str(e)}", extra={'user_action': 'Render Operational Metrics'})
+                st.error(f"Error rendering task compliance: {str(e)}")
+            
+            try:
+                filtered_collab = collaboration_proximity['data'][time_indices[0]:time_indices[1]]
+                filtered_forecast = collaboration_proximity['forecast'][time_indices[0]:time_indices[1]] if collaboration_proximity['forecast'] is not None else None
+                if not filtered_collab:
+                    st.error("No collaboration data available.")
+                else:
+                    collaboration_fig = plot_collaboration_proximity_index(filtered_collab, filtered_disruptions, filtered_forecast)
+                    st.plotly_chart(collaboration_fig, use_container_width=True)
+            except Exception as e:
+                logger.error(f"Failed to render collaboration: {str(e)}", extra={'user_action': 'Render Operational Metrics'})
+                st.error(f"Error rendering collaboration: {str(e)}")
+        else:
+            st.info("Run a simulation or load data to view metrics.", icon="ℹ️")
+
+    # Worker Insights Tab (Robust Fix)
+    with tabs[2]:
+        st.header("Worker Insights", divider="grey")
+        if not st.session_state.get('simulation_results'):
+            st.info("Run a simulation or load data to view insights.", icon="ℹ️")
+            logger.info("No simulation results available", extra={'user_action': 'Render Worker Insights'})
+        else:
+            try:
                 (team_positions_df, task_compliance, collaboration_proximity, operational_recovery,
                  efficiency_metrics_df, productivity_loss, worker_wellbeing, psychological_safety,
                  feedback_impact, downtime_minutes, task_completion_rate) = st.session_state.simulation_results
-                
-                with st.expander("Worker Distribution", expanded=True):
-                    st.markdown("### Team Distribution and Density")
-                    col_filters, col_empty = st.columns([3, 1])
-                    with col_filters:
-                        time_range = st.slider(
-                            "Time Range (minutes)",
-                            min_value=0,
-                            max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
-                            value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
-                            step=2,
-                            key="time_range_dist",
-                            help="Select the time range for analysis."
-                        )
-                        zone_filter = st.selectbox(
-                            "Zone",
-                            options=["All"] + list(DEFAULT_CONFIG['WORK_AREAS'].keys()),
-                            key="zone_filter_dist",
-                            help="Filter by work zone."
-                        )
-                        role_filter = st.multiselect(
-                            "Worker Roles",
-                            options=["All", "Operator", "Supervisor", "Technician"],
-                            default=["All"],
-                            key="role_filter_dist",
-                            help="Filter by worker roles."
-                        )
-                        heatmap_intensity = st.slider(
-                            "Heatmap Intensity",
-                            min_value=0.5,
-                            max_value=2.0,
-                            value=1.0,
-                            step=0.1,
-                            key="heatmap_intensity",
-                            help="Adjust heatmap sensitivity."
-                        )
-                    time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
-                    filtered_df = team_positions_df if zone_filter == "All" else team_positions_df[team_positions_df['zone'] == zone_filter]
-                    if "All" not in role_filter:
-                        filtered_df = filtered_df[filtered_df['role'].isin(role_filter)]
-                    filtered_df = filtered_df[(filtered_df['step'] >= time_indices[0]) & (filtered_df['step'] < time_indices[1])]
-                    show_entry_exit = st.checkbox(
-                        "Show Entry/Exit Points",
-                        value=True,
-                        key="show_entry_exit_dist",
-                        help="Toggle entry/exit points on plots."
+
+                # Validate data
+                required_columns = ['x', 'y', 'step', 'zone', 'role', 'worker', 'workload']
+                if not all(col in team_positions_df.columns for col in required_columns):
+                    st.error(f"Invalid team_positions_df: missing columns {set(required_columns) - set(team_positions_df.columns)}")
+                    logger.error(
+                        f"Missing columns in team_positions_df: {set(required_columns) - set(team_positions_df.columns)}",
+                        extra={'user_action': 'Render Worker Insights'}
                     )
-                    show_production_lines = st.checkbox(
-                        "Show Production Lines",
-                        value=True,
-                        key="show_production_lines_dist",
-                        help="Toggle production line boundaries."
+                    return
+                if not worker_wellbeing.get('scores') or not psychological_safety:
+                    st.error("Invalid well-being or psychological safety data.")
+                    logger.error(
+                        f"Empty data: worker_wellbeing.scores={len(worker_wellbeing.get('scores', []))}, psychological_safety={len(psychological_safety)}",
+                        extra={'user_action': 'Render Worker Insights'}
                     )
-                    
-                    # Actionable Recommendations
-                    if not filtered_df.empty:
-                        density_stats = filtered_df.groupby('zone').size().to_dict()
-                        overcrowded_zones = [zone for zone, count in density_stats.items() if count > DEFAULT_CONFIG['TEAM_SIZE'] * 0.3]
-                        if overcrowded_zones:
-                            st.markdown(
-                                f'<div class="action-card"><h4>Action: Redistribute Workers</h4><p>Overcrowding detected in {", ".join(overcrowded_zones)}. Consider reassigning workers to balance workload.</p></div>',
-                                unsafe_allow_html=True
-                            )
-                        if st.button("Suggest Reassignment Plan", key="reassign_workers"):
-                            st.info(f"Recommendation: Move 2-3 workers from {overcrowded_zones[0] if overcrowded_zones else 'high-density zones'} to underutilized zones (e.g., Quality Control).")
-                    
+                    return
+
+                # Worker Distribution
+                st.subheader("Team Distribution")
+                time_range = st.slider(
+                    "Time Range (minutes)",
+                    min_value=0,
+                    max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
+                    value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
+                    step=2,
+                    key="time_range_dist"
+                )
+                zone_filter = st.selectbox(
+                    "Zone",
+                    options=["All"] + list(DEFAULT_CONFIG['WORK_AREAS'].keys()),
+                    key="zone_filter_dist"
+                )
+                role_filter = st.multiselect(
+                    "Worker Roles",
+                    options=["All", "Operator", "Supervisor", "Technician"],
+                    default=["All"],
+                    key="role_filter_dist"
+                )
+                time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
+                filtered_df = team_positions_df.copy()
+                if zone_filter != "All":
+                    filtered_df = filtered_df[filtered_df['zone'] == zone_filter]
+                if "All" not in role_filter:
+                    filtered_df = filtered_df[filtered_df['role'].isin(role_filter)]
+                filtered_df = filtered_df[(filtered_df['step'] >= time_indices[0]) & (filtered_df['step'] < time_indices[1])]
+
+                if filtered_df.empty:
+                    st.warning("No workers match the selected filters. Showing placeholder plot.")
+                    logger.warning(
+                        f"Empty filtered_df: zone={zone_filter}, roles={role_filter}, steps={time_indices}",
+                        extra={'user_action': 'Render Worker Insights'}
+                    )
+                    placeholder_fig = go.Figure()
+                    placeholder_fig.add_scatter(x=[0], y=[0], mode='markers', name="Placeholder")
+                    placeholder_fig.update_layout(title="No Data Available", xaxis_title="X", yaxis_title="Y")
+                    st.plotly_chart(placeholder_fig, use_container_width=True)
+                else:
+                    density_stats = filtered_df.groupby('zone').size().to_dict()
+                    overcrowded_zones = [zone for zone, count in density_stats.items() if count > DEFAULT_CONFIG['TEAM_SIZE'] * 0.3]
+                    if overcrowded_zones:
+                        st.markdown(
+                            f'<div class="action-card"><h4>Action: Redistribute Workers</h4><p>Overcrowding in {", ".join(overcrowded_zones)}. Reassign workers to balance workload.</p></div>',
+                            unsafe_allow_html=True
+                        )
+
                     col_dist1, col_dist2 = st.columns(2)
                     with col_dist1:
                         st.markdown("#### Worker Positions")
@@ -611,49 +610,67 @@ def main():
                             min_value=int(time_indices[0]),
                             max_value=int(time_indices[1] - 1),
                             value=int(time_indices[0]),
-                            key="team_distribution_step",
-                            help="Select a specific time step."
+                            key="team_distribution_step"
                         )
                         try:
                             distribution_fig = plot_worker_distribution(
                                 filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG,
                                 use_3d=use_3d_distribution, selected_step=selected_step,
-                                show_entry_exit=show_entry_exit, show_production_lines=show_production_lines,
+                                show_entry_exit=True, show_production_lines=True,
                                 high_contrast=high_contrast
                             )
                             st.plotly_chart(distribution_fig, use_container_width=True)
                         except Exception as e:
-                            logger.error(f"Failed to plot worker distribution: {str(e)}", extra={'user_action': 'Render Worker Insights'})
-                            st.error(f"Error rendering worker distribution: {str(e)}. Check debug mode for details.")
+                            st.error(f"Failed to render worker distribution: {str(e)}")
+                            logger.error(f"Plot worker distribution failed: {str(e)}", extra={'user_action': 'Render Worker Insights'})
                     with col_dist2:
                         st.markdown("#### Density Heatmap")
                         try:
                             heatmap_fig = plot_worker_density_heatmap(
                                 filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG,
-                                show_entry_exit=show_entry_exit, show_production_lines=show_production_lines,
-                                intensity=heatmap_intensity, high_contrast=high_contrast
+                                show_entry_exit=True, show_production_lines=True,
+                                intensity=1.0, high_contrast=high_contrast
                             )
                             st.plotly_chart(heatmap_fig, use_container_width=True)
                         except Exception as e:
-                            logger.error(f"Failed to plot density heatmap: {str(e)}", extra={'user_action': 'Render Worker Insights'})
-                            st.error(f"Error rendering density heatmap: {str(e)}. Check debug mode for details.")
+                            st.error(f"Failed to render density heatmap: {str(e)}")
+                            logger.error(f"Plot density heatmap failed: {str(e)}", extra={'user_action': 'Render Worker Insights'})
 
-                with st.expander("Worker Well-Being & Safety", expanded=True):
-                    st.markdown("### Well-Being and Psychological Safety")
-                    time_range = st.slider(
-                        "Time Range (minutes)",
-                        min_value=0,
-                        max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
-                        value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
-                        step=2,
-                        key="time_range_well",
-                        help="Select the time range for analysis."
+                # Worker Well-Being & Safety
+                st.subheader("Well-Being and Safety")
+                time_range = st.slider(
+                    "Time Range (minutes)",
+                    min_value=0,
+                    max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
+                    value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
+                    step=2,
+                    key="time_range_well"
+                )
+                time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
+                filtered_scores = worker_wellbeing['scores'][time_indices[0]:time_indices[1]]
+                filtered_safety = psychological_safety[time_indices[0]:time_indices[1]]
+
+                if not filtered_scores or not filtered_safety:
+                    st.warning("No well-being or safety data available. Showing placeholder plot.")
+                    logger.warning(
+                        f"Empty data: filtered_scores={len(filtered_scores)}, filtered_safety={len(filtered_safety)}",
+                        extra={'user_action': 'Render Worker Insights'}
                     )
-                    time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
+                    placeholder_fig = go.Figure()
+                    placeholder_fig.add_scatter(x=[0], y=[0], mode='markers', name="Placeholder")
+                    placeholder_fig.update_layout(title="No Data Available", xaxis_title="Time", yaxis_title="Score")
+                    st.plotly_chart(placeholder_fig, use_container_width=True)
+                else:
+                    wellbeing_mean = np.mean(filtered_scores) if filtered_scores else 0
+                    if wellbeing_mean < DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:
+                        st.markdown(
+                            f'<div class="action-card"><h4>Action: Schedule Breaks</h4><p>Low well-being (average: {wellbeing_mean:.1f}%). Schedule 10-minute breaks every 60 minutes.</p></div>',
+                            unsafe_allow_html=True
+                        )
+
                     col_well1, col_well2 = st.columns(2)
                     with col_well1:
                         st.markdown("#### Well-Being Index")
-                        filtered_scores = worker_wellbeing['scores'][time_indices[0]:time_indices[1]]
                         filtered_triggers = {
                             'threshold': [t for t in worker_wellbeing['triggers']['threshold'] if time_indices[0] <= t < time_indices[1]],
                             'trend': [t for t in worker_wellbeing['triggers']['trend'] if time_indices[0] <= t < time_indices[1]],
@@ -666,48 +683,53 @@ def main():
                             )
                             st.plotly_chart(wellbeing_fig, use_container_width=True)
                         except Exception as e:
-                            logger.error(f"Failed to plot well-being: {str(e)}", extra={'user_action': 'Render Worker Insights'})
-                            st.error(f"Error rendering well-being chart: {str(e)}.")
-                    
+                            st.error(f"Failed to render well-being chart: {str(e)}")
+                            logger.error(f"Plot well-being failed: {str(e)}", extra={'user_action': 'Render Worker Insights'})
                     with col_well2:
                         st.markdown("#### Psychological Safety")
-                        filtered_safety = psychological_safety[time_indices[0]:time_indices[1]]
                         try:
                             safety_fig = plot_psychological_safety(
                                 filtered_safety, high_contrast=high_contrast
                             )
                             st.plotly_chart(safety_fig, use_container_width=True)
                         except Exception as e:
-                            logger.error(f"Failed to plot psychological safety: {str(e)}", extra={'user_action': 'Render Worker Insights'})
-                            st.error(f"Error rendering psychological safety chart: {str(e)}.")
-                    
-                    # Actionable Recommendations
-                    wellbeing_mean = np.mean(filtered_scores) if filtered_scores else 0
-                    safety_mean = np.mean(filtered_safety) if filtered_safety else 0
-                    if wellbeing_mean < DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:
-                        st.markdown(
-                            '<div class="action-card"><h4>Action: Schedule Breaks</h4><p>Low well-being detected (average: {:.1f}%). Schedule 10-minute breaks every 60 minutes.</p></div>'.format(wellbeing_mean),
-                            unsafe_allow_html=True
-                        )
-                        if st.button("Generate Break Schedule", key="break_schedule_well"):
-                            st.info("Suggested: Breaks at 60, 120, 180 minutes for affected workers.")
-                    if safety_mean < 70:
-                        st.markdown(
-                            '<div class="action-card"><h4>Action: Conduct Safety Training</h4><p>Low psychological safety (average: {:.1f}%). Organize a team workshop to encourage open communication.</p></div>'.format(safety_mean),
-                            unsafe_allow_html=True
-                        )
-                        if st.button("Plan Safety Workshop", key="safety_workshop"):
-                            st.info("Suggested: 1-hour workshop on reporting protocols next shift.")
-                    
-                    st.markdown("#### Well-Being Triggers")
-                    st.write(f"**Threshold Alerts (< {DEFAULT_CONFIG['WELLBEING_THRESHOLD']*100}%):** {filtered_triggers['threshold']}")
-                    st.write(f"**Trend Alerts (Declining):** {filtered_triggers['trend']}")
-                    st.write("**Work Area Alerts:**")
-                    for zone, triggers in filtered_triggers['work_area'].items():
-                        st.write(f"{zone}: {triggers}")
-                    st.write(f"**Disruption Alerts:** {filtered_triggers['disruption']}")
-            else:
-                st.info("Run a simulation or load data to view insights.", icon="ℹ️")
+                            st.error(f"Failed to render psychological safety chart: {str(e)}")
+                            logger.error(f"Plot psychological safety failed: {str(e)}", extra={'user_action': 'Render Worker Insights'})
+            except Exception as e:
+                st.error(f"Error processing worker insights: {str(e)}")
+                logger.error(f"Worker Insights processing failed: {str(e)}", extra={'user_action': 'Render Worker Insights'})
+
+    # Downtime Tab
+    with tabs[3]:
+        st.header("Downtime Analysis", divider="grey")
+        if st.session_state.simulation_results:
+            time_range = st.slider(
+                "Time Range (minutes)",
+                min_value=0,
+                max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
+                value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
+                step=2,
+                key="time_range_down"
+            )
+            time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
+            filtered_downtime = downtime_minutes[time_indices[0]:time_indices[1]]
+            downtime_fig = plot_downtime_trend(filtered_downtime, DEFAULT_CONFIG['DOWNTIME_THRESHOLD'])
+            st.plotly_chart(downtime_fig, use_container_width=True)
+        else:
+            st.info("Run a simulation or load data to view analysis.", icon="ℹ️")
+
+    # Glossary Tab
+    with tabs[4]:
+        st.header("Glossary", divider="grey")
+        st.markdown("""
+            ### Metric Definitions
+            - **Task Compliance Score**: Percentage of tasks completed correctly (0–100%).
+            - **Collaboration Proximity Index**: Percentage of workers near colleagues (0–100%).
+            - **Operational Recovery Score**: Resilience to disruptions (0–100%).
+            - **Worker Well-Being Index**: Fatigue, stress, and satisfaction score (0–100%).
+            - **Psychological Safety Score**: Comfort in reporting issues (0–100%).
+            - **Downtime**: Total minutes of unplanned stops.
+        """)
 
 if __name__ == "__main__":
     main()
