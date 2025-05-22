@@ -1,6 +1,6 @@
 # main.py
 # Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
-# Enhanced for professional visuals, seamless UX, accessibility, fixed tab rendering, and debug mode.
+# Enhanced for professional visuals, seamless UX, accessibility, fixed tab rendering, debug mode, and error handling for plot_task_compliance_score.
 
 import logging
 import streamlit as st
@@ -577,30 +577,98 @@ def main():
                     key="time_range_op"
                 )
                 time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
-                filtered_compliance = task_compliance['data'][time_indices[0]:time_indices[1]]
-                filtered_z_scores = task_compliance['z_scores'][time_indices[0]:time_indices[1]]
-                filtered_forecast = task_compliance['forecast'][time_indices[0]:time_indices[1]] if task_compliance['forecast'] is not None else None
-                filtered_disruptions = [t for t in DEFAULT_CONFIG['DISRUPTION_INTERVALS'] if time_indices[0] <= t < time_indices[1]]
-                compliance_fig = plot_task_compliance_score(filtered_compliance, filtered_disruptions, filtered_forecast, filtered_z_scores)
-                st.plotly_chart(compliance_fig, use_container_width=True)
-                filtered_collab = collaboration_proximity['data'][time_indices[0]:time_indices[1]]
-                filtered_forecast = collaboration_proximity['forecast'][time_indices[0]:time_indices[1]] if collaboration_proximity['forecast'] is not None else None
-                collaboration_fig = plot_collaboration_proximity_index(filtered_collab, filtered_disruptions, filtered_forecast)
-                st.plotly_chart(collaboration_fig, use_container_width=True)
-                with st.expander("Additional Metrics"):
-                    filtered_recovery = operational_recovery[time_indices[0]:time_indices[1]]
-                    filtered_loss = productivity_loss[time_indices[0]:time_indices[1]]
-                    resilience_fig = plot_operational_recovery(filtered_recovery, filtered_loss)
-                    st.plotly_chart(resilience_fig, use_container_width=True)
-                    selected_metrics = st.multiselect(
-                        "Efficiency Metrics",
-                        options=['uptime', 'throughput', 'quality', 'oee'],
-                        default=['uptime', 'throughput', 'quality', 'oee'],
-                        key="efficiency_metrics_op"
+                try:
+                    filtered_compliance = task_compliance['data'][time_indices[0]:time_indices[1]]
+                    filtered_z_scores = task_compliance['z_scores'][time_indices[0]:time_indices[1]]
+                    filtered_forecast = task_compliance['forecast'][time_indices[0]:time_indices[1]] if task_compliance['forecast'] is not None else None
+                    filtered_disruptions = [t for t in DEFAULT_CONFIG['DISRUPTION_INTERVALS'] if time_indices[0] <= t < time_indices[1]]
+                    
+                    # Validate inputs
+                    if not filtered_compliance or not filtered_z_scores:
+                        logger.error(
+                            f"Empty input data: compliance={len(filtered_compliance)}, z_scores={len(filtered_z_scores)}",
+                            extra={'user_action': 'Render Operational Metrics'}
+                        )
+                        st.error("No data available for the selected time range.")
+                    elif len(filtered_compliance) != len(filtered_z_scores) or (filtered_forecast is not None and len(filtered_forecast) != len(filtered_compliance)):
+                        logger.error(
+                            f"Input length mismatch: compliance={len(filtered_compliance)}, "
+                            f"z_scores={len(filtered_z_scores)}, forecast={'None' if filtered_forecast is None else len(filtered_forecast)}",
+                            extra={'user_action': 'Render Operational Metrics'}
+                        )
+                        st.error("Input data lengths do not match.")
+                    else:
+                        compliance_fig = plot_task_compliance_score(filtered_compliance, filtered_disruptions, filtered_forecast, filtered_z_scores)
+                        st.plotly_chart(compliance_fig, use_container_width=True)
+                except Exception as e:
+                    logger.error(
+                        f"Failed to render task compliance chart: {str(e)}",
+                        extra={'user_action': 'Render Operational Metrics'}
                     )
-                    filtered_df = efficiency_metrics_df.iloc[time_indices[0]:time_indices[1]]
-                    efficiency_fig = plot_operational_efficiency(filtered_df, selected_metrics)
-                    st.plotly_chart(efficiency_fig, use_container_width=True)
+                    st.error(f"Error rendering task compliance chart: {str(e)}.")
+                
+                try:
+                    filtered_collab = collaboration_proximity['data'][time_indices[0]:time_indices[1]]
+                    filtered_forecast = collaboration_proximity['forecast'][time_indices[0]:time_indices[1]] if collaboration_proximity['forecast'] is not None else None
+                    if not filtered_collab:
+                        logger.error(
+                            f"Empty collaboration data: length={len(filtered_collab)}",
+                            extra={'user_action': 'Render Operational Metrics'}
+                        )
+                        st.error("No collaboration data available for the selected time range.")
+                    else:
+                        collaboration_fig = plot_collaboration_proximity_index(filtered_collab, filtered_disruptions, filtered_forecast)
+                        st.plotly_chart(collaboration_fig, use_container_width=True)
+                except Exception as e:
+                    logger.error(
+                        f"Failed to render collaboration chart: {str(e)}",
+                        extra={'user_action': 'Render Operational Metrics'}
+                    )
+                    st.error(f"Error rendering collaboration chart: {str(e)}.")
+                
+                with st.expander("Additional Metrics"):
+                    try:
+                        filtered_recovery = operational_recovery[time_indices[0]:time_indices[1]]
+                        filtered_loss = productivity_loss[time_indices[0]:time_indices[1]]
+                        if not filtered_recovery or not filtered_loss:
+                            logger.error(
+                                f"Empty additional metrics: recovery={len(filtered_recovery)}, loss={len(filtered_loss)}",
+                                extra={'user_action': 'Render Operational Metrics'}
+                            )
+                            st.error("No data available for additional metrics.")
+                        else:
+                            resilience_fig = plot_operational_recovery(filtered_recovery, filtered_loss)
+                            st.plotly_chart(resilience_fig, use_container_width=True)
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to render operational recovery chart: {str(e)}",
+                            extra={'user_action': 'Render Operational Metrics'}
+                        )
+                        st.error(f"Error rendering operational recovery chart: {str(e)}.")
+                    
+                    try:
+                        selected_metrics = st.multiselect(
+                            "Efficiency Metrics",
+                            options=['uptime', 'throughput', 'quality', 'oee'],
+                            default=['uptime', 'throughput', 'quality', 'oee'],
+                            key="efficiency_metrics_op"
+                        )
+                        filtered_df = efficiency_metrics_df.iloc[time_indices[0]:time_indices[1]]
+                        if filtered_df.empty:
+                            logger.error(
+                                f"Empty efficiency data: rows={len(filtered_df)}",
+                                extra={'user_action': 'Render Operational Metrics'}
+                            )
+                            st.error("No efficiency data available for the selected time range.")
+                        else:
+                            efficiency_fig = plot_operational_efficiency(filtered_df, selected_metrics)
+                            st.plotly_chart(efficiency_fig, use_container_width=True)
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to render efficiency chart: {str(e)}",
+                            extra={'user_action': 'Render Operational Metrics'}
+                        )
+                        st.error(f"Error rendering efficiency chart: {str(e)}.")
             else:
                 st.info("Run a simulation or load data to view metrics.", icon="ℹ️")
 
@@ -729,51 +797,19 @@ def main():
             st.header("Glossary", divider="grey")
             st.markdown("""
                 ### Metric Definitions
-                - **Task Compliance Score**: % of tasks completed correctly (0–100%).
-                - **Collaboration Proximity Index**: % of workers within 5m of colleagues (0–100%).
-                - **Operational Recovery Score**: Ability to maintain output post-disruption (0–100%).
-                - **Worker Well-Being Index**: Fatigue, stress, and satisfaction (0–100%).
-                - **Psychological Safety Score**: Comfort in reporting issues (0–100%).
-                - **Uptime**: % of time equipment is operational (0–100%).
-                - **Throughput**: % of max production rate (0–100%).
-                - **Quality**: % of products meeting standards (0–100%).
-                - **OEE**: Combined uptime, throughput, quality (0–100%).
-                - **Productivity Loss**: % of output lost (0–100%).
-                - **Downtime**: Minutes of unplanned stops.
-                - **Task Completion Rate**: % of tasks completed per interval (0–100%).
-                - **Feedback Impact**: Improvement from initiatives.
-
-                ### Terms
-                - **Disruption**: Event causing performance drop.
-                - **Team Initiative**: Strategies like breaks or recognition.
-                - **Anomaly**: Significant deviation (z-score > 2.0).
+                - **Task Compliance Score**: Percentage of tasks completed correctly and on time (0–100%). Measures adherence to operational protocols.
+                - **Collaboration Proximity Index**: Percentage of workers within 5 meters of colleagues (0–100%). Indicates teamwork and communication opportunities.
+                - **Operational Recovery Score**: Ability to maintain output after disruptions (0–100%). Reflects resilience to unexpected events.
+                - **Worker Well-Being Index**: Composite score of fatigue, stress, and satisfaction (0–100%). Tracks worker health and morale.
+                - **Psychological Safety Score**: Comfort level in reporting issues or suggesting improvements (0–100%). Indicates a supportive work environment.
+                - **Uptime**: Percentage of time equipment is operational (0–100%). Measures equipment reliability.
+                - **Throughput**: Percentage of maximum production rate achieved (0–100%). Indicates production efficiency.
+                - **Quality**: Percentage of products meeting quality standards (0–100%). Reflects output consistency.
+                - **OEE (Overall Equipment Effectiveness)**: Combined score of uptime, throughput, and quality (0–100%). Holistic measure of operational performance.
+                - **Productivity Loss**: Percentage of potential output lost due to inefficiencies or disruptions (0–100%).
+                - **Downtime**: Total minutes of unplanned operational stops. Tracks interruptions to workflow.
+                - **Task Completion Rate**: Percentage of tasks completed per time interval (0–100%). Measures task efficiency over time.
             """)
-
-# High-contrast mode
-def apply_high_contrast_mode():
-    st.markdown("""
-        <style>
-            .main { background-color: #000000; color: #FFFFFF; }
-            h1, h2, h3 { color: #FFFFFF; }
-            .stButton>button { background-color: #FFFFFF; color: #000000; }
-            .stButton>button:hover, .stButton>button:focus { background-color: #FFFF00; color: #000000; }
-            .stSelectbox, .stSlider, .stMultiSelect { background-color: #333333; color: #FFFFFF; }
-            [data-testid="stSidebar"] { background-color: #111111; color: #FFFFFF; }
-            .stMetric, .stExpander, .summary-card { background-color: #333333; }
-            .recommendation { color: #FFFF00; }
-            .tooltip .tooltiptext { background-color: #333333; color: #FFFFFF; }
-            .stTabs [data-baseweb="tab-list"] { background-color: #111111; }
-            .stTabs [data-baseweb="tab"] { color: #FFFFFF; }
-            .stTabs [data-baseweb="tab"][aria-selected="true"], .stTabs [data-baseweb="tab"]:hover {
-                background-color: #FFFF00;
-                color: #000000;
-            }
-            .stPlotlyChart { background-color: #333333; }
-            .onboarding-modal { background-color: #333333; }
-        </style>
-    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
-    if st.session_state.get('high_contrast', False):
-        apply_high_contrast_mode()
