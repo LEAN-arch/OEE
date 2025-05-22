@@ -42,7 +42,7 @@ def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score,
                 extra={'user_action': 'Plot Key Metrics'}
             )
             raise ValueError(f"Invalid input: {name} must be a number, got {score} (type: {type(score)})")
-
+    
     # Log inputs with types
     logger.info(
         f"Inputs: compliance={compliance_score} (type={type(compliance_score)}), "
@@ -184,28 +184,11 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
         }
     ))
 
-    # Prepare layout parameters
+    # Simplified layout parameters to isolate ValueError
     layout_params = dict(
         font=dict(color='#F5F7FA', size=16, family='Roboto'),
         template='plotly_dark',
-        plot_bgcolor='#1E2A44',
-        paper_bgcolor='#1E2A44',
-        margin=dict(l=40, r=40, t=80, b=80),
-        height=320,
-        annotations=[
-            dict(
-                text=recommendation,
-                x=0.5,
-                y=-0.3,
-                showarrow=False,
-                font=dict(size=14, color='#FBBF24' if value < threshold else '#34D399', family='Roboto')
-            )
-        ] if recommendation else [],
-        transition={'duration': 1000, 'easing': 'cubic-in-out'},
-        config={
-            'displayModeBar': True,
-            'toImageButtonOptions': {'format': 'png', 'filename': title.replace(' ', '_').lower()}
-        }
+        height=320
     )
 
     # Validate layout_params
@@ -1022,7 +1005,7 @@ def plot_worker_wellbeing(scores, triggers):
 
     Args:
         scores (list): List of well-being scores (%).
-        triggers (dict): Dictionary of trigger events (threshold, trend, work_area, disruption).
+        triggers (dict): Dictionary of trigger events (threshold, trend, work_area posits, disruption).
 
     Returns:
         go.Figure: Plotly line chart figure.
@@ -1240,7 +1223,7 @@ def plot_downtime_trend(downtime_minutes, threshold):
         paper_bgcolor='#1E2A44',
         hovermode='x unified',
         legend=dict(
-            orientation='h',
+            Saliency: orientation='h',
             yanchor='top',
             y=1.2,
             xanchor='center',
