@@ -3,7 +3,7 @@ import logging
 import streamlit as st
 import pandas as pd
 import numpy as np
-from config import DEFAULT_CONFIG, validate_config
+from config import DEFAULT_CONFIG, validate_config # Ensure TARGET_COMPLIANCE etc. are in DEFAULT_CONFIG
 from visualizations import (
     plot_key_metrics_summary,
     plot_task_compliance_score,
@@ -86,7 +86,7 @@ st.markdown("""
         .onboarding-modal h3 { color: #EAEAEA; margin-bottom: 1rem; text-align: center; }
         .onboarding-modal p, .onboarding-modal ul { color: #D1D5DB; line-height: 1.6; margin-bottom: 1rem; font-size: 0.9rem; }
         .onboarding-modal ul { list-style-position: inside; padding-left: 0.5rem; }
-        .alert-critical { border-left: 5px solid #F87171; background-color: rgba(248, 113, 113, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; } /* Subtler background */
+        .alert-critical { border-left: 5px solid #F87171; background-color: rgba(248, 113, 113, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; } 
         .alert-warning { border-left: 5px solid #FACC15; background-color: rgba(250, 204, 21, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
         .alert-positive { border-left: 5px solid #22D3EE; background-color: rgba(34, 211, 238, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
         .alert-info { border-left: 5px solid #60A5FA; background-color: rgba(96, 165, 250, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
@@ -100,8 +100,10 @@ def render_settings_sidebar():
         st.markdown(f'<img src="{LEAN_LOGO_BASE64}" width="100" alt="Lean Institute Logo" style="display: block; margin: 0 auto 1rem;">', unsafe_allow_html=True)
         st.markdown("## ⚙️ Simulation Controls")
         with st.expander("🧪 Simulation Parameters", expanded=True):
-            team_size = st.slider("Team Size", 10, 100, st.session_state.get('sb_team_size_slider', DEFAULT_CONFIG['TEAM_SIZE']), key="sb_team_size_slider", help="Adjust the number of workers in the simulated shift.")
-            shift_duration = st.slider("Shift Duration (min)", 200, 2000, st.session_state.get('sb_shift_duration_slider', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']), step=2, key="sb_shift_duration_slider", help="Set the total length of the simulated work shift.")
+            team_size_val = st.session_state.get('sb_team_size_slider', DEFAULT_CONFIG['TEAM_SIZE']) 
+            shift_duration_val = st.session_state.get('sb_shift_duration_slider', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']) 
+            team_size = st.slider("Team Size", 10, 100, team_size_val, key="sb_team_size_slider", help="Adjust the number of workers in the simulated shift.")
+            shift_duration = st.slider("Shift Duration (min)", 200, 2000, shift_duration_val, step=2, key="sb_shift_duration_slider", help="Set the total length of the simulated work shift.")
             max_disrupt_time = shift_duration - 2 
             disruption_options = [i * 2 for i in range(max_disrupt_time // 2)] if max_disrupt_time > 0 else []
             default_disrupt_mins_raw = [i * 2 for i in DEFAULT_CONFIG.get('DISRUPTION_INTERVALS', [])]
@@ -171,11 +173,8 @@ def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals
         elif total_workers_in_config_zones > 0 and total_workers_in_config_zones != team_size : 
             ratio = team_size / total_workers_in_config_zones; accumulated_workers = 0; sorted_zone_keys = sorted(list(config['WORK_AREAS'].keys()))
             for zone_key in sorted_zone_keys[:-1]: assigned = int(round(config['WORK_AREAS'][zone_key].get('workers', 0) * ratio)); config['WORK_AREAS'][zone_key]['workers'] = assigned; accumulated_workers += assigned
-            if sorted_zone_keys: # Ensure there's at least one zone
-                 last_zone_key = sorted_zone_keys[-1]; config['WORK_AREAS'][last_zone_key]['workers'] = team_size - accumulated_workers
-            elif team_size > 0: # No zones but team_size > 0: this is a config issue but log it.
-                logger.warning("Team size > 0 but no work zones defined for worker assignment after ratio.")
-
+            if sorted_zone_keys: last_zone_key = sorted_zone_keys[-1]; config['WORK_AREAS'][last_zone_key]['workers'] = team_size - accumulated_workers
+            elif team_size > 0: logger.warning("Team size > 0 but no work zones defined for worker assignment after ratio.")
         elif team_size == 0: 
             for zone_key in config['WORK_AREAS']: config['WORK_AREAS'][zone_key]['workers'] = 0
     validate_config(config) 
@@ -263,16 +262,16 @@ def main():
             except Exception as e: logger.error(f"Load Data Error: {e}", exc_info=True, extra={'user_action': 'Load Data - Error'}); st.error(f"❌ Failed to load data: {e}"); st.session_state.simulation_results = None
     
     if st.session_state.get('show_tour'): 
-        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>🚀 Quick Dashboard Tour</h3> ... </div>""", unsafe_allow_html=True) 
+        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>🚀 Quick Dashboard Tour</h3><p>Welcome! This dashboard helps you monitor and analyze workplace shift operations...</p><ul><li><b>Sidebar Controls:</b> Adjust simulation parameters...</li><li><b>Main Tabs:</b> Navigate through different views...</li><li><b>Interactive Charts:</b> Hover for details...</li></ul><p>Start by running a new simulation or loading previous data!</p></div>""", unsafe_allow_html=True) 
         if st.button("Got it!", key="tour_modal_close_btn"): st.session_state.show_tour = False; st.rerun()
     if st.session_state.get('show_help_glossary'): 
-        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>ℹ️ Help & Glossary</h3> ... </div>""", unsafe_allow_html=True) 
+        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>ℹ️ Help & Glossary</h3><p>This dashboard provides insights...</p><h4>Metric Definitions:</h4><ul><li><b>Task Compliance Score:</b> ...</li></ul><p>Contact support@example.com.</p></div>""", unsafe_allow_html=True) 
         if st.button("Understood", key="help_modal_close_btn"): st.session_state.show_help_glossary = False; st.rerun()
 
     tabs_main_names = ["📊 Overview & Insights", "📈 Operational Metrics", "👥 Worker Insights", "⏱️ Downtime Analysis", "📖 Glossary"]
     tabs = st.tabs(tabs_main_names)
     plot_config_interactive = {'displaylogo': False, 'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'resetScale2d', 'zoomIn2d', 'zoomOut2d', 'pan2d'], 'toImageButtonOptions': {'format': 'png', 'filename': 'plot_export', 'scale': 2}}; plot_config_minimal = {'displayModeBar': False}
-    current_high_contrast = st.session_state.get('sb_high_contrast_checkbox', False)
+    current_high_contrast = st.session_state.get('sb_high_contrast_checkbox', False) # Use widget key
 
     with tabs[0]: 
         st.header("📊 Key Performance Indicators & Actionable Insights", divider="blue")
@@ -402,29 +401,27 @@ def main():
                             try: st.plotly_chart(plot_psychological_safety(ps_scores_list, current_high_contrast), use_container_width=True, config=plot_config_interactive)
                             except Exception as e: logger.error(f"Psych Safety Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Psychological Safety.")
                     else: st.caption("No Psych. Safety data for this range.")
-                st.markdown("<h6>Well-Being Triggers & Considerations (selected time range):</h6>", unsafe_allow_html=True) # Changed title slightly
+                st.markdown("<h6>Well-Being Triggers & Considerations (selected time range):</h6>", unsafe_allow_html=True)
                 ww_trigs_disp_raw = safe_get(sim_data, 'worker_wellbeing.triggers', {}); ww_trigs_disp_filt = {k: [t for t in v if shared_start_idx <= t < shared_end_idx] for k, v in ww_trigs_disp_raw.items() if isinstance(v, list)}; ww_trigs_disp_filt['work_area'] = {wk: [t for t in wv if shared_start_idx <= t < shared_end_idx] for wk, wv in ww_trigs_disp_raw.get('work_area', {}).items()}
-                
-                # More structured display of triggers
-                if not any(ww_trigs_disp_filt.values()):
-                     st.markdown("<p class='insight-text' style='color: #22D3EE;'>✅ No specific well-being alerts triggered in the selected period. Monitor trends proactively.</p>", unsafe_allow_html=True)
+                if not any(ww_trigs_disp_filt.values()) and not any(ww_trigs_disp_filt.get('work_area', {}).values()): st.markdown("<p class='insight-text' style='color: #22D3EE;'>✅ No specific well-being alerts triggered in the selected period. Monitor trends proactively.</p>", unsafe_allow_html=True)
                 else:
                     if ww_trigs_disp_filt.get('threshold'): st.markdown(f"<div class='alert-critical insight-text'><strong>Threshold Alerts Met ({len(ww_trigs_disp_filt['threshold'])} times):</strong> Steps {ww_trigs_disp_filt['threshold']}. Acute stress/fatigue likely.</div>", unsafe_allow_html=True)
                     if ww_trigs_disp_filt.get('trend'): st.markdown(f"<div class='alert-warning insight-text'><strong>Declining Trend Alerts ({len(ww_trigs_disp_filt['trend'])} times):</strong> Steps {ww_trigs_disp_filt['trend']}. Accumulating stress/fatigue.</div>", unsafe_allow_html=True)
                     if ww_trigs_disp_filt.get('disruption'): st.markdown(f"<div class='alert-info insight-text'><strong>Disruption-linked Alerts ({len(ww_trigs_disp_filt['disruption'])} times):</strong> Steps {ww_trigs_disp_filt['disruption']}. Support post-disruption.</div>", unsafe_allow_html=True)
-                    wa_alerts = ww_trigs_disp_filt.get('work_area', {})
-                    if any(wa_alerts.values()): 
+                    wa_alerts = ww_trigs_disp_filt.get('work_area', {}); wa_alert_found = False
+                    for zone, trigs in wa_alerts.items():
+                        if trigs: wa_alert_found = True; break
+                    if wa_alert_found: 
                         st.markdown(f"<div class='alert-warning insight-text'><strong>Work Area Specific Alerts:</strong>", unsafe_allow_html=True)
                         for zone, trigs in wa_alerts.items():
                             if trigs: st.markdown(f"  - {zone}: {len(trigs)} alerts at steps {trigs}", unsafe_allow_html=True)
                         st.markdown("</div>", unsafe_allow_html=True)
                 st.markdown("<h6 style='margin-top:1rem;'>💡 Actionable Considerations:</h6>", unsafe_allow_html=True)
                 st.markdown("""<ul style="font-size:0.9rem; color: #D1D5DB; padding-left:20px;">
-                    <li><b>Low Well-being/Safety:</b> Review workload, break schedules, environmental factors (noise, light, ergonomics), and management practices. Consider anonymous surveys for direct feedback.</li>
-                    <li><b>Frequent Alerts:</b> Identify patterns. Are alerts clustered around specific times, tasks, or disruptions? This points to root causes.</li>
-                    <li><b>Disruption Impact:</b> If well-being consistently drops after disruptions, implement better post-disruption support or stress management techniques.</li>
-                    <li><b>Zone-Specific Issues:</b> If alerts concentrate in certain work areas, investigate localized stressors or resource imbalances.</li>
-                    <li><b>Initiative Evaluation:</b> Compare well-being metrics before and after implementing initiatives like 'more frequent breaks' or 'team recognition' against a 'Standard Operations' baseline to assess true impact.</li>
+                    <li><b>Low Well-being/Safety:</b> Review workload, break schedules, environmental factors, and management practices. Consider anonymous surveys.</li>
+                    <li><b>Frequent Alerts:</b> Identify patterns. Are alerts clustered around specific times, tasks, or disruptions?</li>
+                    <li><b>Disruption Impact:</b> If well-being consistently drops after disruptions, implement better post-disruption support.</li>
+                    <li><b>Zone-Specific Issues:</b> If alerts concentrate in certain areas, investigate localized stressors or resource imbalances.</li>
                 </ul>""", unsafe_allow_html=True)
         else: st.info("ℹ️ Run a simulation or load data to view Worker Insights.", icon="👥")
 
