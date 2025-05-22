@@ -1,8 +1,7 @@
-"""
-visualizations.py
-Visualization functions for the Workplace Shift Monitoring Dashboard using Plotly.
-Ensures accessible, high-contrast visuals with clear labels and error handling.
-"""
+# visualizations.py
+# Visualization functions for the Workplace Shift Monitoring Dashboard using Plotly.
+# Ensures accessible, high-contrast visuals with clear labels and error handling.
+
 import logging
 import plotly.graph_objects as go
 import numpy as np
@@ -140,8 +139,8 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
                 y=-0.3,
                 showarrow=False,
                 font=dict(size=14, color='#FBBF24' if value < threshold else '#34D399', family='Roboto')
-            ) if recommendation else None
-        ],
+            )
+        ] if recommendation else [],
         transition={'duration': 1000, 'easing': 'cubic-in-out'},
         config={
             'displayModeBar': True,
