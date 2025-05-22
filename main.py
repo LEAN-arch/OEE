@@ -330,7 +330,7 @@ def render_settings_sidebar():
     return team_size, shift_duration, disruption_intervals, team_initiative, run_simulation, load_data, high_contrast, use_3d_distribution
 
 # Function to handle simulation and data loading
-@st.cache_data(show=True)
+@st.cache_data
 def run_simulation_logic(team_size, shift_duration, disruption_intervals, team_initiative):
     config = DEFAULT_CONFIG.copy()
     config['TEAM_SIZE'] = team_size
@@ -750,7 +750,7 @@ def developer_guide():
       - Run simulations with different team sizes and shift durations.
       - Test high-contrast mode for WCAG compliance.
       - Verify responsiveness on mobile and desktop devices.
-      - Check `dashboard.log` for errors (last known error at 09:23 PM PDT on May 21, 2025; current time is 09:26 PM PDT).
+      - Check `dashboard.log` for errors (last known error at 09:28 PM PDT on May 21, 2025; current time is 09:30 PM PDT).
     """
 
 # Main execution
