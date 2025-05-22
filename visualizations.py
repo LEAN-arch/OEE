@@ -169,16 +169,16 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
                 'reference': threshold,
                 'increasing': {'color': delta_color},
                 'decreasing': {'color': delta_color},
-                'font': {'size': 20, 'family': 'Inter, sans-serif'}
+                'font': {'size': 20, 'family': 'Inter, sans-serif', 'color': '#E5E7EB'}
             },
             domain={'x': [0, 1], 'y': [0, 1]},
             title={
                 'text': title,
-                'font': {'size': 24, 'color': '#E5E7EB', 'family': 'Inter, sans-serif', 'weight': '600'}
+                'font': {'size': 24, 'color': '#E5E7EB', 'family': 'Inter, sans-serif'}
             },
             number={
                 'suffix': "%" if max_value == 100 else " min",
-                'font': {'size': 48, 'color': '#E5E7EB', 'family': 'Inter, sans-serif', 'weight': '600'},
+                'font': {'size': 48, 'color': '#E5E7EB', 'family': 'Inter, sans-serif'},
                 'valueformat': '.1f'
             },
             gauge={
@@ -359,7 +359,7 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
             title=dict(
                 text='Task Compliance Score',
                 x=0.5,
-                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Score (%)',
@@ -430,7 +430,7 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
 
         # Handle NaNs
         proximity_scores = np.nan_to_num(proximity_scores, nan=0.0)
-        forecast = np.nan_to_num(forecast, nan=0.0) if forecast is not None else None
+        forecast = np.nan_to_num(fellowship, nan=0.0) if forecast is not None else None
 
         minutes = [i * 2 for i in range(len(proximity_scores))]
         fig = go.Figure()
@@ -490,7 +490,7 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
             title=dict(
                 text='Collaboration Proximity Index',
                 x=0.5,
-                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Index (%)',
@@ -598,7 +598,7 @@ def plot_operational_recovery(recovery_scores, productivity_loss):
             title=dict(
                 text='Operational Recovery vs. Productivity Loss',
                 x=0.5,
-                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Score (%)',
@@ -710,7 +710,7 @@ def plot_operational_efficiency(efficiency_df, selected_metrics):
             title=dict(
                 text='Operational Efficiency Metrics',
                 x=0.5,
-                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Score (%)',
@@ -861,7 +861,7 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
                 title=dict(
                     text=f'Worker Distribution at {selected_step * 2} min',
                     x=0.5,
-                    font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                    font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB')
                 ),
                 scene=dict(
                     xaxis_title='X (meters)',
@@ -937,7 +937,7 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
                 title=dict(
                     text=f'Worker Distribution at {selected_step * 2} min',
                     x=0.5,
-                    font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                    font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB')
                 ),
                 xaxis_title='X (meters)',
                 yaxis_title='Y (meters)',
@@ -1051,7 +1051,7 @@ def plot_worker_density_heatmap(team_positions_df, facility_size, config, show_e
             title=dict(
                 text='Worker Density Heatmap',
                 x=0.5,
-                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB')
             ),
             xaxis_title='X (meters)',
             yaxis_title='Y (meters)',
@@ -1169,7 +1169,7 @@ def plot_worker_wellbeing(wellbeing_scores, triggers):
             title=dict(
                 text='Worker Well-Being Index',
                 x=0.5,
-                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Index (%)',
@@ -1256,7 +1256,7 @@ def plot_psychological_safety(safety_scores):
             title=dict(
                 text='Psychological Safety Score',
                 x=0.5,
-                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Score (%)',
@@ -1359,7 +1359,7 @@ def plot_downtime_trend(downtime_minutes, threshold):
             title=dict(
                 text='Downtime Trend',
                 x=0.5,
-                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Downtime (minutes)',
