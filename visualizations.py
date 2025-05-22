@@ -4,10 +4,13 @@ Visualization functions for the Industrial Workplace Shift Monitoring Dashboard.
 Generates Plotly charts with consistent styling and accessibility features.
 """
 
+import logging
 import plotly.express as px
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 from config import DEFAULT_CONFIG
+
+logger = logging.getLogger(__name__)
 
 # Consistent Plotly styling
 PLOTLY_TEMPLATE = "plotly_white"
@@ -32,6 +35,7 @@ def plot_task_compliance_trend(compliance_data: list, disruption_intervals: list
     Returns:
         go.Figure: Plotly figure.
     """
+    logger.info("Plotting task compliance trend")
     fig = px.line(
         x=list(range(len(compliance_data))),
         y=compliance_data,
@@ -64,6 +68,7 @@ def plot_worker_collaboration_trend(collab_data: list, forecast: list = None) ->
     Returns:
         go.Figure: Plotly figure.
     """
+    logger.info("Plotting worker collaboration trend")
     fig = px.line(
         x=list(range(len(collab_data))),
         y=collab_data,
@@ -92,6 +97,7 @@ def plot_operational_resilience(resilience: list) -> go.Figure:
     Returns:
         go.Figure: Plotly figure.
     """
+    logger.info("Plotting operational resilience")
     fig = px.line(
         x=list(range(len(resilience))),
         y=resilience,
@@ -117,6 +123,7 @@ def plot_operational_efficiency(efficiency_df: pd.DataFrame) -> go.Figure:
     Returns:
         go.Figure: Plotly figure.
     """
+    logger.info("Plotting operational efficiency with DataFrame")
     fig = px.line(
         efficiency_df,
         x=efficiency_df.index,
@@ -144,6 +151,7 @@ def plot_oee_gauge(oee: float) -> go.Figure:
     Returns:
         go.Figure: Plotly gauge chart.
     """
+    logger.info("Plotting OEE gauge")
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=oee * 100,
@@ -181,6 +189,7 @@ def plot_worker_distribution(team_positions_df: pd.DataFrame, workplace_size: fl
     Returns:
         go.Figure: Plotly animated scatter plot.
     """
+    logger.info("Plotting worker distribution with DataFrame")
     fig = px.scatter(
         team_positions_df,
         x='x', y='y',
@@ -214,6 +223,7 @@ def plot_worker_wellbeing(wellbeing_scores: list) -> go.Figure:
     Returns:
         go.Figure: Plotly figure.
     """
+    logger.info("Plotting worker well-being")
     fig = px.line(
         x=list(range(len(wellbeing_scores))),
         y=wellbeing_scores,
@@ -241,6 +251,7 @@ def plot_psychological_safety(safety_scores: list) -> go.Figure:
     Returns:
         go.Figure: Plotly figure.
     """
+    logger.info("Plotting psychological safety")
     fig = px.line(
         x=list(range(len(safety_scores))),
         y=safety_scores,
