@@ -28,13 +28,31 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for accessibility and styling
+# Custom CSS for dark theme and accessibility
 st.markdown("""
     <style>
-        .main { background-color: #f5f5f5; }
-        .stButton>button { background-color: #1f77b4; color: white; border-radius: 5px; }
-        .stSelectbox, .stSlider { background-color: white; border-radius: 5px; }
-        h1, h2, h3 { color: #333333; }
+        .main { 
+            background-color: #1E2A44; 
+            color: #E6E9F0; 
+        }
+        .stButton>button { 
+            background-color: #4C78A8; 
+            color: #E6E9F0; 
+            border-radius: 8px; 
+            border: 1px solid #E6E9F0; 
+        }
+        .stButton>button:hover { 
+            background-color: #F58518; 
+        }
+        .stSelectbox, .stSlider { 
+            background-color: #2A3B5A; 
+            color: #E6E9F0; 
+            border-radius: 8px; 
+        }
+        h1, h2, h3 { 
+            color: #E6E9F0; 
+            font-weight: 600; 
+        }
         .tooltip {
             position: relative;
             display: inline-block;
@@ -43,11 +61,11 @@ st.markdown("""
         .tooltip .tooltiptext {
             visibility: hidden;
             width: 200px;
-            background-color: #333333;
-            color: white;
+            background-color: #2A3B5A;
+            color: #E6E9F0;
             text-align: center;
-            border-radius: 5px;
-            padding: 5px;
+            border-radius: 8px;
+            padding: 8px;
             position: absolute;
             z-index: 1;
             bottom: 125%;
@@ -60,7 +78,16 @@ st.markdown("""
             visibility: visible;
             opacity: 1;
         }
-        [data-testid="stSidebar"] { background-color: #ffffff; }
+        [data-testid="stSidebar"] { 
+            background-color: #2A3B5A; 
+            color: #E6E9F0; 
+        }
+        [data-testid="stSidebar"] .stButton>button { 
+            background-color: #54A24B; 
+        }
+        [data-testid="stSidebar"] .stButton>button:hover { 
+            background-color: #E45756; 
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -176,9 +203,9 @@ if st.session_state.simulation_results:
             st.plotly_chart(oee_fig, use_container_width=True)
         with col2:
             st.markdown('<div class="tooltip">Key Metrics<span class="tooltiptext">Summary of critical performance indicators.</span></div>', unsafe_allow_html=True)
-            st.metric("Average Well-Being", f"{team_wellbeing['scores'].mean():.2f}")
-            st.metric("Average Safety", f"{safety.mean():.2f}")
-            st.metric("Productivity Loss", f"{productivity_loss.sum():.1f}%")
+            st.metric("Average Well-Being", f"{team_wellbeing['scores'].mean():.2f}", delta_color="normal")
+            st.metric("Average Safety", f"{safety.mean():.2f}", delta_color="normal")
+            st.metric("Productivity Loss", f"{productivity_loss.sum():.1f}%", delta_color="inverse")
 
     with tabs[1]:
         st.header("Operational Efficiency")
@@ -231,8 +258,29 @@ else:
 if high_contrast:
     st.markdown("""
         <style>
-            .main { background-color: #000000; color: #ffffff; }
-            h1, h2, h3 { color: #ffffff; }
-            .stButton>button { background-color: #ffffff; color: #000000; }
+            .main { 
+                background-color: #000000; 
+                color: #FFFFFF; 
+            }
+            h1, h2, h3 { 
+                color: #FFFFFF; 
+            }
+            .stButton>button { 
+                background-color: #FFFFFF; 
+                color: #000000; 
+                border: 1px solid #FFFFFF; 
+            }
+            .stButton>button:hover { 
+                background-color: #F1C40F; 
+                color: #000000; 
+            }
+            .stSelectbox, .stSlider { 
+                background-color: #333333; 
+                color: #FFFFFF; 
+            }
+            [data-testid="stSidebar"] { 
+                background-color: #111111; 
+                color: #FFFFFF; 
+            }
         </style>
     """, unsafe_allow_html=True)
