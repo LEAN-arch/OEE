@@ -549,4 +549,60 @@ if st.session_state.simulation_results:
             - **Throughput**: Percentage of maximum production rate achieved (0–100%).
             - **Quality**: Percentage of products meeting quality standards (0–100%).
             - **OEE**: Combined metric of uptime, throughput, and quality (0–100%).
-            - **Productivity Loss**: Percentage of potential output
+            - **Productivity Loss**: Percentage of potential output lost due to disruptions (0–100%).
+            - **Downtime**: Total minutes of unplanned equipment or process stops.
+            - **Task Completion Rate**: Percentage of assigned tasks completed per interval (0–100%).
+            - **Feedback Impact**: Estimated improvement in well-being or team cohesion from initiatives.
+            
+            ### Terms
+            - **Disruption**: An event (e.g., equipment failure) causing a temporary drop in performance.
+            - **Team Initiative**: Strategies like "More frequent breaks" or "Team recognition".
+            - **Anomaly**: A statistically significant deviation (z-score > 2.0) in metrics.
+        """)
+
+else:
+    st.info("Run a simulation or load saved data using the sidebar controls to view results.")
+
+# High-contrast mode
+if high_contrast:
+    st.markdown("""
+        <style>
+            .main { 
+                background-color: #000000; 
+                color: #FFFFFF; 
+            }
+            h1, h2, h3 { 
+                color: #FFFFFF; 
+            }
+            .stButton>button { 
+                background-color: #FFFFFF; 
+                color: #000000; 
+                border: 2px solid #FFFFFF; 
+            }
+            .stButton>button:hover { 
+                background-color: #19D3F3; 
+                color: #000000; 
+            }
+            .stSelectbox, .stSlider, .stMultiSelect { 
+                background-color: #333333; 
+                color: #FFFFFF; 
+            }
+            [data-testid="stSidebar"] { 
+                background-color: #111111; 
+                color: #FFFFFF; 
+            }
+            .stMetric, .stExpander { 
+                background-color: #333333; 
+            }
+            .stTabs [data-baseweb="tab"] { 
+                color: #FFFFFF; 
+                background-color: #333333; 
+            }
+            .stTabs [data-baseweb="tab"]:hover { 
+                background-color: #19D3F3; 
+            }
+            .recommendation {
+                color: #19D3F3;
+            }
+        </style>
+    """, unsafe_allow_html=True)
