@@ -9,25 +9,57 @@ import numpy as np
 from plotly.colors import sequential
 from config import DEFAULT_CONFIG
 
+def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score, downtime_minutes):
+    """
+    Create a permanent 2x2 grid of gauge charts for key metrics.
+    
+    Args:
+        compliance_score (float): Task compliance score (0-100).
+        proximity_score (float): Collaboration proximity index (0-100).
+        wellbeing_score (float): Worker well-being score (0-100).
+        downtime_minutes (float): Total downtime in minutes.
+    
+    Returns:
+        list: List of go.Figure objects for the 2x2 grid.
+    """
+    # Clamp values to valid ranges
+    compliance_score = max(0, min(compliance_score, 100))
+    proximity_score = max(0, min(proximity_score, 100))
+    wellbeing_score = max(0, min(wellbeing_score, 100))
+    downtime_minutes = max(0, downtime_minutes)
+
+    # Define thresholds
+    compliance_threshold = 75
+    proximity_threshold = 60
+    wellbeing_threshold = DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100
+    downtime_threshold = 30  # Example threshold, adjust as per config
+
+    # Create gauge charts
+    figs = []
+    figs.append(plot_gauge_chart(compliance_score, "Task Compliance", compliance_threshold, 100, "Review protocols if <75%"))
+    figs.append(plot_gauge_chart(proximity_score, "Collaboration Proximity", proximity_threshold, 100, "Encourage activities if <60%"))
+    figs.append(plot_gauge_chart(wellbeing_score, "Worker Well-Being", wellbeing_threshold, 100, "Schedule break if <70%"))
+    figs.append(plot_gauge_chart(downtime_minutes, "Downtime", downtime_threshold, 60, "Investigate if >30 min"))
+
+    return figs
+
 def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None):
     """
     Create an enhanced gauge chart with color gradients and interactive tooltips.
     
     Args:
-        value (float): Metric value (0-100).
+        value (float): Metric value.
         title (str): Chart title.
-        threshold (float): Threshold for warning (0-100).
+        threshold (float): Threshold for warning.
         max_value (float): Maximum value for the gauge.
         recommendation (str): Actionable recommendation if below threshold.
     
     Returns:
         go.Figure: Enhanced gauge chart.
     """
-    # Validate inputs
     max_value = max(max_value, 1)  # Prevent division by zero
     value = max(0, min(value, max_value))  # Clamp value between 0 and max_value
 
-    # Define color gradient
     colors = sequential.Viridis
     color_idx = int((value / max_value) * (len(colors) - 1))
     color_idx = max(0, min(color_idx, len(colors) - 1))  # Ensure index is within bounds
@@ -39,7 +71,7 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
         delta={'reference': threshold, 'increasing': {'color': "#10B981"}, 'decreasing': {'color': "#EF4444"}},
         domain={'x': [0, 1], 'y': [0, 1]},
         title={'text': title, 'font': {'size': 20, 'color': '#E6ECEF'}},
-        number={'suffix': "%", 'font': {'size': 40, 'color': '#E6ECEF'}},
+        number={'suffix': "%" if max_value == 100 else " min", 'font': {'size': 40, 'color': '#E6ECEF'}},
         gauge={
             'axis': {'range': [0, max_value], 'tickwidth': 2, 'tickcolor': "#E6ECEF"},
             'bar': {'color': bar_color},
@@ -74,7 +106,7 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
             ) if recommendation else None
         ]
     )
-    return fig, recommendation
+    return fig
 
 def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_scores):
     """
