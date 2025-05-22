@@ -9,7 +9,7 @@ from visualizations import (
     plot_operational_recovery, plot_operational_efficiency, plot_worker_distribution,
     plot_worker_density_heatmap, plot_worker_wellbeing, plot_psychological_safety,
     plot_downtime_trend, plot_team_cohesion, plot_perceived_workload,
-    plot_downtime_causes_pie # Added new import for downtime causes
+    plot_downtime_causes_pie 
 )
 from simulation import simulate_workplace_operations
 from utils import save_simulation_data, load_simulation_data, generate_pdf_report
@@ -169,12 +169,17 @@ def render_settings_sidebar():
 def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals_minutes_param, team_initiative_selected):
     config = DEFAULT_CONFIG.copy(); config['TEAM_SIZE'] = team_size; config['SHIFT_DURATION_MINUTES'] = shift_duration_minutes
     config['SHIFT_DURATION_INTERVALS'] = shift_duration_minutes // 2
-    if not isinstance(disruption_intervals_minutes_param, list): logger.error(f"run_simulation_logic received non-list for disruption_intervals_minutes_param: {type(disruption_intervals_minutes_param)}. Value: {disruption_intervals_minutes_param}. Defaulting to empty list."); disruption_intervals_minutes_param = []
+    if not isinstance(disruption_intervals_minutes_param, list): 
+        logger.error(f"run_simulation_logic received non-list for disruption_intervals_minutes_param: {type(disruption_intervals_minutes_param)}. Value: {disruption_intervals_minutes_param}. Defaulting to empty list.")
+        disruption_intervals_minutes_param = []
     config['DISRUPTION_EVENT_STEPS'] = sorted(list(set(m // 2 for m in disruption_intervals_minutes_param if isinstance(m, (int, float)) and m >= 0)))
+    
+    # Worker distribution logic (Robust version from previous updates)
     if 'WORK_AREAS' in config and isinstance(config['WORK_AREAS'], dict) and config['WORK_AREAS']:
         total_workers_in_config_zones = sum(zone.get('workers', 0) for zone in config['WORK_AREAS'].values())
         if total_workers_in_config_zones == 0 and team_size > 0: 
-            num_zones_for_dist = len([zn for zn, zd in config['WORK_AREAS'].items() if zd.get('tasks_per_interval',0) > 0 or 'Warehouse' in zn or 'Assembly' in zn]); num_zones_for_dist = num_zones_for_dist if num_zones_for_dist > 0 else len(config['WORK_AREAS']) 
+            num_zones_for_dist = len([zn for zn, zd in config['WORK_AREAS'].items() if zd.get('tasks_per_interval',0) > 0 or 'Warehouse' in zn or 'Assembly' in zn]); 
+            num_zones_for_dist = num_zones_for_dist if num_zones_for_dist > 0 else len(config['WORK_AREAS']) 
             if num_zones_for_dist > 0:
                 workers_per_zone = team_size // num_zones_for_dist; remainder_workers = team_size % num_zones_for_dist
                 zone_keys_for_dist = [zn for zn, zd in config['WORK_AREAS'].items() if zd.get('tasks_per_interval',0) > 0 or 'Warehouse' in zn or 'Assembly' in zn]
@@ -183,19 +188,42 @@ def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals
                 all_zone_keys = list(config['WORK_AREAS'].keys()); [config['WORK_AREAS'][zk].update({'workers':0}) for zk in all_zone_keys if zk not in zone_keys_for_dist] 
         elif total_workers_in_config_zones > 0 and total_workers_in_config_zones != team_size : 
             ratio = team_size / total_workers_in_config_zones; accumulated_workers = 0; sorted_zone_keys = sorted(list(config['WORK_AREAS'].keys()))
-            for zone_key in sorted_zone_keys[:-1]: assigned = int(round(config['WORK_AREAS'][zone_key].get('workers', 0) * ratio)); config['WORK_AREAS'][zone_key]['workers'] = assigned; accumulated_workers += assigned
-            if sorted_zone_keys: last_zone_key = sorted_zone_keys[-1]; config['WORK_AREAS'][last_zone_key]['workers'] = team_size - accumulated_workers
-            elif team_size > 0: logger.warning("Team size > 0 but no work zones defined for worker assignment after ratio.")
+            for zone_key in sorted_zone_keys[:-1]: 
+                assigned = int(round(config['WORK_AREAS'][zone_key].get('workers', 0) * ratio))
+                config['WORK_AREAS'][zone_key]['workers'] = assigned; accumulated_workers += assigned
+            if sorted_zone_keys: 
+                 last_zone_key = sorted_zone_keys[-1]; config['WORK_AREAS'][last_zone_key]['workers'] = team_size - accumulated_workers
+            elif team_size > 0: 
+                logger.warning("Team size > 0 but no work zones defined for worker assignment after ratio.")
         elif team_size == 0: 
             for zone_key in config['WORK_AREAS']: config['WORK_AREAS'][zone_key]['workers'] = 0
+    
     validate_config(config) 
     logger.info(f"Running simulation with: Team Size={team_size}, Duration={shift_duration_minutes}min, Disruptions(min): {disruption_intervals_minutes_param}, Disruption Steps: {config['DISRUPTION_EVENT_STEPS']}, Initiative: {team_initiative_selected}", extra={'user_action': 'Run Simulation'})
-    sim_results_tuple = simulate_workplace_operations(num_team_members=team_size, num_steps=config['SHIFT_DURATION_INTERVALS'], disruption_event_steps=config['DISRUPTION_EVENT_STEPS'], team_initiative=team_initiative_selected, config=config)
+    
+    sim_results_tuple = simulate_workplace_operations(
+        num_team_members=team_size, 
+        num_steps=config['SHIFT_DURATION_INTERVALS'],
+        disruption_event_steps=config['DISRUPTION_EVENT_STEPS'], 
+        team_initiative=team_initiative_selected, 
+        config=config
+    )
+    
     expected_keys = ['team_positions_df', 'task_compliance', 'collaboration_proximity', 'operational_recovery', 'efficiency_metrics_df', 'productivity_loss', 'worker_wellbeing', 'psychological_safety', 'feedback_impact', 'downtime_minutes', 'task_completion_rate']
     if not isinstance(sim_results_tuple, tuple) or len(sim_results_tuple) != len(expected_keys):
-        err_msg = f"Simulation returned unexpected data format. Expected tuple of {len(expected_keys)} items, got {type(sim_results_tuple)} with length {len(sim_results_tuple) if isinstance(sim_results_tuple, (list,tuple)) else 'N/A'}."; logger.critical(err_msg, extra={'user_action': 'Run Simulation - CRITICAL Data Format Error'}); raise TypeError(err_msg)
+        err_msg = f"Simulation returned unexpected data format. Expected tuple of {len(expected_keys)} items, got {type(sim_results_tuple)} with length {len(sim_results_tuple) if isinstance(sim_results_tuple, (list,tuple)) else 'N/A'}."; 
+        logger.critical(err_msg, extra={'user_action': 'Run Simulation - CRITICAL Data Format Error'}); 
+        raise TypeError(err_msg)
+        
     simulation_output_dict = dict(zip(expected_keys, sim_results_tuple))
-    simulation_output_dict['config_params'] = {'TEAM_SIZE': team_size, 'SHIFT_DURATION_MINUTES': shift_duration_minutes, 'DISRUPTION_INTERVALS_MINUTES': disruption_intervals_minutes_param, 'DISRUPTION_EVENT_STEPS': config['DISRUPTION_EVENT_STEPS'], 'TEAM_INITIATIVE': team_initiative_selected}
+    simulation_output_dict['config_params'] = {
+        'TEAM_SIZE': team_size, 
+        'SHIFT_DURATION_MINUTES': shift_duration_minutes, 
+        'DISRUPTION_INTERVALS_MINUTES': disruption_intervals_minutes_param, 
+        'DISRUPTION_EVENT_STEPS': config['DISRUPTION_EVENT_STEPS'],   
+        'TEAM_INITIATIVE': team_initiative_selected
+    }
+    
     save_simulation_data(simulation_output_dict); return simulation_output_dict
 
 def safe_get(data_dict, path_str, default_val=None):
@@ -217,13 +245,13 @@ def get_actionable_insights(sim_data, current_config):
     insights = []; 
     if not sim_data or not isinstance(sim_data, dict): return insights 
     compliance_data = safe_get(sim_data, 'task_compliance.data', []); target_compliance_from_config = current_config.get('TARGET_COMPLIANCE', 75); compliance_avg = safe_stat(compliance_data, np.mean, default_val=target_compliance_from_config)
-    if compliance_avg < target_compliance_from_config * 0.9: insights.append({"type": "critical", "title": "Low Task Compliance", "text": f"Avg. Task Compliance ({compliance_avg:.1f}%) significantly below target ({target_compliance_from_config}%). Leadership should investigate root causes: are processes too complex, training inadequate, or workload too high? Consider reviewing disruption impacts on task execution."})
-    elif compliance_avg < target_compliance_from_config: insights.append({"type": "warning", "title": "Suboptimal Task Compliance", "text": f"Avg. Task Compliance at {compliance_avg:.1f}%. Leadership should identify intervals or work areas with the lowest compliance for targeted process review or resource adjustment."})
+    if compliance_avg < target_compliance_from_config * 0.9: insights.append({"type": "critical", "title": "Low Task Compliance", "text": f"Avg. Task Compliance ({compliance_avg:.1f}%) significantly below target ({target_compliance_from_config}%). Review disruption impacts, task complexities, and training."})
+    elif compliance_avg < target_compliance_from_config: insights.append({"type": "warning", "title": "Suboptimal Task Compliance", "text": f"Avg. Task Compliance at {compliance_avg:.1f}%. Identify intervals or areas with lowest compliance for process review."})
     
     wellbeing_scores = safe_get(sim_data, 'worker_wellbeing.scores', []); target_wellbeing_from_config = current_config.get('TARGET_WELLBEING', 70); wellbeing_avg = safe_stat(wellbeing_scores, np.mean, default_val=target_wellbeing_from_config)
-    if wellbeing_avg < target_wellbeing_from_config * current_config.get('WELLBEING_CRITICAL_THRESHOLD_PERCENT_OF_TARGET', 0.85) : insights.append({"type": "critical", "title": "Critical Worker Well-being", "text": f"Avg. Well-being ({wellbeing_avg:.1f}%) critically low (target {target_wellbeing_from_config}%). Leadership must urgently review work conditions, perceived workload, stress factors, and support mechanisms. Low well-being directly impacts productivity and safety."})
+    if wellbeing_avg < target_wellbeing_from_config * current_config.get('WELLBEING_CRITICAL_THRESHOLD_PERCENT_OF_TARGET', 0.85) : insights.append({"type": "critical", "title": "Critical Worker Well-being", "text": f"Avg. Well-being ({wellbeing_avg:.1f}%) critically low (target {target_wellbeing_from_config}%). Urgent review of work conditions, load, and stress factors needed."})
     threshold_triggers = safe_get(sim_data, 'worker_wellbeing.triggers.threshold', [])
-    if wellbeing_scores and len(threshold_triggers) > max(2, len(wellbeing_scores) * 0.1): insights.append({"type": "warning", "title": "Frequent Low Well-being Alerts", "text": f"{len(threshold_triggers)} instances of well-being dropping below threshold. Leadership should investigate specific triggers (time, zone, event) to understand patterns."})
+    if wellbeing_scores and len(threshold_triggers) > max(2, len(wellbeing_scores) * 0.1): insights.append({"type": "warning", "title": "Frequent Low Well-being Alerts", "text": f"{len(threshold_triggers)} instances of well-being dropping below threshold. Investigate specific triggers."})
     
     downtime_events_list = safe_get(sim_data, 'downtime_minutes', []) 
     downtime_durations = [event.get('duration',0) for event in downtime_events_list]
@@ -231,33 +259,54 @@ def get_actionable_insights(sim_data, current_config):
     sim_cfg_params = sim_data.get('config_params', {}); 
     shift_mins = sim_cfg_params.get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'])
     dt_thresh_total_shift = current_config.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', shift_mins * 0.05) 
-    if total_downtime > dt_thresh_total_shift : insights.append({"type": "critical", "title": "Excessive Total Shift Downtime", "text": f"Total shift downtime is {total_downtime:.0f} minutes, exceeding the guideline of {dt_thresh_total_shift:.0f} min. Leadership action: Deep dive into disruption causes (see Downtime tab pie chart), equipment reliability, and recovery protocols."})
+    if total_downtime > dt_thresh_total_shift : insights.append({"type": "critical", "title": "Excessive Total Shift Downtime", "text": f"Total shift downtime is {total_downtime:.0f} minutes, exceeding the guideline of {dt_thresh_total_shift:.0f} min. Deep dive into disruption causes, equipment reliability, and recovery protocols. Analyze downtime causes pie chart."})
     
     psych_safety_scores = safe_get(sim_data, 'psychological_safety', []); target_psych_safety = current_config.get('TARGET_PSYCH_SAFETY', 70); psych_safety_avg = safe_stat(psych_safety_scores, np.mean, default_val=target_psych_safety)
-    if psych_safety_avg < target_psych_safety * 0.9: insights.append({"type": "warning", "title": "Low Psychological Safety", "text": f"Avg. Psych. Safety ({psych_safety_avg:.1f}%) is below target ({target_psych_safety}%). Leadership should foster an environment of trust, open communication, and ensure mechanisms for feedback without fear."})
+    if psych_safety_avg < target_psych_safety * 0.9: insights.append({"type": "warning", "title": "Low Psychological Safety", "text": f"Avg. Psych. Safety ({psych_safety_avg:.1f}%) is below target ({target_psych_safety}%). Consider initiatives to build trust and open communication."})
     
     cohesion_scores = safe_get(sim_data, 'worker_wellbeing.team_cohesion_scores', []); target_cohesion = current_config.get('TARGET_TEAM_COHESION', 70) 
     cohesion_avg = safe_stat(cohesion_scores, np.mean, default_val=target_cohesion)
-    if cohesion_avg < target_cohesion * 0.9: insights.append({"type": "warning", "title": "Low Team Cohesion", "text": f"Avg. Team Cohesion ({cohesion_avg:.1f}%) is below desired levels. Leadership can consider team-building activities, clarify roles, and improve cross-functional collaboration structures."})
+    if cohesion_avg < target_cohesion * 0.9: insights.append({"type": "warning", "title": "Low Team Cohesion", "text": f"Avg. Team Cohesion ({cohesion_avg:.1f}%) is below desired levels. Consider team-building activities or structural reviews for collaboration."})
 
     workload_scores = safe_get(sim_data, 'worker_wellbeing.perceived_workload_scores', []); target_workload = current_config.get('TARGET_PERCEIVED_WORKLOAD', 6.5) 
     workload_avg = safe_stat(workload_scores, np.mean, default_val=target_workload)
-    if workload_avg > current_config.get('PERCEIVED_WORKLOAD_THRESHOLD_VERY_HIGH', 8.5): insights.append({"type": "critical", "title": "Very High Perceived Workload", "text": f"Avg. Perceived Workload ({workload_avg:.1f}/10) is critically high. Leadership action: Immediate review of task distribution, staffing levels, and process efficiencies to prevent burnout."})
-    elif workload_avg > current_config.get('PERCEIVED_WORKLOAD_THRESHOLD_HIGH', 7.5): insights.append({"type": "warning", "title": "High Perceived Workload", "text": f"Avg. Perceived Workload ({workload_avg:.1f}/10) exceeds high threshold. Leadership should monitor closely and identify potential bottlenecks or resource strain."})
+    if workload_avg > current_config.get('PERCEIVED_WORKLOAD_THRESHOLD_VERY_HIGH', 8.5): insights.append({"type": "critical", "title": "Very High Perceived Workload", "text": f"Avg. Perceived Workload ({workload_avg:.1f}/10) is critically high. Immediate review of task distribution, staffing, and process efficiencies is required."})
+    elif workload_avg > current_config.get('PERCEIVED_WORKLOAD_THRESHOLD_HIGH', 7.5): insights.append({"type": "warning", "title": "High Perceived Workload", "text": f"Avg. Perceived Workload ({workload_avg:.1f}/10) exceeds high threshold. Monitor closely and identify bottlenecks."})
+    elif workload_avg > target_workload: insights.append({"type": "info", "title": "Elevated Perceived Workload", "text": f"Avg. Perceived Workload ({workload_avg:.1f}/10) is above target ({target_workload}/10). Consider proactive adjustments."})
     
-    # Example of a Spatial Insight (could be more sophisticated)
+    downtime_incidents_count = len([event for event in downtime_events_list if event.get('duration',0) > 0])
+    if downtime_events_list and downtime_incidents_count > (len(downtime_events_list) * 0.1) and downtime_incidents_count > 3 : 
+        insights.append({"type": "warning", "title": "Frequent Downtime Incidents", "text": f"Downtime occurred in {downtime_incidents_count} out of {len(downtime_events_list)} intervals. Indicates recurrent minor issues or systemic instability. Check causes pie chart."})
+    
+    disruption_event_steps_from_sim = sim_cfg_params.get('DISRUPTION_EVENT_STEPS', [])
+    if disruption_event_steps_from_sim and downtime_events_list:
+        downtime_near_disruptions_count = 0; window = 3 
+        for dt_step, event in enumerate(downtime_events_list):
+            if event.get('duration',0) > 0:
+                for disrupt_step in disruption_event_steps_from_sim:
+                    if disrupt_step <= dt_step < disrupt_step + window: downtime_near_disruptions_count += 1; break
+        if downtime_near_disruptions_count > len(disruption_event_steps_from_sim) * 0.5 :
+             insights.append({"type": "info", "title": "Downtime Correlated with Disruptions", "text": f"{downtime_near_disruptions_count} downtime incidents occurred near {len(disruption_event_steps_from_sim)} major disruption events. Strengthen post-disruption recovery processes."})
+
     team_pos_df = safe_get(sim_data, 'team_positions_df', pd.DataFrame())
     if not team_pos_df.empty:
-        # Simple check: if a high percentage of workers are in 'Break Room' during non-standard break times (needs 'status' and 'time' context)
-        # This is a placeholder for more advanced spatial analytics.
-        if 'Break Room' in team_pos_df['zone'].unique():
-            break_room_percent = (team_pos_df['zone'] == 'Break Room').sum() / len(team_pos_df) * 100
-            if break_room_percent > 30: # If >30% of all position records are in break room
-                 insights.append({"type": "info", "title": "High Break Room Occupancy", "text": f"Workers spent a significant portion of time ({break_room_percent:.0f}%) in the Break Room. Could indicate effective break utilization or potential avoidance of work areas. Correlate with productivity metrics."})
-
+        work_areas_config_insight = current_config.get('WORK_AREAS', {})
+        for zone_name, zone_details in work_areas_config_insight.items():
+            workers_in_zone_series = team_pos_df[team_pos_df['zone'] == zone_name].groupby('step')['worker_id'].nunique()
+            if not workers_in_zone_series.empty:
+                workers_in_zone_avg = workers_in_zone_series.mean()
+                intended_workers = zone_details.get('workers', 0)
+                coords = zone_details.get('coords'); area_m2 = 1 
+                if coords and len(coords) == 2: (x0,y0), (x1,y1) = coords; area_m2 = abs(x1-x0) * abs(y1-y0); 
+                if area_m2 == 0: area_m2 = 1 
+                avg_density = workers_in_zone_avg / area_m2 if area_m2 > 0 else 0
+                if intended_workers > 0 and area_m2 > 1 and avg_density > (intended_workers / area_m2) * 1.8: # Check area > 1 to avoid issues with tiny "Break Room"
+                     insights.append({"type": "warning", "title": f"Potential Overcrowding in '{zone_name}'", "text": f"Avg. worker density ({avg_density:.2f} w/m²) significantly higher than based on assigned workers. Review layout or worker paths."})
+                elif intended_workers > 0 and workers_in_zone_avg < intended_workers * 0.4: # Reduced threshold for underutilization
+                     insights.append({"type": "info", "title": f"Potential Underutilization of '{zone_name}'", "text": f"Avg. workers observed ({workers_in_zone_avg:.1f}) is less than 40% of assigned ({intended_workers}). Check task allocation or if workers are congregating elsewhere."})
+    
     if compliance_avg > target_compliance_from_config * 1.05 and wellbeing_avg > target_wellbeing_from_config * 1.05 and total_downtime < dt_thresh_total_shift * 0.5 and psych_safety_avg > target_psych_safety * 1.05:
         insights.append({"type": "positive", "title": "Holistically Excellent Performance", "text": "Key operational and psychosocial metrics significantly exceed targets. A well-balanced and high-performing shift! Leadership should identify and replicate success factors."})
-    
     initiative = sim_data.get('config_params', {}).get('TEAM_INITIATIVE', 'Standard Operations')
     if initiative != "Standard Operations": insights.append({"type": "info", "title": f"Initiative Active: '{initiative}'", "text": f"The '{initiative}' initiative was simulated. Its impact can be assessed by comparing metrics to a 'Standard Operations' baseline run."})
     return insights
@@ -277,7 +326,7 @@ def main():
     disruption_steps_for_plots = []
 
     if st.session_state.simulation_results and isinstance(st.session_state.simulation_results, dict):
-        num_steps_from_sim = len(safe_get(st.session_state.simulation_results, 'downtime_minutes', [])) # downtime_minutes is list of dicts
+        num_steps_from_sim = len(safe_get(st.session_state.simulation_results, 'downtime_minutes', [])) 
         if num_steps_from_sim > 0: current_max_minutes_for_sliders = (num_steps_from_sim - 1) * 2
         disruption_steps_for_plots = st.session_state.simulation_results.get('config_params', {}).get('DISRUPTION_EVENT_STEPS', [])
     else: 
@@ -289,7 +338,7 @@ def main():
         with st.spinner("🚀 Simulating workplace operations..."):
             try: 
                 final_disrupt_mins_for_sim = sb_disrupt_mins_from_sidebar
-                if not isinstance(final_disrupt_mins_for_sim, list): logger.error(f"CRITICAL in main run_sim: sb_disrupt_mins was {type(final_disrupt_mins_for_sim)}. Defaulting to empty list."); final_disrupt_mins_for_sim = []
+                if not isinstance(final_disrupt_mins_for_sim, list): logger.error(f"CRITICAL in main run_sim: sb_disrupt_mins for simulation was {type(final_disrupt_mins_for_sim)}. Defaulting to empty list."); final_disrupt_mins_for_sim = []
                 st.session_state.simulation_results = run_simulation_logic(sb_team_size, sb_shift_duration, final_disrupt_mins_for_sim, sb_team_initiative)
                 st.success("✅ Simulation completed!"); logger.info("Simulation run successful.", extra={'user_action': 'Run Simulation - Success'}); st.rerun() 
             except Exception as e: logger.error(f"Simulation Run Error: {e}", exc_info=True, extra={'user_action': 'Run Simulation - Error'}); st.error(f"❌ Simulation failed: {e}"); st.session_state.simulation_results = None 
@@ -311,7 +360,7 @@ def main():
             except Exception as e: logger.error(f"Load Data Error: {e}", exc_info=True, extra={'user_action': 'Load Data - Error'}); st.error(f"❌ Failed to load data: {e}"); st.session_state.simulation_results = None
     
     if st.session_state.get('show_tour'): 
-        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>🚀 Quick Dashboard Tour</h3><p>Welcome! This dashboard helps you monitor and analyze workplace shift operations. Use the sidebar to configure simulations and navigate. The main area displays results across several tabs: Overview, Operational Metrics, Worker Well-being (including psychosocial factors and spatial dynamics), Downtime Analysis, and a Glossary. Interactive charts and actionable insights will guide you in optimizing operations.</p><p>Start by running a simulation or loading previous data!</p></div>""", unsafe_allow_html=True) 
+        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>🚀 Quick Dashboard Tour</h3><p>Welcome! This dashboard helps you monitor and analyze workplace shift operations. Use the sidebar to configure simulations and navigate. The main area displays results across several tabs: Overview, Operational Metrics, Worker Well-being (including psychosocial factors and spatial dynamics), Downtime Analysis, and a Glossary. Interactive charts and actionable insights will guide you in optimizing operations.</p><p>Start by running a new simulation or loading previous data from the sidebar!</p></div>""", unsafe_allow_html=True) 
         if st.button("Got it!", key="tour_modal_close_btn_main"): st.session_state.show_tour = False; st.rerun()
     if st.session_state.get('show_help_glossary'): 
         with st.container(): st.markdown(""" <div class="onboarding-modal"><h3>ℹ️ Help & Glossary</h3> <p>This dashboard provides insights into simulated workplace operations. Use the sidebar to configure and run simulations or load previously saved data. Navigate through the analysis using the main tabs above.</p><h4>Metric Definitions:</h4> <ul style="font-size: 0.85rem; list-style-type: disc; padding-left: 20px;"> <li><b>Task Compliance Score:</b> Percentage of tasks completed correctly and on time.</li><li><b>Collaboration Proximity Index:</b> Percentage of workers near colleagues, indicating teamwork potential.</li><li><b>Operational Recovery Score:</b> Ability to maintain output after disruptions.</li><li><b>Worker Well-Being Index:</b> Composite score of fatigue, stress levels, and job satisfaction.</li><li><b>Psychological Safety Score:</b> Comfort level in reporting issues or suggesting improvements.</li><li><b>Team Cohesion Index:</b> Measure of bonds and sense of belonging within a team.</li><li><b>Perceived Workload Index:</b> Indicator of how demanding workers perceive their tasks (0-10 scale).</li><li><b>Uptime:</b> Percentage of time equipment is operational.</li><li><b>Throughput:</b> Percentage of maximum production rate achieved.</li><li><b>Quality Rate:</b> Percentage of products meeting quality standards.</li><li><b>OEE (Overall Equipment Effectiveness):</b> Combined score of Uptime, Throughput, and Quality Rate.</li><li><b>Productivity Loss:</b> Percentage of potential output lost due to inefficiencies.</li><li><b>Downtime (per interval):</b> Total minutes of unplanned operational stops.</li><li><b>Task Completion Rate:</b> Percentage of tasks completed per time interval.</li></ul><p>For further assistance, please refer to the detailed documentation or contact support@example.com.</p></div> """, unsafe_allow_html=True) 
@@ -319,7 +368,7 @@ def main():
 
     tabs_main_names = ["📊 Overview & Insights", "📈 Operational Metrics", "👥 Worker Well-being", "⏱️ Downtime Analysis", "📖 Glossary"]
     tabs = st.tabs(tabs_main_names)
-    plot_config_interactive = {'displaylogo': False, 'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'resetScale2d', 'zoomIn2d', 'zoomOut2d', 'pan2d'], 'toImageButtonOptions': {'format': 'png', 'filename': 'plot_export', 'scale': 2}}; plot_config_minimal = {'displayModeBar': False}
+    plot_config_interactive = {'displaylogo': False, 'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'resetScale2d', 'zoomIn2d', 'zoomOut2d', 'pan2d', 'autoScale2d'], 'toImageButtonOptions': {'format': 'png', 'filename': 'plot_export', 'scale': 2}}; plot_config_minimal = {'displayModeBar': False}
     current_high_contrast_setting = st.session_state.get('sb_high_contrast_checkbox', False)
 
     # --- TAB 0: OVERVIEW & INSIGHTS ---
@@ -331,15 +380,11 @@ def main():
             downtime_events_overview = safe_get(sim_data, 'downtime_minutes', []) 
             downtime_durations_overview = [event.get('duration',0) for event in downtime_events_overview]
             downtime_total_overview = safe_stat(downtime_durations_overview, np.sum)
-            dt_target_total_shift=effective_config.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', (sim_data.get('config_params',{}).get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']) * 0.05) if sim_data.get('config_params',{}) else DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] * 0.05 )
+            shift_duration_for_target = sim_data.get('config_params',{}).get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'])
+            dt_target_total_shift=effective_config.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', shift_duration_for_target * 0.05 )
+            
             compliance = safe_stat(safe_get(sim_data, 'task_compliance.data', []), np.mean); proximity = safe_stat(safe_get(sim_data, 'collaboration_proximity.data', []), np.mean); wellbeing = safe_stat(safe_get(sim_data, 'worker_wellbeing.scores', []), np.mean); 
-            
-            cols_metrics = st.columns(4)
-            cols_metrics[0].metric("Task Compliance", f"{compliance:.1f}%", f"{compliance-compliance_target:.1f}% vs Target ({compliance_target}%)")
-            cols_metrics[1].metric("Collaboration Index", f"{proximity:.1f}%", f"{proximity-collab_target:.1f}% vs Target ({collab_target}%)")
-            cols_metrics[2].metric("Worker Well-Being", f"{wellbeing:.1f}%", f"{wellbeing-wb_target:.1f}% vs Target ({wb_target}%)")
-            cols_metrics[3].metric("Total Downtime", f"{downtime_total_overview:.1f} min", f"{downtime_total_overview-dt_target_total_shift:.1f} min vs Target ({dt_target_total_shift:.0f}min)", delta_color="inverse")
-            
+            cols_metrics = st.columns(4); cols_metrics[0].metric("Task Compliance", f"{compliance:.1f}%", f"{compliance-compliance_target:.1f}% vs Target ({compliance_target}%)"); cols_metrics[1].metric("Collaboration Index", f"{proximity:.1f}%", f"{proximity-collab_target:.1f}% vs Target ({collab_target}%)"); cols_metrics[2].metric("Worker Well-Being", f"{wellbeing:.1f}%", f"{wellbeing-wb_target:.1f}% vs Target ({wb_target}%)"); cols_metrics[3].metric("Total Downtime", f"{downtime_total_overview:.1f} min", f"{downtime_total_overview-dt_target_total_shift:.1f} min vs Target ({dt_target_total_shift:.0f}min)", delta_color="inverse")
             try:
                 summary_figs = plot_key_metrics_summary(compliance, proximity, wellbeing, downtime_total_overview, current_high_contrast_setting) 
                 if summary_figs:
@@ -354,13 +399,19 @@ def main():
             if actionable_insights:
                 for insight in actionable_insights:
                     alert_class = f"alert-{insight['type']}"; st.markdown(f'<div class="{alert_class}"><p class="insight-title">{insight["title"]}</p><p class="insight-text">{insight["text"]}</p></div>', unsafe_allow_html=True)
-            else: st.info("✅ No critical alerts or specific insights identified based on current thresholds. Overall performance appears stable.", icon="👍")
+            else: st.info("✅ No critical alerts or specific insights identified. Performance appears stable against defined thresholds.", icon="👍")
             
             with st.expander("View Detailed Overview Data Table", expanded=False):
                 downtime_durations_for_table = [event.get('duration', np.nan) for event in safe_get(sim_data, 'downtime_minutes', [])]
                 num_s = len(downtime_durations_for_table)
                 if num_s > 0:
-                    df_data = {'Time (min)': [i*2 for i in range(num_s)]}; df_data.update({'Task Compliance (%)': safe_get(sim_data, 'task_compliance.data', [np.nan]*num_s)[:num_s], 'Collaboration (%)': safe_get(sim_data, 'collaboration_proximity.data', [np.nan]*num_s)[:num_s], 'Well-Being (%)': safe_get(sim_data, 'worker_wellbeing.scores', [np.nan]*num_s)[:num_s], 'Downtime (min)': downtime_durations_for_table})
+                    df_data = {'Time (min)': [i*2 for i in range(num_s)]}; 
+                    df_data.update({
+                        'Task Compliance (%)': safe_get(sim_data, 'task_compliance.data', [np.nan]*num_s)[:num_s], 
+                        'Collaboration (%)': safe_get(sim_data, 'collaboration_proximity.data', [np.nan]*num_s)[:num_s], 
+                        'Well-Being (%)': safe_get(sim_data, 'worker_wellbeing.scores', [np.nan]*num_s)[:num_s], 
+                        'Downtime (min)': downtime_durations_for_table
+                    })
                     st.dataframe(pd.DataFrame(df_data).style.format("{:.1f}", na_rep="-").set_table_styles([{'selector': 'th', 'props': [('background-color', '#293344'), ('color', '#EAEAEA')]}]), use_container_width=True, height=300)
                 else: st.caption("No detailed overview data.")
         else: st.info("ℹ️ Run a simulation or load data to view the Overview & Insights.", icon="📊")
@@ -391,18 +442,21 @@ def main():
                 except Exception as e: logger.error(f"Op Tab CP Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Collaboration Index.")
             else: st.caption("No Collaboration Index data for this time range.")
             
-            with st.container(border=True): # No expander, show additional metrics directly
-                st.markdown("<h5>Additional Operational Metrics</h5>", unsafe_allow_html=True)
+            # Plots for Recovery and OEE (no expander, direct display)
+            with st.container(border=True):
+                st.markdown("<h5>Operational Recovery & Resilience</h5>", unsafe_allow_html=True)
                 or_data_list = safe_get(sim_data, 'operational_recovery', [])[start_idx:end_idx]
                 if or_data_list:
                     try: pl_data = safe_get(sim_data, 'productivity_loss', [])[start_idx:end_idx]; st.plotly_chart(plot_operational_recovery(or_data_list, pl_data, current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
                     except Exception as e: logger.error(f"Op Tab OR Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Operational Recovery.")
                 else: st.caption("No Operational Recovery data for this time range.")
-                
+            
+            with st.container(border=True):
+                st.markdown('<h5>Overall Equipment Effectiveness (OEE) & Components</h5>', unsafe_allow_html=True)
                 eff_df_full = safe_get(sim_data, 'efficiency_metrics_df', pd.DataFrame())
                 if not eff_df_full.empty:
                     try:
-                        sel_metrics = st.multiselect("Select Efficiency Metrics to Display:", ['uptime', 'throughput', 'quality', 'oee'], default=['uptime', 'throughput', 'quality', 'oee'], key="eff_metrics_multiselect_op_tab")
+                        sel_metrics = st.multiselect("Select Efficiency Metrics:", ['uptime', 'throughput', 'quality', 'oee'], default=['uptime', 'throughput', 'quality', 'oee'], key="eff_metrics_multiselect_op_tab")
                         filt_eff_df = eff_df_full.iloc[start_idx:end_idx] if isinstance(eff_df_full.index, pd.RangeIndex) and end_idx <= len(eff_df_full) else eff_df_full 
                         if not filt_eff_df.empty: st.plotly_chart(plot_operational_efficiency(filt_eff_df, sel_metrics, current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
                         else: st.caption("No OEE data for this time range after filtering.")
@@ -410,20 +464,10 @@ def main():
                 else: st.caption("No OEE data available.")
 
             st.markdown("<hr><h3 style='text-align:center;'>🏛️ Leadership Actionable Insights (Operational)</h3>", unsafe_allow_html=True)
-            st.markdown("""
-                <div class='alert-info insight-text' style='margin-top:1rem;'>
-                    <p class="insight-title">Review Operational Bottlenecks:</p>
-                    <ul>
-                        <li><b>Low Compliance/OEE:</b> If Task Compliance or OEE components (Uptime, Throughput, Quality) are consistently low or dip significantly, investigate the root causes. Are these correlated with disruptions, high workload periods, or specific zones?</li>
-                        <li><b>Recovery Performance:</b> Evaluate how quickly Operational Recovery returns to target after disruptions. Slow recovery indicates a need for improved contingency plans or resource flexibility.</li>
-                        <li><b>Collaboration Impact:</b> If Collaboration Index is low and operational metrics suffer, it may indicate communication breakdowns or poor team synergy affecting task handoffs. Consider targeted team interventions or process clarifications.</li>
-                    </ul>
-                    <p class="insight-title">Strategic Considerations:</p>
-                    <p>Use the "Operational Initiative" setting in the sidebar to simulate changes (e.g., new break policies, recognition programs). Compare these scenarios against a "Standard Operations" baseline to quantify the ROI and impact of leadership decisions on operational KPIs and worker well-being.</p>
-                </div>
-            """, unsafe_allow_html=True)
+            st.markdown("""<div class='alert-info insight-text' style='margin-top:1rem;'><p class="insight-title">Review Operational Bottlenecks:</p><ul><li><b>Low Compliance/OEE:</b> If Task Compliance or OEE components (Uptime, Throughput, Quality) are consistently low or dip significantly, investigate the root causes. Are these correlated with disruptions, high workload periods, or specific zones?</li><li><b>Recovery Performance:</b> Evaluate how quickly Operational Recovery returns to target after disruptions. Slow recovery indicates a need for improved contingency plans or resource flexibility.</li><li><b>Collaboration Impact:</b> If Collaboration Index is low and operational metrics suffer, it may indicate communication breakdowns or poor team synergy affecting task handoffs. Consider targeted team interventions or process clarifications.</li></ul><p class="insight-title">Strategic Considerations:</p><p>Use the "Operational Initiative" setting in the sidebar to simulate changes (e.g., new break policies, recognition programs). Compare these scenarios against a "Standard Operations" baseline to quantify the ROI and impact of leadership decisions on operational KPIs and worker well-being.</p></div>""", unsafe_allow_html=True)
         else: st.info("ℹ️ Run a simulation or load data to view Operational Metrics.", icon="📈")
 
+    # --- TAB 2: WORKER WELL-BEING ---
     with tabs[2]: 
         st.header("👥 Worker Well-being & Psychosocial Factors", divider="blue")
         if st.session_state.simulation_results:
@@ -433,65 +477,98 @@ def main():
             if value_from_state is None or not (isinstance(value_from_state, tuple) and len(value_from_state) == 2): current_slider_value = default_value; st.session_state[value_key] = current_slider_value
             else: current_slider_value = value_from_state
             current_slider_value = (min(current_slider_value[0], current_max_minutes_for_sliders), min(current_slider_value[1], current_max_minutes_for_sliders)); current_slider_value = (current_slider_value[0], max(current_slider_value[0], current_slider_value[1]))
-            shared_time_range = st.slider("Select Time Range (minutes) for Worker Insights:", 0, current_max_minutes_for_sliders, current_slider_value, 2, key=slider_key, disabled=current_max_minutes_for_sliders == 0, on_change=lambda: st.session_state.update({value_key: st.session_state[slider_key]}))
+            shared_time_range = st.slider("Select Time Range (minutes) for Analysis:", 0, current_max_minutes_for_sliders, current_slider_value, 2, key=slider_key, disabled=current_max_minutes_for_sliders == 0, on_change=lambda: st.session_state.update({value_key: st.session_state[slider_key]}))
             shared_start_idx, shared_end_idx = shared_time_range[0]//2, shared_time_range[1]//2 + 1
             
             st.subheader("Psychosocial & Well-being Indicators")
-            cols_psychosocial_plots_1 = st.columns(2) # First row of psychosocial plots
+            cols_psychosocial_plots_1 = st.columns(2)
             with cols_psychosocial_plots_1[0]:
-                st.markdown("<h5>Worker Well-Being Index</h5>", unsafe_allow_html=True)
-                # ... (Wellbeing plot logic as before)
+                with st.container(border=True): st.markdown("<h5>Worker Well-Being Index</h5>", unsafe_allow_html=True)
+                ww_scores_list = safe_get(sim_data, 'worker_wellbeing.scores', [])[shared_start_idx:shared_end_idx]
+                if ww_scores_list:
+                    try: ww_trigs_raw = safe_get(sim_data, 'worker_wellbeing.triggers', {}); ww_trigs_filt = {k: [t for t in v if shared_start_idx <= t < shared_end_idx] for k, v in ww_trigs_raw.items() if isinstance(v, list)}; ww_trigs_filt['work_area'] = {wk: [t for t in wv if shared_start_idx <= t < shared_end_idx] for wk, wv in ww_trigs_raw.get('work_area',{}).items()}; st.plotly_chart(plot_worker_wellbeing(ww_scores_list, ww_trigs_filt, current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
+                    except Exception as e: logger.error(f"Wellbeing Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Well-Being Index.")
+                else: st.caption("No Well-Being Index data for this time range.")
             with cols_psychosocial_plots_1[1]:
-                st.markdown("<h5>Psychological Safety Score</h5>", unsafe_allow_html=True)
-                # ... (Psych Safety plot logic as before)
+                with st.container(border=True): st.markdown("<h5>Psychological Safety Score</h5>", unsafe_allow_html=True)
+                ps_scores_list = safe_get(sim_data, 'psychological_safety', [])[shared_start_idx:shared_end_idx]
+                if ps_scores_list:
+                    try: st.plotly_chart(plot_psychological_safety(ps_scores_list, current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
+                    except Exception as e: logger.error(f"Psych Safety Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Psychological Safety.")
+                else: st.caption("No Psych. Safety data for this time range.")
 
-            cols_psychosocial_plots_2 = st.columns(2) # Second row of psychosocial plots
+            cols_psychosocial_plots_2 = st.columns(2)
             with cols_psychosocial_plots_2[0]:
-                st.markdown("<h5>Team Cohesion Index</h5>", unsafe_allow_html=True)
-                # ... (Team Cohesion plot logic as before)
+                with st.container(border=True): st.markdown("<h5>Team Cohesion Index</h5>", unsafe_allow_html=True)
+                tc_scores_list = safe_get(sim_data, 'worker_wellbeing.team_cohesion_scores', [])[shared_start_idx:shared_end_idx] 
+                if tc_scores_list:
+                    try: st.plotly_chart(plot_team_cohesion(tc_scores_list, current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
+                    except Exception as e: logger.error(f"Team Cohesion Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Team Cohesion.")
+                else: st.caption("No Team Cohesion data for this time range.")
             with cols_psychosocial_plots_2[1]:
-                st.markdown("<h5>Perceived Workload Index (0-10)</h5>", unsafe_allow_html=True)
-                # ... (Perceived Workload plot logic as before)
-
-            st.markdown("---"); st.subheader("Spatial Dynamics Analysis")
-            zones = ["All"] + list(DEFAULT_CONFIG.get('WORK_AREAS', {}).keys()); zone_sel = st.selectbox("Filter by Zone (for Distribution & Density):", zones, key="worker_zone_selectbox_dist_tab")
-            filt_team_pos_df = team_pos_df_all
-            if not filt_team_pos_df.empty: filt_team_pos_df = filt_team_pos_df[(filt_team_pos_df['step'] >= shared_start_idx) & (filt_team_pos_df['step'] < shared_end_idx)]; 
-            if zone_sel != "All" and not filt_team_pos_df.empty : filt_team_pos_df = filt_team_pos_df[filt_team_pos_df['zone'] == zone_sel]
-            show_ee = st.checkbox("Show Entry/Exit Points on plots", True, key="worker_show_ee_checkbox_dist_tab"); show_pl = st.checkbox("Show Production Lines on plots", True, key="worker_show_pl_checkbox_dist_tab")
-            cols_dist = st.columns(2)
-            with cols_dist[0]: # Worker Positions Plot
-                st.markdown("<h5>Worker Positions (Time Snapshot)</h5>", unsafe_allow_html=True); min_step, max_step = shared_start_idx, max(shared_start_idx, shared_end_idx -1); snap_slider_key="wsnap_slider"; snap_val_key="worker_snap_step_slider_val_dist_tab"; default_snap=min_step; snap_val_from_state=st.session_state.get(snap_val_key)
-                if snap_val_from_state is None or not isinstance(snap_val_from_state, int): snap_val = default_snap; st.session_state[snap_val_key] = snap_val
-                else: snap_val = snap_val_from_state
-                snap_val = max(min_step, min(snap_val, max_step)); 
-                if snap_val < min_step : snap_val = min_step 
-                snap_step = st.slider("Select Time Step for Snapshot:", min_step, max_step, snap_val, 1, key=snap_slider_key, disabled=max_step < min_step, on_change=lambda:st.session_state.update({snap_val_key: st.session_state[snap_slider_key]}))
-                if not team_pos_df_all.empty and max_step >= min_step :
-                    with st.container(border=True):
-                        try: st.plotly_chart(plot_worker_distribution(team_pos_df_all, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, st.session_state.get('sb_use_3d_distribution_checkbox', False), snap_step, show_ee, show_pl, current_high_contrast_setting), use_container_width=True, config=plot_config_interactive) 
-                        except Exception as e: logger.error(f"Worker Dist Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Worker Positions.")
-                else: st.caption("No data for positions snapshot.")
-            with cols_dist[1]: # Density Heatmap
-                st.markdown("<h5>Worker Density Heatmap (Aggregated)</h5>", unsafe_allow_html=True)
-                if not filt_team_pos_df.empty:
-                    with st.container(border=True):
-                        try: st.plotly_chart(plot_worker_density_heatmap(filt_team_pos_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, show_ee, show_pl, current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
-                        except Exception as e: logger.error(f"Worker Heatmap Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Density Heatmap.")
-                else: st.caption("No data for density heatmap.")
+                with st.container(border=True): st.markdown("<h5>Perceived Workload Index (0-10)</h5>", unsafe_allow_html=True)
+                pw_scores_list = safe_get(sim_data, 'worker_wellbeing.perceived_workload_scores', [])[shared_start_idx:shared_end_idx]
+                if pw_scores_list:
+                    try: st.plotly_chart(plot_perceived_workload(pw_scores_list, DEFAULT_CONFIG.get('PERCEIVED_WORKLOAD_THRESHOLD_HIGH', 7.5), DEFAULT_CONFIG.get('PERCEIVED_WORKLOAD_THRESHOLD_VERY_HIGH', 8.5), current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
+                    except Exception as e: logger.error(f"Perceived Workload Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Perceived Workload.")
+                else: st.caption("No Perceived Workload data for this time range.")
             
             st.markdown("<hr><h3 style='text-align:center;'>🏛️ Leadership Actionable Insights (Worker Well-being)</h3>", unsafe_allow_html=True)
-            st.markdown("<h6>Well-Being Alerts & Considerations (selected time range):</h6>", unsafe_allow_html=True)
-            # ... (Detailed well-being alert display as previously corrected)
-            st.markdown("""<ul style="font-size:0.9rem; color: #D1D5DB; padding-left:20px; margin-bottom:0;"><li><strong>Monitor Psychosocial Risk Factors:</strong> Regularly review Well-being, Psychological Safety, Team Cohesion, and Perceived Workload indices. Dips or consistently low scores require proactive investigation.</li><li><strong>Spatial Awareness:</strong> Correlate high-density zones or areas with isolated workers (from Distribution and Heatmap plots) with well-being or productivity metrics. Overcrowding can increase stress, while isolation can reduce cohesion.</li><li><strong>Evaluate Initiatives:</strong> Actively use the "Operational Initiative" settings. Does "More frequent breaks" reduce perceived workload and fatigue (visible in well-being)? Does "Team recognition" boost cohesion and psychological safety? Use the data to make evidence-based decisions on workplace policies.</li><li><strong>Empowerment:</strong> The "Increased Autonomy" initiative's impact on psychological safety and well-being can guide decisions on job design and worker empowerment.</li><li><strong>Prevent Burnout:</strong> Address sustained high workload or low well-being proactively to prevent burnout, which severely impacts long-term productivity and retention.</li></ul>""", unsafe_allow_html=True)
+            st.markdown("<h6>Well-Being Alerts (within selected time range):</h6>", unsafe_allow_html=True)
+            ww_trigs_disp_raw = safe_get(sim_data, 'worker_wellbeing.triggers', {}); ww_trigs_disp_filt = {k: [t for t in v if shared_start_idx <= t < shared_end_idx] for k, v in ww_trigs_disp_raw.items() if isinstance(v, list)}; ww_trigs_disp_filt['work_area'] = {wk: [t for t in wv if shared_start_idx <= t < shared_end_idx] for wk, wv in ww_trigs_disp_raw.get('work_area', {}).items()}
+            insights_count = 0
+            if ww_trigs_disp_filt.get('threshold'): st.markdown(f"<div class='alert-critical insight-text'><strong>Threshold Alerts Met ({len(ww_trigs_disp_filt['threshold'])} times):</strong> Steps {ww_trigs_disp_filt['threshold']}. Acute stress/fatigue likely.</div>", unsafe_allow_html=True); insights_count+=1
+            if ww_trigs_disp_filt.get('trend'): st.markdown(f"<div class='alert-warning insight-text'><strong>Declining Trend Alerts ({len(ww_trigs_disp_filt['trend'])} times):</strong> Steps {ww_trigs_disp_filt['trend']}. Accumulating stress/fatigue.</div>", unsafe_allow_html=True); insights_count+=1
+            if ww_trigs_disp_filt.get('disruption'): st.markdown(f"<div class='alert-info insight-text'><strong>Disruption-linked Alerts ({len(ww_trigs_disp_filt['disruption'])} times):</strong> Steps {ww_trigs_disp_filt['disruption']}. Support post-disruption.</div>", unsafe_allow_html=True); insights_count+=1
+            wa_alerts = ww_trigs_disp_filt.get('work_area', {}); wa_alert_found = any(val for val_list in wa_alerts.values() for val in val_list) # Check if any trigger exists in any work area
+            if wa_alert_found: 
+                st.markdown(f"<div class='alert-warning insight-text'><strong>Work Area Specific Alerts:</strong>", unsafe_allow_html=True)
+                for zone, trigs in wa_alerts.items():
+                    if trigs: st.markdown(f"  - {zone}: {len(trigs)} alerts at steps {trigs}", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True); insights_count+=1
+            if insights_count == 0: st.markdown("<p class='insight-text' style='color: #22D3EE;'>✅ No specific well-being alerts triggered in the selected period.</p>", unsafe_allow_html=True)
+            st.markdown("<h6 style='margin-top:1.5rem;'>💡 Considerations for Psychosocial Well-being:</h6>", unsafe_allow_html=True)
+            st.markdown("""<ul style="font-size:0.9rem; color: #D1D5DB; padding-left:20px; margin-bottom:0;"><li><strong>Monitor Psychosocial Risk Factors:</strong> Regularly review Well-being, Psychological Safety, Team Cohesion, and Perceived Workload indices. Dips or consistently low scores require proactive investigation.</li><li><strong>Evaluate Initiatives:</strong> Actively use the "Operational Initiative" settings. Does "More frequent breaks" reduce perceived workload and fatigue? Does "Team recognition" boost cohesion and psychological safety? Use the data to make evidence-based decisions on workplace policies.</li><li><strong>Empowerment & Control:</strong> The "Increased Autonomy" initiative's impact can guide decisions on job design. Low perceived control (even without the initiative) suggested by high stress despite good workload could be an issue.</li><li><strong>Prevent Burnout:</strong> Address sustained high workload or low well-being proactively.</li></ul>""", unsafe_allow_html=True)
 
+            st.markdown("---"); st.subheader("Spatial Dynamics Analysis")
+            zones_dist = ["All"] + list(DEFAULT_CONFIG.get('WORK_AREAS', {}).keys()); zone_sel_dist = st.selectbox("Filter by Zone (for Spatial Plots):", zones_dist, key="worker_zone_selectbox_dist_tab_expander") 
+            filt_team_pos_df_exp = team_pos_df_all
+            if not filt_team_pos_df_exp.empty: filt_team_pos_df_exp = filt_team_pos_df_exp[(filt_team_pos_df_exp['step'] >= shared_start_idx) & (filt_team_pos_df_exp['step'] < shared_end_idx)]; 
+            if zone_sel_dist != "All" and not filt_team_pos_df_exp.empty : filt_team_pos_df_exp = filt_team_pos_df_exp[filt_team_pos_df_exp['zone'] == zone_sel_dist]
+            show_ee_exp = st.checkbox("Show E/E Points (Spatial)", value=st.session_state.get('worker_show_ee_checkbox_dist_tab',True), key="worker_show_ee_checkbox_dist_tab_exp") 
+            show_pl_exp = st.checkbox("Show Area Outlines (Spatial)", value=st.session_state.get('worker_show_pl_checkbox_dist_tab',True), key="worker_show_pl_checkbox_dist_tab_exp")
+            cols_dist_exp = st.columns(2)
+            with cols_dist_exp[0]:
+                st.markdown("<h5>Worker Positions (Snapshot)</h5>", unsafe_allow_html=True)
+                min_step_exp, max_step_exp = shared_start_idx, max(shared_start_idx, shared_end_idx -1)
+                snap_slider_key_exp="wsnap_slider_exp"; snap_val_key_exp="worker_snap_val_dist_tab_exp"; default_snap_exp=min_step_exp 
+                snap_val_exp_fs=st.session_state.get(snap_val_key_exp, default_snap_exp)
+                if snap_val_exp_fs is None or not isinstance(snap_val_exp_fs, int): snap_val_exp = default_snap_exp; st.session_state[snap_val_key_exp] = snap_val_exp
+                else: snap_val_exp = snap_val_exp_fs
+                snap_val_exp = max(min_step_exp, min(snap_val_exp, max_step_exp)) 
+                if snap_val_exp < min_step_exp : snap_val_exp = min_step_exp 
+                snap_step_exp = st.slider("Snapshot Time Step (for Positions):", min_step_exp, max_step_exp, snap_val_exp, 1, key=snap_slider_key_exp, disabled=max_step_exp < min_step_exp, on_change=lambda:st.session_state.update({snap_val_key_exp: st.session_state[snap_slider_key_exp]}))
+                if not team_pos_df_all.empty and max_step_exp >= min_step_exp :
+                    with st.container(border=True):
+                        try: st.plotly_chart(plot_worker_distribution(team_pos_df_all, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, st.session_state.get('sb_use_3d_distribution_checkbox', False), snap_step_exp, show_ee_exp, show_pl_exp, current_high_contrast_setting), use_container_width=True, config=plot_config_interactive) 
+                        except Exception as e: logger.error(f"Expander Worker Dist Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Worker Positions.")
+                else: st.caption("No data for positions snapshot.")
+            with cols_dist_exp[1]:
+                st.markdown("<h5>Worker Density (Aggregated)</h5>", unsafe_allow_html=True)
+                if not filt_team_pos_df_exp.empty: 
+                    with st.container(border=True):
+                        try: st.plotly_chart(plot_worker_density_heatmap(filt_team_pos_df_exp, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, show_ee_exp, show_pl_exp, current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
+                        except Exception as e: logger.error(f"Expander Worker Heatmap Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Density Heatmap.")
+                else: st.caption("No data for density heatmap.")
+            st.markdown("<h6 style='margin-top:1.5rem;'>💡 Leadership Insights from Spatial Data:</h6>", unsafe_allow_html=True)
+            st.markdown("""<ul style="font-size:0.9rem; color: #D1D5DB; padding-left:20px; margin-bottom:0;"><li><strong>Identify Bottlenecks/Congestion:</strong> High worker density in specific zones (not designated for high capacity) can indicate bottlenecks or inefficient layouts.</li><li><strong>Underutilized Areas:</strong> Consistently low density in productive zones might suggest imbalanced workload or resource allocation.</li><li><strong>Pathing & Flow:</strong> Analyze worker movement patterns (conceptually from snapshot progression) to identify inefficient travel paths or areas prone to cross-traffic.</li><li><strong>Social Dynamics:</strong> Areas of high congregation (outside break rooms) could indicate informal collaboration hubs or potential social idling, depending on context.</li></ul>""", unsafe_allow_html=True)
         else: st.info("ℹ️ Run a simulation or load data to view Worker Insights.", icon="👥")
 
     with tabs[3]: 
         st.header("⏱️ Downtime Analysis", divider="blue")
         if st.session_state.simulation_results:
             sim_data = st.session_state.simulation_results
-            slider_key = "downtime_tab_time_slider"; value_key = "downtime_tab_time_slider_val" # Unique key for session state value
+            slider_key = "downtime_tab_time_slider"; value_key = "downtime_tab_time_slider_val"
             default_value = (0, current_max_minutes_for_sliders); value_from_state = st.session_state.get(value_key)
             if value_from_state is None or not (isinstance(value_from_state, tuple) and len(value_from_state) == 2): current_slider_value = default_value; st.session_state[value_key] = current_slider_value
             else: current_slider_value = value_from_state
@@ -499,52 +576,41 @@ def main():
             time_range_dt = st.slider("Select Time Range (minutes):", 0, current_max_minutes_for_sliders, current_slider_value, 2, key=slider_key, disabled=current_max_minutes_for_sliders == 0, on_change=lambda: st.session_state.update({value_key: st.session_state[slider_key]}))
             dt_start_idx, dt_end_idx = time_range_dt[0]//2, time_range_dt[1]//2 + 1
             
-            downtime_events_list_all = safe_get(sim_data, 'downtime_minutes', []) # This is list of dicts
-            downtime_events_filtered = downtime_events_list_all[dt_start_idx:dt_end_idx]
+            downtime_events_list_all = safe_get(sim_data, 'downtime_minutes', []) 
+            downtime_events_filtered = downtime_events_list_all[dt_start_idx:dt_end_idx] if dt_start_idx < dt_end_idx else [] # Ensure valid slice
             downtime_durations_filtered = [event.get('duration',0) for event in downtime_events_filtered]
 
-            if downtime_events_filtered: # Check if list is not empty after filtering
+            if downtime_events_filtered:
                 total_downtime_period = sum(downtime_durations_filtered)
                 num_incidents = len([d for d in downtime_durations_filtered if d > 0])
                 avg_duration_per_incident = total_downtime_period / num_incidents if num_incidents > 0 else 0
                 
-                dt_cols = st.columns(2)
-                dt_cols[0].metric("Total Downtime in Period", f"{total_downtime_period:.1f} min")
-                dt_cols[1].metric("Number of Downtime Incidents", f"{num_incidents}")
+                dt_cols_metrics = st.columns(3) # Added a metric
+                dt_cols_metrics[0].metric("Total Downtime in Period", f"{total_downtime_period:.1f} min")
+                dt_cols_metrics[1].metric("Number of Incidents", f"{num_incidents}")
+                dt_cols_metrics[2].metric("Avg. Duration / Incident", f"{avg_duration_per_incident:.1f} min")
                 
-                if num_incidents > 0 : 
-                    st.metric("Avg. Duration per Incident", f"{avg_duration_per_incident:.1f} min", help="Average length of each downtime event in the selected period.")
-
-                plot_cols = st.columns(2)
-                with plot_cols[0]:
+                plot_cols_dt = st.columns(2)
+                with plot_cols_dt[0]:
                     with st.container(border=True): 
                         st.markdown('<h5>Downtime Trend (per Interval)</h5>', unsafe_allow_html=True)
                         try: st.plotly_chart(plot_downtime_trend(downtime_events_filtered, DEFAULT_CONFIG.get('DOWNTIME_PLOT_ALERT_THRESHOLD', 10), current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
                         except Exception as e: logger.error(f"Downtime Trend Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Downtime Trend.")
-                with plot_cols[1]:
+                with plot_cols_dt[1]:
                     with st.container(border=True):
                         st.markdown('<h5>Downtime Distribution by Cause</h5>', unsafe_allow_html=True)
                         try: st.plotly_chart(plot_downtime_causes_pie(downtime_events_filtered, current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
                         except Exception as e: logger.error(f"Downtime Causes Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Downtime Causes.")
                 
                 st.markdown("<hr><h3 style='text-align:center;'>🏛️ Leadership Actionable Insights (Downtime)</h3>", unsafe_allow_html=True)
-                st.markdown("""
-                    <div class='alert-info insight-text' style='margin-top:1rem;'>
-                        <p class="insight-title">Focus Areas for Downtime Reduction:</p>
-                        <ul>
-                            <li><strong>Identify Dominant Causes:</strong> Use the 'Downtime by Cause' pie chart to pinpoint the primary reasons for lost time. Prioritize addressing the largest segments. For example, if "Equipment Failure" is high, focus on preventative maintenance schedules or equipment upgrades. If "Material Shortage" is prevalent, review supply chain and inventory management.</li>
-                            <li><strong>Analyze Trend Plot for Patterns:</strong> Look for recurring spikes in the 'Downtime Trend'. Do they coincide with shift changes, specific processes, or follow major disruption events (check against Operational Metrics tab)? This can indicate systemic issues.</li>
-                            <li><strong>Incident Frequency vs. Duration:</strong> High frequency of short downtimes might point to many small, unaddressed issues or process instabilities. Few, but very long, downtimes might indicate severe failures requiring robust recovery protocols.</li>
-                            <li><strong>Benchmark and Set Targets:</strong> Compare total downtime against operational targets (e.g., <5% of shift duration). If consistently exceeded, a dedicated downtime reduction initiative is warranted.</li>
-                        </ul>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown("""<div class='alert-info insight-text' style='margin-top:1rem;'><p class="insight-title">Focus Areas for Downtime Reduction:</p><ul><li><strong>Prioritize by Cause:</strong> The 'Downtime by Cause' pie chart is crucial. Allocate resources to address the largest segments first. If 'Equipment Failure' dominates, schedule reliability assessments and enhance preventive maintenance. If 'Material Shortage' is key, investigate supply chain vulnerabilities and inventory buffering.</li><li><strong>Trend Analysis:</strong> Look for patterns in the 'Downtime Trend' bar chart. Are there specific times of day or intervals with recurring high downtime? This might point to shift change issues, inadequate handovers, or processes that are more failure-prone under certain conditions.</li><li><strong>Frequency vs. Severity:</strong> A high number of short downtime incidents can be as damaging as a few long ones due to the cumulative effect and the effort of restarting. Address both systemic minor issues and prepare for less frequent major ones.</li><li><strong>Disruption Correlation:</strong> Are downtime spikes often preceded or accompanied by events on the 'Operational Metrics' tab (e.g., drops in compliance, OEE)? Understanding these correlations can help in developing more resilient operational plans.</li></ul></div> """, unsafe_allow_html=True)
             else: st.caption("No Downtime events recorded in the selected time range.")
         else: st.info("ℹ️ Run a simulation or load data for Downtime Analysis.", icon="⏱️")
         
     with tabs[4]: 
         st.header("📖 Glossary of Terms", divider="blue")
-        st.markdown("""<div style="font-size: 0.95rem; line-height: 1.7;"> ... (Full Glossary HTML as previously provided) ... </div>""", unsafe_allow_html=True)
+        # ... (Full Glossary HTML content as in previous complete answer)
+        st.markdown("""<div style="font-size: 0.95rem; line-height: 1.7;"><p>This glossary defines key metrics used throughout the dashboard...</p> (Full Glossary Here) ...</div>""", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
