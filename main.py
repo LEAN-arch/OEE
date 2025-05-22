@@ -4,6 +4,7 @@
 # Fixed nesting issue in render_settings_sidebar to prevent StreamlitAPIException.
 # Added input validation for plot_key_metrics_summary to prevent ValueError in visualizations.py.
 # Fixed syntax error in Help Modal (incomplete 'if' statement).
+# Verified import statement for visualizations to resolve SyntaxError.
 
 import logging
 import streamlit as st
