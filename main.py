@@ -38,79 +38,83 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for professional, accessible design
+# Custom CSS for professional, accessible design with improved typography
 st.markdown("""
     <style>
         /* Base Styles */
         .main {
             background-color: #1E2A44;
             color: #F5F7FA;
-            font-family: 'Inter', sans-serif;
-            padding: 24px;
+            font-family: 'Roboto', 'Open Sans', 'Helvetica Neue', sans-serif;
+            padding: 32px;
         }
         h1 {
-            color: #F5F7FA;
-            font-size: 2.25rem;
-            font-weight: 600;
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
             text-align: center;
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
         }
         h2 {
-            color: #F5F7FA;
-            font-size: 1.75rem;
-            font-weight: 500;
-            margin: 1.25rem 0 0.75rem;
+            font-size: 1.875rem;
+            font-weight: 600;
+            line-height: 1.3;
+            margin: 1.5rem 0 1rem;
         }
         h3 {
-            color: #D1D5DB;
-            font-size: 1.25rem;
+            font-size: 1.375rem;
             font-weight: 500;
-            margin-bottom: 0.5rem;
+            line-height: 1.4;
+            margin-bottom: 0.75rem;
         }
         .stButton>button {
             background-color: #4F46E5;
             color: #F5F7FA;
-            border-radius: 6px;
-            border: none;
-            padding: 8px 16px;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 1rem;
             font-weight: 500;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
         }
         .stButton>button:hover, .stButton>button:focus {
             background-color: #EC4899;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
             outline: none;
         }
         .stSelectbox, .stSlider, .stMultiSelect {
             background-color: #2D3B55;
             color: #F5F7FA;
-            border-radius: 6px;
-            padding: 6px;
-            margin-bottom: 12px;
+            border-radius: 8px;
+            padding: 8px;
+            margin-bottom: 16px;
+            font-size: 1rem;
         }
         .tooltip {
             position: relative;
             display: inline-flex;
             align-items: center;
-            margin-left: 6px;
+            margin-left: 8px;
         }
         .tooltip .tooltiptext {
             visibility: hidden;
-            width: 280px;
+            width: 300px;
             background-color: #2D3B55;
             color: #F5F7FA;
             text-align: left;
-            border-radius: 6px;
-            padding: 12px;
+            border-radius: 8px;
+            padding: 16px;
             position: absolute;
             z-index: 10;
             top: 100%;
             left: 50%;
-            margin-left: -140px;
+            margin-left: -150px;
             opacity: 0;
             transition: opacity 0.3s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            font-size: 0.875rem;
+            line-height: 1.5;
         }
         .tooltip:hover .tooltiptext, .tooltip:focus .tooltiptext {
             visibility: visible;
@@ -119,8 +123,9 @@ st.markdown("""
         [data-testid="stSidebar"] {
             background-color: #2D3B55;
             color: #F5F7FA;
-            padding: 16px;
+            padding: 24px;
             border-right: 1px solid #4B5EAA;
+            font-size: 1rem;
         }
         [data-testid="stSidebar"] .stButton>button {
             background-color: #10B981;
@@ -130,37 +135,39 @@ st.markdown("""
         }
         .stMetric {
             background-color: #2D3B55;
-            border-radius: 6px;
-            padding: 16px;
-            margin: 12px 0;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 16px 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            font-size: 1.125rem;
         }
         .stExpander {
             background-color: #2D3B55;
-            border-radius: 6px;
-            margin: 12px 0;
+            border-radius: 8px;
+            margin: 16px 0;
             border: 1px solid #4B5EAA;
         }
         .recommendation {
             color: #FBBF24;
-            font-size: 0.9rem;
-            margin-top: 8px;
+            font-size: 0.875rem;
+            margin-top: 12px;
             font-style: italic;
         }
         .stTabs [data-baseweb="tab-list"] {
             background-color: #2D3B55;
-            border-radius: 6px;
-            padding: 8px;
+            border-radius: 8px;
+            padding: 10px;
             display: flex;
             justify-content: center;
-            gap: 8px;
+            gap: 10px;
         }
         .stTabs [data-baseweb="tab"] {
             color: #D1D5DB;
-            padding: 10px 20px;
-            border-radius: 6px;
+            padding: 12px 24px;
+            border-radius: 8px;
             font-weight: 500;
-            transition: all 0.2s ease;
+            font-size: 1rem;
+            transition: all 0.3s ease;
         }
         .stTabs [data-baseweb="tab"][aria-selected="true"] {
             background-color: #4F46E5;
@@ -171,54 +178,75 @@ st.markdown("""
             color: #F5F7FA;
         }
         .stPlotlyChart {
-            margin: 12px 0;
+            margin: 16px 0;
             background-color: #2D3B55;
-            border-radius: 6px;
-            padding: 12px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
-        /* Summary Cards */
+        /* Enhanced Summary Cards */
         .summary-card {
             background-color: #2D3B55;
-            border-radius: 6px;
-            padding: 16px;
-            margin: 12px 0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 16px 0;
             display: flex;
-            justify-content: space-between;
+            flex-direction: row;
             align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            gap: 16px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: transform 0.2s ease;
+        }
+        .summary-card:hover {
+            transform: translateY(-4px);
         }
         .summary-card h4 {
-            color: #F5F7FA;
-            font-size: 1.1rem;
-            margin: 0;
-        }
-        .summary-card p {
-            color: #FBBF24;
-            font-size: 1.5rem;
+            font-size: 1.25rem;
             font-weight: 600;
             margin: 0;
         }
+        .summary-card p {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #FBBF24;
+            margin: 0;
+        }
+        /* Plot Container */
+        .plot-container {
+            background-color: #2D3B55;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        /* Data Table */
+        .stDataFrame {
+            background-color: #2D3B55;
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 0.875rem;
+        }
         /* Responsive Design */
         @media (max-width: 768px) {
+            .main { padding: 16px; }
+            h1 { font-size: 2rem; }
+            h2 { font-size: 1.5rem; }
+            h3 { font-size: 1.25rem; }
             .stColumn {
                 width: 100% !important;
-                margin-bottom: 1rem;
+                margin-bottom: 1.5rem;
             }
             .stPlotlyChart {
-                height: 400px !important;
-            }
-            h1 { font-size: 1.75rem; }
-            h2 { font-size: 1.5rem; }
-            h3 { font-size: 1.1rem; }
-            .stTabs [data-baseweb="tab"] {
-                padding: 8px 12px;
-                font-size: 0.9rem;
+                height: 360px !important;
             }
             .summary-card {
                 flex-direction: column;
                 text-align: center;
-                gap: 8px;
+                gap: 12px;
+            }
+            .stTabs [data-baseweb="tab"] {
+                padding: 10px 16px;
+                font-size: 0.875rem;
             }
         }
         /* Loading Spinner */
@@ -256,7 +284,7 @@ st.markdown("""
         }
         .onboarding-modal p {
             color: #D1D5DB;
-            line-height: 1.5;
+            line-height: 1.6;
             margin-bottom: 16px;
         }
     </style>
@@ -359,6 +387,31 @@ def render_settings_sidebar():
                 except Exception as e:
                     logger.error(f"Failed to generate report: {str(e)}", extra={'user_action': 'Download PDF Report'})
                     st.error(f"Failed to generate report: {str(e)}.")
+
+            # Export Options
+            with st.expander("📊 Export Options"):
+                if 'simulation_results' in st.session_state:
+                    if st.button("Export Plots as PNG", key="export_png"):
+                        st.info("Exporting plots as PNG is handled within each plot.")
+                    if st.button("Export Data as CSV", key="export_csv"):
+                        summary_df = pd.DataFrame({
+                            'step': range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS']),
+                            'time_minutes': [i * 2 for i in range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS'])],
+                            'task_compliance': st.session_state.simulation_results[1]['data'],
+                            'collaboration_proximity': st.session_state.simulation_results[2]['data'],
+                            'operational_recovery': st.session_state.simulation_results[3],
+                            'worker_wellbeing': st.session_state.simulation_results[6]['scores'],
+                            'psychological_safety': st.session_state.simulation_results[7],
+                            'productivity_loss': st.session_state.simulation_results[5],
+                            'downtime_minutes': st.session_state.simulation_results[9],
+                            'task_completion_rate': st.session_state.simulation_results[10]
+                        })
+                        st.download_button(
+                            label="Download Summary CSV",
+                            data=summary_df.to_csv(index=False),
+                            file_name="workplace_summary.csv",
+                            mime="text/csv"
+                        )
 
         # Debug Information
         if debug_mode:
@@ -472,8 +525,8 @@ def main():
                     <ul style="color: #D1D5DB; line-height: 1.6;">
                         <li><strong>Sidebar</strong>: Adjust simulation settings and navigate sections.</li>
                         <li><strong>Tabs</strong>: View metrics, worker insights, and more.</li>
-                        <li><strong>Charts</strong>: Hover for details, use sliders to filter.</li>
-                        <li><strong>Export</strong>: Generate PDF reports for sharing.</li>
+                        <li><strong>Charts</strong>: Hover for details, use sliders to filter, export as PNG.</li>
+                        <li><strong>Export</strong>: Download data as CSV or generate PDF reports.</li>
                     </ul>
                     <p>Click below to start exploring!</p>
                 </div>
@@ -521,7 +574,7 @@ def main():
         with st.container():
             st.header("Overview", divider="grey")
             st.markdown(
-                '<div class="tooltip">Key Metrics<span class="tooltiptext">Summary of Task Compliance, Collaboration Proximity, Worker Well-Being, and Downtime with recommendations.</span></div>',
+                '<div class="tooltip">Key Metrics<span class="tooltiptext">Summary of Task Compliance, Collaboration Proximity, Worker Well-Being, and Downtime with actionable insights.</span></div>',
                 unsafe_allow_html=True
             )
             if st.session_state.simulation_results:
@@ -533,29 +586,36 @@ def main():
                 wellbeing_mean = np.mean(worker_wellbeing['scores']) if worker_wellbeing['scores'] else 0
                 total_downtime = np.sum(downtime_minutes)
                 
-                # Summary Cards
+                # Enhanced Metrics Display
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.markdown(f'<div class="summary-card"><h4>Task Compliance</h4><p>{compliance_mean:.1f}%</p></div>', unsafe_allow_html=True)
+                    st.metric("Task Compliance", f"{compliance_mean:.1f}%", delta=f"{compliance_mean - 75:.1f}%", delta_color="normal")
                 with col2:
-                    st.markdown(f'<div class="summary-card"><h4>Collaboration</h4><p>{proximity_mean:.1f}%</p></div>', unsafe_allow_html=True)
+                    st.metric("Collaboration", f"{proximity_mean:.1f}%", delta=f"{proximity_mean - 60:.1f}%", delta_color="normal")
                 with col3:
-                    st.markdown(f'<div class="summary-card"><h4>Well-Being</h4><p>{wellbeing_mean:.1f}%</p></div>', unsafe_allow_html=True)
+                    st.metric("Well-Being", f"{wellbeing_mean:.1f}%", delta=f"{wellbeing_mean - 70:.1f}%", delta_color="normal")
                 with col4:
-                    st.markdown(f'<div class="summary-card"><h4>Downtime</h4><p>{total_downtime:.1f} min</p></div>', unsafe_allow_html=True)
+                    st.metric("Downtime", f"{total_downtime:.1f} min", delta=f"{total_downtime - 30:.1f} min", delta_color="inverse")
+                
+                # Data Table
+                with st.expander("View Detailed Data", expanded=False):
+                    summary_df = pd.DataFrame({
+                        'Time (min)': [i * 2 for i in range(len(task_compliance['data']))],
+                        'Task Compliance (%)': task_compliance['data'],
+                        'Collaboration (%)': collaboration_proximity['data'],
+                        'Well-Being (%)': worker_wellbeing['scores'],
+                        'Downtime (min)': downtime_minutes
+                    })
+                    st.dataframe(summary_df, use_container_width=True, height=300)
                 
                 # Gauge Charts
                 col1, col2 = st.columns(2)
                 summary_figs = plot_key_metrics_summary(compliance_mean, proximity_mean, wellbeing_mean, total_downtime)
-                with col1:
-                    st.plotly_chart(summary_figs[0], use_container_width=True)
-                    st.plotly_chart(summary_figs[1], use_container_width=True)
-                with col2:
-                    st.plotly_chart(summary_figs[2], use_container_width=True)
-                    if wellbeing_mean < DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:
-                        if st.button("Suggest Break Schedule", key="break_schedule"):
-                            st.info("Recommended: 10-minute breaks every 60 minutes.")
-                    st.plotly_chart(summary_figs[3], use_container_width=True)
+                for i, fig in enumerate(summary_figs):
+                    with st.container(border=True):
+                        st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                        st.markdown('</div>', unsafe_allow_html=True)
             else:
                 st.info("Run a simulation or load data to view metrics.", icon="ℹ️")
 
@@ -583,7 +643,6 @@ def main():
                     filtered_forecast = task_compliance['forecast'][time_indices[0]:time_indices[1]] if task_compliance['forecast'] is not None else None
                     filtered_disruptions = [t for t in DEFAULT_CONFIG['DISRUPTION_INTERVALS'] if time_indices[0] <= t < time_indices[1]]
                     
-                    # Validate inputs
                     if not filtered_compliance or not filtered_z_scores:
                         logger.error(
                             f"Empty input data: compliance={len(filtered_compliance)}, z_scores={len(filtered_z_scores)}",
@@ -598,8 +657,11 @@ def main():
                         )
                         st.error("Input data lengths do not match.")
                     else:
-                        compliance_fig = plot_task_compliance_score(filtered_compliance, filtered_disruptions, filtered_forecast, filtered_z_scores)
-                        st.plotly_chart(compliance_fig, use_container_width=True)
+                        with st.container(border=True):
+                            st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                            compliance_fig = plot_task_compliance_score(filtered_compliance, filtered_disruptions, filtered_forecast, filtered_z_scores)
+                            st.plotly_chart(compliance_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                            st.markdown('</div>', unsafe_allow_html=True)
                 except Exception as e:
                     logger.error(
                         f"Failed to render task compliance chart: {str(e)}",
@@ -617,8 +679,11 @@ def main():
                         )
                         st.error("No collaboration data available for the selected time range.")
                     else:
-                        collaboration_fig = plot_collaboration_proximity_index(filtered_collab, filtered_disruptions, filtered_forecast)
-                        st.plotly_chart(collaboration_fig, use_container_width=True)
+                        with st.container(border=True):
+                            st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                            collaboration_fig = plot_collaboration_proximity_index(filtered_collab, filtered_disruptions, filtered_forecast)
+                            st.plotly_chart(collaboration_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                            st.markdown('</div>', unsafe_allow_html=True)
                 except Exception as e:
                     logger.error(
                         f"Failed to render collaboration chart: {str(e)}",
@@ -637,8 +702,11 @@ def main():
                             )
                             st.error("No data available for additional metrics.")
                         else:
-                            resilience_fig = plot_operational_recovery(filtered_recovery, filtered_loss)
-                            st.plotly_chart(resilience_fig, use_container_width=True)
+                            with st.container(border=True):
+                                st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                                resilience_fig = plot_operational_recovery(filtered_recovery, filtered_loss)
+                                st.plotly_chart(resilience_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                                st.markdown('</div>', unsafe_allow_html=True)
                     except Exception as e:
                         logger.error(
                             f"Failed to render operational recovery chart: {str(e)}",
@@ -661,8 +729,11 @@ def main():
                             )
                             st.error("No efficiency data available for the selected time range.")
                         else:
-                            efficiency_fig = plot_operational_efficiency(filtered_df, selected_metrics)
-                            st.plotly_chart(efficiency_fig, use_container_width=True)
+                            with st.container(border=True):
+                                st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                                efficiency_fig = plot_operational_efficiency(filtered_df, selected_metrics)
+                                st.plotly_chart(efficiency_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                                st.markdown('</div>', unsafe_allow_html=True)
                     except Exception as e:
                         logger.error(
                             f"Failed to render efficiency chart: {str(e)}",
@@ -710,22 +781,28 @@ def main():
                             key="team_distribution_step"
                         )
                         try:
-                            distribution_fig = plot_worker_distribution(
-                                filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=use_3d_distribution,
-                                selected_step=selected_step, show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
-                            )
-                            st.plotly_chart(distribution_fig, use_container_width=True)
+                            with st.container(border=True):
+                                st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                                distribution_fig = plot_worker_distribution(
+                                    filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=use_3d_distribution,
+                                    selected_step=selected_step, show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
+                                )
+                                st.plotly_chart(distribution_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                                st.markdown('</div>', unsafe_allow_html=True)
                         except Exception as e:
                             logger.error(f"Failed to plot worker distribution: {str(e)}", extra={'user_action': 'Render Worker Insights'})
                             st.error(f"Error rendering worker distribution: {str(e)}. Check debug mode for details.")
                     with col_dist2:
                         st.markdown("### Density Heatmap")
                         try:
-                            heatmap_fig = plot_worker_density_heatmap(
-                                filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG,
-                                show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
-                            )
-                            st.plotly_chart(heatmap_fig, use_container_width=True)
+                            with st.container(border=True):
+                                st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                                heatmap_fig = plot_worker_density_heatmap(
+                                    filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG,
+                                    show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
+                                )
+                                st.plotly_chart(heatmap_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                                st.markdown('</div>', unsafe_allow_html=True)
                         except Exception as e:
                             logger.error(f"Failed to plot density heatmap: {str(e)}", extra={'user_action': 'Render Worker Insights'})
                             st.error(f"Error rendering density heatmap: {str(e)}. Check debug mode for details.")
@@ -750,13 +827,19 @@ def main():
                             'work_area': {k: [t for t in v if time_indices[0] <= t < time_indices[1]] for k, v in worker_wellbeing['triggers']['work_area'].items()},
                             'disruption': [t for t in worker_wellbeing['triggers']['disruption'] if time_indices[0] <= t < time_indices[1]]
                         }
-                        wellbeing_fig = plot_worker_wellbeing(filtered_scores, filtered_triggers)
-                        st.plotly_chart(wellbeing_fig, use_container_width=True)
+                        with st.container(border=True):
+                            st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                            wellbeing_fig = plot_worker_wellbeing(filtered_scores, filtered_triggers)
+                            st.plotly_chart(wellbeing_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                            st.markdown('</div>', unsafe_allow_html=True)
                     with col_well2:
                         st.markdown("### Psychological Safety")
                         filtered_safety = psychological_safety[time_indices[0]:time_indices[1]]
-                        safety_fig = plot_psychological_safety(filtered_safety)
-                        st.plotly_chart(safety_fig, use_container_width=True)
+                        with st.container(border=True):
+                            st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                            safety_fig = plot_psychological_safety(filtered_safety)
+                            st.plotly_chart(safety_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                            st.markdown('</div>', unsafe_allow_html=True)
                     st.markdown("### Well-Being Triggers")
                     st.write(f"**Threshold Alerts (< {DEFAULT_CONFIG['WELLBEING_THRESHOLD']*100}%):** {filtered_triggers['threshold']}")
                     st.write(f"**Trend Alerts (Declining):** {filtered_triggers['trend']}")
@@ -786,8 +869,11 @@ def main():
                 )
                 time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
                 filtered_downtime = downtime_minutes[time_indices[0]:time_indices[1]]
-                downtime_fig = plot_downtime_trend(filtered_downtime, DEFAULT_CONFIG['DOWNTIME_THRESHOLD'])
-                st.plotly_chart(downtime_fig, use_container_width=True)
+                with st.container(border=True):
+                    st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                    downtime_fig = plot_downtime_trend(filtered_downtime, DEFAULT_CONFIG['DOWNTIME_THRESHOLD'])
+                    st.plotly_chart(downtime_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                    st.markdown('</div>', unsafe_allow_html=True)
             else:
                 st.info("Run a simulation or load data to view analysis.", icon="ℹ️")
 
