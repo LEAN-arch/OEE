@@ -1,6 +1,6 @@
 """
 config.py
-Configuration management for the Industrial Workplace Shift Monitoring Dashboard.
+Configuration management for the Workplace Shift Monitoring Dashboard.
 Provides default parameters with SI units and validation for simulation settings.
 """
 
@@ -72,7 +72,7 @@ DEFAULT_CONFIG = {
     'ANOMALY_THRESHOLD': 2.0,  # Z-score threshold for anomaly detection
     'SAFETY_THRESHOLD': 0.7,  # Psychological Safety Score (0-1) below which alerts are triggered
     'DENSITY_GRID_SIZE': 20,  # Grid size for density heatmap
-    'FACILITY_TYPE': 'manufacturing',  # Facility type for context
+    'FACILITY_TYPE': 'Workplace',  # Updated for universal application
     'DOWNTIME_THRESHOLD': 10,  # Minutes of downtime triggering alerts
     'TASK_COMPLETION_THRESHOLD': 0.9,  # Task completion rate (0-1) below which alerts are triggered
     'COMPANY_LOGO_PATH': 'logo.png'  # Path to company logo for sidebar (not used due to base64 embedding)
