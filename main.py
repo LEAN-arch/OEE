@@ -1,6 +1,7 @@
 # main.py
 # Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
 # Enhanced for professional visuals, seamless UX, accessibility, fixed tab rendering, debug mode, and error handling for plot_task_compliance_score.
+# Fixed nesting issue in render_settings_sidebar to prevent StreamlitAPIException.
 
 import logging
 import streamlit as st
@@ -295,7 +296,7 @@ def display_loading(message):
     with st.container():
         st.markdown(f'<div class="spinner"></div><p style="text-align: center; color: #F5F7FA;">{message}</p>', unsafe_allow_html=True)
 
-# Sidebar for settings with improved UX and debug mode
+# Sidebar for settings with fixed nesting issue
 def render_settings_sidebar():
     with st.sidebar:
         st.markdown(
@@ -388,30 +389,32 @@ def render_settings_sidebar():
                     logger.error(f"Failed to generate report: {str(e)}", extra={'user_action': 'Download PDF Report'})
                     st.error(f"Failed to generate report: {str(e)}.")
 
-            # Export Options
-            with st.expander("📊 Export Options"):
-                if 'simulation_results' in st.session_state:
-                    if st.button("Export Plots as PNG", key="export_png"):
-                        st.info("Exporting plots as PNG is handled within each plot.")
-                    if st.button("Export Data as CSV", key="export_csv"):
-                        summary_df = pd.DataFrame({
-                            'step': range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS']),
-                            'time_minutes': [i * 2 for i in range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS'])],
-                            'task_compliance': st.session_state.simulation_results[1]['data'],
-                            'collaboration_proximity': st.session_state.simulation_results[2]['data'],
-                            'operational_recovery': st.session_state.simulation_results[3],
-                            'worker_wellbeing': st.session_state.simulation_results[6]['scores'],
-                            'psychological_safety': st.session_state.simulation_results[7],
-                            'productivity_loss': st.session_state.simulation_results[5],
-                            'downtime_minutes': st.session_state.simulation_results[9],
-                            'task_completion_rate': st.session_state.simulation_results[10]
-                        })
-                        st.download_button(
-                            label="Download Summary CSV",
-                            data=summary_df.to_csv(index=False),
-                            file_name="workplace_summary.csv",
-                            mime="text/csv"
-                        )
+        # Export Options (moved out of nested expander)
+        with st.expander("📊 Export Options"):
+            if 'simulation_results' in st.session_state:
+                if st.button("Export Plots as PNG", key="export_png"):
+                    st.info("Exporting plots as PNG is handled within each plot.")
+                if st.button("Export Data as CSV", key="export_csv"):
+                    summary_df = pd.DataFrame({
+                        'step': range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS']),
+                        'time_minutes': [i * 2 for i in range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS'])],
+                        'task_compliance': st.session_state.simulation_results[1]['data'],
+                        'collaboration_proximity': st.session_state.simulation_results[2]['data'],
+                        'operational_recovery': st.session_state.simulation_results[3],
+                        'worker_wellbeing': st.session_state.simulation_results[6]['scores'],
+                        'psychological_safety': st.session_state.simulation_results[7],
+                        'productivity_loss': st.session_state.simulation_results[5],
+                        'downtime_minutes': st.session_state.simulation_results[9],
+                        'task_completion_rate': st.session_state.simulation_results[10]
+                    })
+                    st.download_button(
+                        label="Download Summary CSV",
+                        data=summary_df.to_csv(index=False),
+                        file_name="workplace_summary.csv",
+                        mime="text/csv"
+                    )
+            else:
+                st.info("Run a simulation to enable export options.", icon="ℹ️")
 
         # Debug Information
         if debug_mode:
