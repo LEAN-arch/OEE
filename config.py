@@ -26,7 +26,7 @@ def validate_config(config: dict) -> None:
         raise ValueError("Shift duration (intervals) must be positive")
     if config['SHIFT_DURATION_MINUTES'] != config['SHIFT_DURATION_INTERVALS'] * 2:
         raise ValueError("Shift duration (minutes) must equal intervals * 2")
-    if any(t < 0 or t > config['SHIFT_DURATION_INTERVALS'] for t in config['DISRUPTION_INTERVALS']):
+    if any(t < 0 or t >= config['SHIFT_DURATION_INTERVALS'] for t in config['DISRUPTION_INTERVALS']):
         raise ValueError("Disruption intervals out of range")
     if not (0 <= config['ADAPTATION_RATE'] <= 1):
         raise ValueError("Adaptation rate must be between 0 and 1")
@@ -38,6 +38,18 @@ def validate_config(config: dict) -> None:
         raise ValueError("Downtime threshold (minutes) must be non-negative")
     if not (0 <= config['TASK_COMPLETION_THRESHOLD'] <= 1):
         raise ValueError("Task completion threshold (0-1) must be between 0 and 1")
+    if config['WELLBEING_TREND_WINDOW'] <= 0:
+        raise ValueError("Well-being trend window must be positive")
+    if config['DISRUPTION_RECOVERY_WINDOW'] <= 0:
+        raise ValueError("Disruption recovery window must be positive")
+    if config['BREAK_FREQUENCY_INTERVALS'] <= 0:
+        raise ValueError("Break frequency intervals must be positive")
+    if config['WORKLOAD_CAP_INTERVALS'] <= 0:
+        raise ValueError("Workload cap intervals must be positive")
+    if config['DENSITY_GRID_SIZE'] <= 0:
+        raise ValueError("Density grid size must be positive")
+    if config['ANOMALY_THRESHOLD'] <= 0:
+        raise ValueError("Anomaly threshold (z-score) must be positive")
 
 DEFAULT_CONFIG = {
     'WORK_AREAS': {
@@ -63,7 +75,7 @@ DEFAULT_CONFIG = {
     'FACILITY_TYPE': 'manufacturing',  # Facility type for context
     'DOWNTIME_THRESHOLD': 10,  # Minutes of downtime triggering alerts
     'TASK_COMPLETION_THRESHOLD': 0.9,  # Task completion rate (0-1) below which alerts are triggered
-    'COMPANY_LOGO_PATH': 'logo.png'  # Path to company logo for sidebar
+    'COMPANY_LOGO_PATH': 'logo.png'  # Path to company logo for sidebar (not used due to base64 embedding)
 }
 
 # Validate default configuration
