@@ -610,18 +610,19 @@ def main():
                     }
                     wellbeing_fig = plot_worker_wellbeing(filtered_scores, filtered_triggers)
                     st.plotly_chart(wellbeing_fig, use_container_width=True)
-                    with st.expander("Well-Being Triggers"):
-                        st.write(f"**Threshold Alerts (Score < {DEFAULT_CONFIG['WELLBEING_THRESHOLD']*100}%):** {filtered_triggers['threshold']}")
-                        st.write(f"**Trend Alerts (Declining):** {filtered_triggers['trend']}")
-                        st.write("**Work Area Alerts:**")
-                        for zone, triggers in filtered_triggers['work_area'].items():
-                            st.write(f"{zone}: {triggers}")
-                        st.write(f"**Disruption Alerts:** {filtered_triggers['disruption']}")
                 with col_well2:
                     st.markdown("### Psychological Safety Score")
                     filtered_safety = psychological_safety[time_indices[0]:time_indices[1]]
                     safety_fig = plot_psychological_safety(filtered_safety)
                     st.plotly_chart(safety_fig, use_container_width=True)
+                # Moved Well-Being Triggers outside of columns to avoid nesting violation
+                st.markdown("### Well-Being Triggers")
+                st.write(f"**Threshold Alerts (Score < {DEFAULT_CONFIG['WELLBEING_THRESHOLD']*100}%):** {filtered_triggers['threshold']}")
+                st.write(f"**Trend Alerts (Declining):** {filtered_triggers['trend']}")
+                st.write("**Work Area Alerts:**")
+                for zone, triggers in filtered_triggers['work_area'].items():
+                    st.write(f"{zone}: {triggers}")
+                st.write(f"**Disruption Alerts:** {filtered_triggers['disruption']}")
         else:
             st.info("Run a simulation or load saved data to view worker insights.")
 
@@ -764,7 +765,7 @@ def developer_guide():
     - **Testing**:
       - Run simulations with various parameters.
       - Test high-contrast mode and responsiveness.
-      - Check `dashboard.log` for errors (last error at 09:42 PM PDT; current time is 09:59 PM PDT).
+      - Check `dashboard.log` for errors (last error at 10:02 PM PDT; current time is 10:15 PM PDT).
     """
 
 if __name__ == "__main__":
