@@ -20,10 +20,11 @@ if not logger.handlers:
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s - [User Action: %(user_action)s]', filename='dashboard.log', filemode='a')
 logger.info("Main.py: Parsed imports and logger configured.", extra={'user_action': 'System Startup'})
 
-st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.2\nInsights for operational excellence & psychosocial well-being."}) # Updated version and About
+st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.2\nInsights for operational excellence & psychosocial well-being."})
 
 st.markdown("""
     <style>
+        /* ... (Full CSS from the previous complete answer - No changes here) ... */
         /* Base Styles */
         .main { background-color: #121828; color: #EAEAEA; font-family: 'Roboto', 'Open Sans', 'Helvetica Neue', sans-serif; padding: 2rem; }
         h1 { font-size: 2.4rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; text-align: center; margin-bottom: 2rem; color: #FFFFFF; }
@@ -75,7 +76,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-def render_settings_sidebar():
+def render_settings_sidebar(): # Assumed to be the same as last fully provided version.
     with st.sidebar:
         st.markdown(f'<img src="{LEAN_LOGO_BASE64}" width="100" alt="Lean Institute Logo" style="display: block; margin: 0 auto 1rem;">', unsafe_allow_html=True)
         st.markdown("## ⚙️ Simulation Controls")
@@ -87,12 +88,10 @@ def render_settings_sidebar():
             default_disrupt_mins_raw = DEFAULT_CONFIG.get('DISRUPTION_TIMES_MINUTES', []) 
             valid_default_disrupt_mins = [m for m in default_disrupt_mins_raw if m in disruption_options]
             session_value_for_disruptions = st.session_state.get('sb_disruption_intervals_multiselect')
-            default_for_multiselect = valid_default_disrupt_mins # Default assumption
-            if session_value_for_disruptions is not None: # If key exists in session_state
-                if not isinstance(session_value_for_disruptions, list):
-                    logger.warning(f"Sidebar: 'sb_disruption_intervals_multiselect' in session_state was {type(session_value_for_disruptions)}. Expected list. Using default valid disruptions.")
-                else: # It's a list, filter it against current options
-                    default_for_multiselect = [m for m in session_value_for_disruptions if m in disruption_options]
+            default_for_multiselect = valid_default_disrupt_mins 
+            if session_value_for_disruptions is not None:
+                if not isinstance(session_value_for_disruptions, list): logger.warning(f"Sidebar: 'sb_disruption_intervals_multiselect' in session_state was {type(session_value_for_disruptions)}. Expected list. Using default.")
+                else: default_for_multiselect = [m for m in session_value_for_disruptions if m in disruption_options]
             disruption_intervals_minutes = st.multiselect("Disruption Times (min)", disruption_options, default=default_for_multiselect, key="sb_disruption_intervals_multiselect", help="Select specific times (in minutes from shift start) when disruptions will occur in the simulation.")
             team_initiative_opts = ["Standard Operations", "More frequent breaks", "Team recognition", "Increased Autonomy"] 
             current_initiative = st.session_state.get('sb_team_initiative_selectbox', team_initiative_opts[0]) 
@@ -120,16 +119,8 @@ def render_settings_sidebar():
                 sim_res_exp = st.session_state.simulation_results; num_steps_csv = len(sim_res_exp.get('downtime_minutes', []))
                 if num_steps_csv > 0:
                     csv_data = {k: sim_res_exp.get(k, [np.nan]*num_steps_csv)[:num_steps_csv] for k in ['operational_recovery', 'psychological_safety', 'productivity_loss', 'downtime_minutes', 'task_completion_rate']}
-                    ww_data_csv = sim_res_exp.get('worker_wellbeing', {}) # Get the wellbeing dict
-                    csv_data.update({
-                        'task_compliance': sim_res_exp.get('task_compliance', {}).get('data', [np.nan]*num_steps_csv)[:num_steps_csv], 
-                        'collaboration_proximity': sim_res_exp.get('collaboration_proximity', {}).get('data', [np.nan]*num_steps_csv)[:num_steps_csv], 
-                        'worker_wellbeing_index': ww_data_csv.get('scores', [np.nan]*num_steps_csv)[:num_steps_csv], # Main score
-                        'team_cohesion': ww_data_csv.get('team_cohesion_scores', [np.nan]*num_steps_csv)[:num_steps_csv],
-                        'perceived_workload': ww_data_csv.get('perceived_workload_scores', [np.nan]*num_steps_csv)[:num_steps_csv],
-                        'step': list(range(num_steps_csv)), 
-                        'time_minutes': [i * 2 for i in range(num_steps_csv)]
-                    })
+                    ww_data_csv = sim_res_exp.get('worker_wellbeing', {})
+                    csv_data.update({'task_compliance': sim_res_exp.get('task_compliance', {}).get('data', [np.nan]*num_steps_csv)[:num_steps_csv], 'collaboration_proximity': sim_res_exp.get('collaboration_proximity', {}).get('data', [np.nan]*num_steps_csv)[:num_steps_csv], 'worker_wellbeing_index': ww_data_csv.get('scores', [np.nan]*num_steps_csv)[:num_steps_csv], 'team_cohesion': ww_data_csv.get('team_cohesion_scores', [np.nan]*num_steps_csv)[:num_steps_csv], 'perceived_workload': ww_data_csv.get('perceived_workload_scores', [np.nan]*num_steps_csv)[:num_steps_csv], 'step': list(range(num_steps_csv)), 'time_minutes': [i * 2 for i in range(num_steps_csv)]})
                     st.download_button("📥 Download Data (CSV)", pd.DataFrame(csv_data).to_csv(index=False).encode('utf-8'), "workplace_summary.csv", "text/csv", key="sb_csv_dl_button", use_container_width=True)
                 else: st.caption("No detailed data to export for CSV.") 
             elif not can_gen_report : st.caption("Run simulation for export.")
@@ -142,7 +133,11 @@ def render_settings_sidebar():
         st.markdown("## 📋 Help & Info")
         if st.button("ℹ️ Help & Glossary", key="sb_help_button", use_container_width=True): st.session_state.show_help_glossary = not st.session_state.get('show_help_glossary', False); st.rerun() 
         if st.button("🚀 Quick Tour", key="sb_tour_button", use_container_width=True): st.session_state.show_tour = not st.session_state.get('show_tour', False); st.rerun() 
-    return (st.session_state.sb_team_size_slider, st.session_state.sb_shift_duration_slider, st.session_state.sb_disruption_intervals_multiselect, st.session_state.sb_team_initiative_selectbox, run_simulation_button, load_data_button, st.session_state.sb_high_contrast_checkbox, st.session_state.sb_use_3d_distribution_checkbox, st.session_state.sb_debug_mode_checkbox)
+    return (st.session_state.sb_team_size_slider, st.session_state.sb_shift_duration_slider, 
+            st.session_state.sb_disruption_intervals_multiselect, st.session_state.sb_team_initiative_selectbox,
+            run_simulation_button, load_data_button, 
+            st.session_state.sb_high_contrast_checkbox, st.session_state.sb_use_3d_distribution_checkbox, 
+            st.session_state.sb_debug_mode_checkbox)
 
 @st.cache_data(ttl=3600, show_spinner="⚙️ Running simulation model...")
 def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals_minutes_param, team_initiative_selected):
@@ -221,7 +216,9 @@ def get_actionable_insights(sim_data, current_config):
 
 def main():
     st.title("Workplace Shift Optimization Dashboard")
-    app_state_keys = ['simulation_results', 'show_tour', 'show_help_glossary', 'op_metrics_time_slider_val', 'worker_insights_time_slider_val', 'worker_snap_step_slider_val_dist_tab', 'downtime_tab_time_slider_val']
+    app_state_keys = ['simulation_results', 'show_tour', 'show_help_glossary', 
+                      'op_metrics_time_slider_val', 'worker_insights_time_slider_val', 
+                      'worker_snap_step_slider_val_dist_tab', 'downtime_tab_time_slider_val']
     for key in app_state_keys:
         if key not in st.session_state: st.session_state[key] = None 
     
@@ -229,43 +226,72 @@ def main():
     sb_run_sim_btn, sb_load_data_btn, sb_high_contrast, \
     sb_use_3d, sb_debug_mode = render_settings_sidebar()
         
-    _default_shift_duration = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']; _current_shift_duration_for_slider_max = sb_shift_duration if sb_shift_duration is not None else _default_shift_duration
-    current_max_minutes_for_sliders = _current_shift_duration_for_slider_max - 2; disruption_steps_for_plots = []
+    _default_shift_duration = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']; 
+    _current_shift_duration_for_slider_max = sb_shift_duration if sb_shift_duration is not None else _default_shift_duration
+    current_max_minutes_for_sliders = _current_shift_duration_for_slider_max - 2; 
+    disruption_steps_for_plots = []
+
     if st.session_state.simulation_results and isinstance(st.session_state.simulation_results, dict):
         num_steps_from_sim = len(st.session_state.simulation_results.get('downtime_minutes', []))
         if num_steps_from_sim > 0: current_max_minutes_for_sliders = (num_steps_from_sim - 1) * 2
         disruption_steps_for_plots = st.session_state.simulation_results.get('config_params', {}).get('DISRUPTION_EVENT_STEPS', [])
     else: 
-        _disrupt_mins_list_for_plots = sb_disrupt_mins_from_sidebar if isinstance(sb_disrupt_mins_from_sidebar, list) else [] 
+        _disrupt_mins_list_for_plots = sb_disrupt_mins_from_sidebar # Use direct return from sidebar
+        if not isinstance(_disrupt_mins_list_for_plots, list): # Ensure it's a list for safety here
+            logger.warning(f"sb_disrupt_mins_from_sidebar (for plot calculation) was {type(_disrupt_mins_list_for_plots)}. Using empty list.")
+            _disrupt_mins_list_for_plots = []
         disruption_steps_for_plots = [m // 2 for m in _disrupt_mins_list_for_plots if isinstance(m, (int, float))]
     current_max_minutes_for_sliders = max(0, current_max_minutes_for_sliders) 
 
     if sb_run_sim_btn:
         with st.spinner("🚀 Simulating workplace operations..."):
             try: 
-                final_disrupt_mins_for_sim = sb_disrupt_mins_from_sidebar
-                if not isinstance(final_disrupt_mins_for_sim, list):
-                    logger.error(f"CRITICAL in main: sb_disrupt_mins for simulation was {type(final_disrupt_mins_for_sim)}. Defaulting to empty list.")
+                final_disrupt_mins_for_sim = sb_disrupt_mins_from_sidebar # Already should be a list from render_settings_sidebar
+                if not isinstance(final_disrupt_mins_for_sim, list): # Final safety check
+                    logger.error(f"CRITICAL in main run_sim: sb_disrupt_mins_from_sidebar was {type(final_disrupt_mins_for_sim)}. Defaulting to empty list.")
                     final_disrupt_mins_for_sim = []
-                st.session_state.simulation_results = run_simulation_logic(sb_team_size, sb_shift_duration, final_disrupt_mins_for_sim, sb_team_initiative)
-                st.success("✅ Simulation completed!"); logger.info("Simulation run successful.", extra={'user_action': 'Run Simulation - Success'}); st.rerun() 
-            except Exception as e: logger.error(f"Simulation Run Error: {e}", exc_info=True, extra={'user_action': 'Run Simulation - Error'}); st.error(f"❌ Simulation failed: {e}"); st.session_state.simulation_results = None 
+                
+                st.session_state.simulation_results = run_simulation_logic(
+                    sb_team_size, sb_shift_duration, 
+                    final_disrupt_mins_for_sim, 
+                    sb_team_initiative
+                )
+                st.success("✅ Simulation completed!"); 
+                logger.info("Simulation run successful.", extra={'user_action': 'Run Simulation - Success'}); 
+                st.rerun() 
+            except Exception as e: 
+                logger.error(f"Simulation Run Error: {e}", exc_info=True, extra={'user_action': 'Run Simulation - Error'})
+                st.error(f"❌ Simulation failed: {e}"); 
+                st.session_state.simulation_results = None 
     
     if sb_load_data_btn:
         with st.spinner("🔄 Loading saved simulation data..."):
             try:
                 loaded_data = load_simulation_data() 
                 if loaded_data and isinstance(loaded_data, dict):
-                    st.session_state.simulation_results = loaded_data; cfg = loaded_data.get('config_params', {})
+                    st.session_state.simulation_results = loaded_data; 
+                    cfg = loaded_data.get('config_params', {})
+                    
                     loaded_disrupt_mins = cfg.get('DISRUPTION_INTERVALS_MINUTES', []) 
-                    if not isinstance(loaded_disrupt_mins, list): logger.warning(f"Loaded DISRUPTION_INTERVALS_MINUTES was {type(loaded_disrupt_mins)}. Defaulting to []."); loaded_disrupt_mins = []
+                    if not isinstance(loaded_disrupt_mins, list):
+                        logger.warning(f"Loaded DISRUPTION_INTERVALS_MINUTES was {type(loaded_disrupt_mins)}. Defaulting to [].")
+                        loaded_disrupt_mins = []
+
                     st.session_state.sb_team_size_slider = cfg.get('TEAM_SIZE', st.session_state.get('sb_team_size_slider'))
                     st.session_state.sb_shift_duration_slider = cfg.get('SHIFT_DURATION_MINUTES', st.session_state.get('sb_shift_duration_slider'))
                     st.session_state.sb_team_initiative_selectbox = cfg.get('TEAM_INITIATIVE', st.session_state.get('sb_team_initiative_selectbox'))
                     st.session_state.sb_disruption_intervals_multiselect = loaded_disrupt_mins
-                    st.success("✅ Data loaded successfully!"); logger.info("Saved data loaded successfully.", extra={'user_action': 'Load Data - Success'}); st.rerun() 
-                else: st.error("❌ Failed to load data or data is not in the expected dictionary format."); logger.warning("Load data failed or invalid format.", extra={'user_action': 'Load Data - Fail/Invalid'})
-            except Exception as e: logger.error(f"Load Data Error: {e}", exc_info=True, extra={'user_action': 'Load Data - Error'}); st.error(f"❌ Failed to load data: {e}"); st.session_state.simulation_results = None
+                    
+                    st.success("✅ Data loaded successfully!"); 
+                    logger.info("Saved data loaded successfully.", extra={'user_action': 'Load Data - Success'}); 
+                    st.rerun() 
+                else: 
+                    st.error("❌ Failed to load data or data is not in the expected dictionary format.")
+                    logger.warning("Load data failed or invalid format.", extra={'user_action': 'Load Data - Fail/Invalid'})
+            except Exception as e: 
+                logger.error(f"Load Data Error: {e}", exc_info=True, extra={'user_action': 'Load Data - Error'})
+                st.error(f"❌ Failed to load data: {e}"); 
+                st.session_state.simulation_results = None
     
     if st.session_state.get('show_tour'): 
         with st.container(): st.markdown("""<div class="onboarding-modal"><h3>🚀 Quick Dashboard Tour</h3><p>Welcome! This dashboard helps you monitor and analyze workplace shift operations...</p><ul><li><b>Sidebar Controls:</b> Adjust simulation parameters...</li><li><b>Main Tabs:</b> Navigate through different views...</li><li><b>Interactive Charts:</b> Hover for details...</li></ul><p>Start by running a new simulation or loading previous data!</p></div>""", unsafe_allow_html=True) 
@@ -419,11 +445,11 @@ def main():
                 st.markdown("""<ul style="font-size:0.9rem; color: #D1D5DB; padding-left:20px; margin-bottom:0;"><li><strong>High Workload:</strong> ...</li><li><strong>Low Cohesion/Safety:</strong> ...</li></ul>""", unsafe_allow_html=True)
             
             with st.expander("Worker Distribution & Density Analysis (Spatial)", expanded=False):
-                zones = ["All"] + list(DEFAULT_CONFIG.get('WORK_AREAS', {}).keys()); zone_sel_dist = st.selectbox("Filter by Zone:", zones, key="worker_zone_selectbox_dist_tab_expander") # New key
+                zones_dist = ["All"] + list(DEFAULT_CONFIG.get('WORK_AREAS', {}).keys()); zone_sel_dist = st.selectbox("Filter by Zone:", zones_dist, key="worker_zone_selectbox_dist_tab_expander") 
                 filt_team_pos_df_exp = team_pos_df_all
                 if not filt_team_pos_df_exp.empty: filt_team_pos_df_exp = filt_team_pos_df_exp[(filt_team_pos_df_exp['step'] >= shared_start_idx) & (filt_team_pos_df_exp['step'] < shared_end_idx)]; 
                 if zone_sel_dist != "All" and not filt_team_pos_df_exp.empty : filt_team_pos_df_exp = filt_team_pos_df_exp[filt_team_pos_df_exp['zone'] == zone_sel_dist]
-                show_ee_exp = st.checkbox("Show E/E Points", value=st.session_state.get('worker_show_ee_checkbox_dist_tab',True), key="worker_show_ee_checkbox_dist_tab_exp") # Inherit or unique
+                show_ee_exp = st.checkbox("Show E/E Points", value=st.session_state.get('worker_show_ee_checkbox_dist_tab',True), key="worker_show_ee_checkbox_dist_tab_exp") 
                 show_pl_exp = st.checkbox("Show Area Outlines", value=st.session_state.get('worker_show_pl_checkbox_dist_tab',True), key="worker_show_pl_checkbox_dist_tab_exp")
                 cols_dist_exp = st.columns(2)
                 with cols_dist_exp[0]:
@@ -443,7 +469,7 @@ def main():
                     else: st.caption("No data for positions snapshot in expander.")
                 with cols_dist_exp[1]:
                     st.markdown("<h5>Worker Density (Aggregated)</h5>", unsafe_allow_html=True)
-                    if not filt_team_pos_df_exp.empty: # Use the df filtered for this expander's selectbox
+                    if not filt_team_pos_df_exp.empty: 
                         with st.container(border=True):
                             try: st.plotly_chart(plot_worker_density_heatmap(filt_team_pos_df_exp, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, show_ee_exp, show_pl_exp, current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
                             except Exception as e: logger.error(f"Expander Worker Heatmap Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Expander Density Heatmap.")
@@ -475,7 +501,7 @@ def main():
         st.header("📖 Glossary of Terms", divider="blue")
         st.markdown("""
             <div style="font-size: 0.95rem; line-height: 1.7;">
-            <p>This glossary defines key metrics used throughout the dashboard...</p>
+            <p>This glossary defines key metrics used throughout the dashboard to help you understand the operational insights provided. For a combined view with general help, click the "ℹ️ Help & Glossary" button in the sidebar.</p>
             <details><summary><strong>Task Compliance Score</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">The percentage of tasks completed correctly and within the allocated time. It measures adherence to operational protocols and standards. <em>Range: 0-100%. Higher is better.</em></p></details>
             <details><summary><strong>Collaboration Proximity Index</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">The percentage of workers observed within a defined proximity (e.g., 5 meters) of their colleagues. This index suggests opportunities for teamwork, communication, and knowledge sharing. <em>Range: 0-100%. Optimal levels vary.</em></p></details>
             <details><summary><strong>Operational Recovery Score</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">A measure of the system's ability to return to and maintain target output levels after experiencing disruptions. It reflects operational resilience. <em>Range: 0-100%. Higher is better.</em></p></details>
