@@ -5,6 +5,7 @@ Generates Plotly charts with consistent styling and accessibility features.
 """
 
 import logging
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
