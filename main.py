@@ -3,7 +3,7 @@ import logging
 import streamlit as st
 import pandas as pd
 import numpy as np
-from config import DEFAULT_CONFIG, validate_config 
+from config import DEFAULT_CONFIG, validate_config
 from visualizations import (
     plot_key_metrics_summary,
     plot_task_compliance_score,
@@ -19,11 +19,10 @@ from visualizations import (
 from simulation import simulate_workplace_operations
 from utils import save_simulation_data, load_simulation_data, generate_pdf_report
 
-# Placeholder base64 logo
 LEAN_LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgG6NcxuAAAAAElFTkSuQmCC"
 
 logger = logging.getLogger(__name__)
-if not logger.handlers: 
+if not logger.handlers:
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s - [User Action: %(user_action)s]',
@@ -33,7 +32,7 @@ if not logger.handlers:
 logger.info("Main.py: Parsed imports and logger configured.", extra={'user_action': 'System Startup'})
 
 st.set_page_config(
-    page_title="Workplace Shift Optimization Dashboard", 
+    page_title="Workplace Shift Optimization Dashboard",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
@@ -87,9 +86,10 @@ st.markdown("""
         .onboarding-modal h3 { color: #EAEAEA; margin-bottom: 1rem; text-align: center; }
         .onboarding-modal p, .onboarding-modal ul { color: #D1D5DB; line-height: 1.6; margin-bottom: 1rem; font-size: 0.9rem; }
         .onboarding-modal ul { list-style-position: inside; padding-left: 0.5rem; }
-        .alert-critical { border-left: 5px solid #F87171; background-color: rgba(248, 113, 113, 0.1); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
-        .alert-warning { border-left: 5px solid #FACC15; background-color: rgba(250, 204, 21, 0.1); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
-        .alert-positive { border-left: 5px solid #22D3EE; background-color: rgba(34, 211, 238, 0.1); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
+        .alert-critical { border-left: 5px solid #F87171; background-color: rgba(248, 113, 113, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; } /* Subtler background */
+        .alert-warning { border-left: 5px solid #FACC15; background-color: rgba(250, 204, 21, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
+        .alert-positive { border-left: 5px solid #22D3EE; background-color: rgba(34, 211, 238, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
+        .alert-info { border-left: 5px solid #60A5FA; background-color: rgba(96, 165, 250, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
         .insight-title { font-weight: 600; color: #EAEAEA; margin-bottom: 0.25rem;}
         .insight-text { font-size: 0.9rem; color: #D1D5DB;}
     </style>
@@ -100,10 +100,8 @@ def render_settings_sidebar():
         st.markdown(f'<img src="{LEAN_LOGO_BASE64}" width="100" alt="Lean Institute Logo" style="display: block; margin: 0 auto 1rem;">', unsafe_allow_html=True)
         st.markdown("## ⚙️ Simulation Controls")
         with st.expander("🧪 Simulation Parameters", expanded=True):
-            team_size_val = st.session_state.get('sb_team_size_slider', DEFAULT_CONFIG['TEAM_SIZE']) 
-            shift_duration_val = st.session_state.get('sb_shift_duration_slider', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']) 
-            team_size = st.slider("Team Size", 10, 100, team_size_val, key="sb_team_size_slider", help="Adjust the number of workers in the simulated shift.")
-            shift_duration = st.slider("Shift Duration (min)", 200, 2000, shift_duration_val, step=2, key="sb_shift_duration_slider", help="Set the total length of the simulated work shift.")
+            team_size = st.slider("Team Size", 10, 100, st.session_state.get('sb_team_size_slider', DEFAULT_CONFIG['TEAM_SIZE']), key="sb_team_size_slider", help="Adjust the number of workers in the simulated shift.")
+            shift_duration = st.slider("Shift Duration (min)", 200, 2000, st.session_state.get('sb_shift_duration_slider', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']), step=2, key="sb_shift_duration_slider", help="Set the total length of the simulated work shift.")
             max_disrupt_time = shift_duration - 2 
             disruption_options = [i * 2 for i in range(max_disrupt_time // 2)] if max_disrupt_time > 0 else []
             default_disrupt_mins_raw = [i * 2 for i in DEFAULT_CONFIG.get('DISRUPTION_INTERVALS', [])]
@@ -173,7 +171,11 @@ def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals
         elif total_workers_in_config_zones > 0 and total_workers_in_config_zones != team_size : 
             ratio = team_size / total_workers_in_config_zones; accumulated_workers = 0; sorted_zone_keys = sorted(list(config['WORK_AREAS'].keys()))
             for zone_key in sorted_zone_keys[:-1]: assigned = int(round(config['WORK_AREAS'][zone_key].get('workers', 0) * ratio)); config['WORK_AREAS'][zone_key]['workers'] = assigned; accumulated_workers += assigned
-            last_zone_key = sorted_zone_keys[-1]; config['WORK_AREAS'][last_zone_key]['workers'] = team_size - accumulated_workers
+            if sorted_zone_keys: # Ensure there's at least one zone
+                 last_zone_key = sorted_zone_keys[-1]; config['WORK_AREAS'][last_zone_key]['workers'] = team_size - accumulated_workers
+            elif team_size > 0: # No zones but team_size > 0: this is a config issue but log it.
+                logger.warning("Team size > 0 but no work zones defined for worker assignment after ratio.")
+
         elif team_size == 0: 
             for zone_key in config['WORK_AREAS']: config['WORK_AREAS'][zone_key]['workers'] = 0
     validate_config(config) 
@@ -198,65 +200,41 @@ def safe_get(data_dict, path_str, default_val=None):
             try:
                 idx = int(key)
                 current = current[idx] if idx < len(current) else None
-            except (ValueError, IndexError):
-                current = None 
-                break
-        else: 
-            current = None
-            break
+            except (ValueError, IndexError): current = None; break
+        else: current = None; break
     return current if current is not None else default_return
 
 def safe_stat(data_list, stat_func, default_val=0.0):
     if not isinstance(data_list, (list, np.ndarray, pd.Series)): data_list = []
-    valid_data = [x for x in data_list if x is not None and not (isinstance(x, float) and np.isnan(x))]
-    return stat_func(valid_data) if valid_data else default_val
+    valid_data = [x for x in data_list if x is not None and not (isinstance(x, float) and np.isnan(x))]; return stat_func(valid_data) if valid_data else default_val
 
 def get_actionable_insights(sim_data, current_config): 
     insights = []
     if not sim_data or not isinstance(sim_data, dict): return insights 
-    compliance_data = safe_get(sim_data, 'task_compliance.data', [])
-    target_compliance_from_config = current_config.get('TARGET_COMPLIANCE', 75) 
-    compliance_avg = safe_stat(compliance_data, np.mean, default_val=target_compliance_from_config)
+    compliance_data = safe_get(sim_data, 'task_compliance.data', []); target_compliance_from_config = current_config.get('TARGET_COMPLIANCE', 75); compliance_avg = safe_stat(compliance_data, np.mean, default_val=target_compliance_from_config)
     if compliance_avg < target_compliance_from_config * 0.9: insights.append({"type": "critical", "title": "Low Task Compliance", "text": f"Avg. Task Compliance ({compliance_avg:.1f}%) is significantly below target ({target_compliance_from_config}%). Review disruption impacts, task complexities, and training."})
     elif compliance_avg < target_compliance_from_config: insights.append({"type": "warning", "title": "Suboptimal Task Compliance", "text": f"Avg. Task Compliance at {compliance_avg:.1f}%. Identify intervals or areas with lowest compliance for process review."})
-    wellbeing_scores = safe_get(sim_data, 'worker_wellbeing.scores', [])
-    target_wellbeing_from_config = current_config.get('TARGET_WELLBEING', 70)
-    wellbeing_avg = safe_stat(wellbeing_scores, np.mean, default_val=target_wellbeing_from_config)
+    wellbeing_scores = safe_get(sim_data, 'worker_wellbeing.scores', []); target_wellbeing_from_config = current_config.get('TARGET_WELLBEING', 70); wellbeing_avg = safe_stat(wellbeing_scores, np.mean, default_val=target_wellbeing_from_config)
     if wellbeing_avg < target_wellbeing_from_config * 0.85: insights.append({"type": "critical", "title": "Critical Worker Well-being Levels", "text": f"Avg. Well-being ({wellbeing_avg:.1f}%) is critically low (target {target_wellbeing_from_config}%). Urgent review of work conditions, load, and stress factors needed."})
     threshold_triggers = safe_get(sim_data, 'worker_wellbeing.triggers.threshold', [])
     if wellbeing_scores and len(threshold_triggers) > (len(wellbeing_scores) * 0.1) and len(threshold_triggers) > 2 : insights.append({"type": "warning", "title": "Frequent Low Well-being Alerts", "text": f"{len(threshold_triggers)} instances of well-being dropping below threshold. Investigate specific triggers and affected periods."})
-    downtime_data = safe_get(sim_data, 'downtime_minutes', [])
-    total_downtime = safe_stat(downtime_data, np.sum)
-    sim_config_params = sim_data.get('config_params', {}); actual_shift_duration_minutes = sim_config_params.get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'])
-    downtime_threshold_total_shift = current_config.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', actual_shift_duration_minutes * 0.05) 
+    downtime_data = safe_get(sim_data, 'downtime_minutes', []); total_downtime = safe_stat(downtime_data, np.sum); sim_config_params = sim_data.get('config_params', {}); actual_shift_duration_minutes = sim_config_params.get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']); downtime_threshold_total_shift = current_config.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', actual_shift_duration_minutes * 0.05) 
     if total_downtime > downtime_threshold_total_shift : insights.append({"type": "critical", "title": "Excessive Total Downtime", "text": f"Total shift downtime is {total_downtime:.0f} minutes, exceeding the guideline of {downtime_threshold_total_shift:.0f} min. Focus on causes of disruptions and equipment reliability."})
-    if compliance_avg > target_compliance_from_config * 1.05 and wellbeing_avg > target_wellbeing_from_config * 1.05 and total_downtime < downtime_threshold_total_shift * 0.5 :
-        insights.append({"type": "positive", "title": "Excellent Overall Performance", "text": "Key metrics significantly exceed targets, indicating highly effective operations and a positive work environment. Identify and replicate success factors."})
+    if compliance_avg > target_compliance_from_config * 1.05 and wellbeing_avg > target_wellbeing_from_config * 1.05 and total_downtime < downtime_threshold_total_shift * 0.5 : insights.append({"type": "positive", "title": "Excellent Overall Performance", "text": "Key metrics significantly exceed targets, indicating highly effective operations and a positive work environment. Identify and replicate success factors."})
     initiative = sim_data.get('config_params', {}).get('TEAM_INITIATIVE', 'Standard Operations')
     if initiative != "Standard Operations": insights.append({"type": "info", "title": f"Initiative Active: '{initiative}'", "text": f"The '{initiative}' initiative was simulated. Compare results to a baseline 'Standard Operations' run to quantify its specific impact."})
     return insights
 
 def main():
     st.title("Workplace Shift Optimization Dashboard")
-    app_state_keys = ['simulation_results', 'show_tour', 'show_help_glossary',
-                      'op_metrics_time_slider_val', 'worker_insights_time_slider_val', 
-                      'worker_snap_step_slider_val_dist_tab', 'downtime_tab_time_slider_val']
+    app_state_keys = ['simulation_results', 'show_tour', 'show_help_glossary', 'op_metrics_time_slider_val', 'worker_insights_time_slider_val', 'worker_snap_step_slider_val_dist_tab', 'downtime_tab_time_slider_val']
     for key in app_state_keys:
-        if key not in st.session_state: 
-            st.session_state[key] = None 
+        if key not in st.session_state: st.session_state[key] = None 
     
-    sb_team_size, sb_shift_duration, sb_disrupt_mins, sb_team_initiative, \
-    sb_run_sim_btn, sb_load_data_btn, sb_high_contrast, \
-    sb_use_3d, sb_debug_mode = render_settings_sidebar()
-    
-    # Values from sidebar widgets (which are also in st.session_state by their keys like 'sb_team_size_slider')
-    # are used for logic and passed to functions.
-    # For clarity, using the direct return values here for calculations for current_max_minutes_for_sliders
-    _default_shift_duration = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']
-    _current_shift_duration_for_slider_max = sb_shift_duration if sb_shift_duration is not None else _default_shift_duration
-    current_max_minutes_for_sliders = _current_shift_duration_for_slider_max - 2
-    disruption_steps_for_plots = []
-
+    sb_team_size, sb_shift_duration, sb_disrupt_mins, sb_team_initiative, sb_run_sim_btn, sb_load_data_btn, sb_high_contrast, sb_use_3d, sb_debug_mode = render_settings_sidebar()
+        
+    _default_shift_duration = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']; _current_shift_duration_for_slider_max = sb_shift_duration if sb_shift_duration is not None else _default_shift_duration
+    current_max_minutes_for_sliders = _current_shift_duration_for_slider_max - 2; disruption_steps_for_plots = []
     if st.session_state.simulation_results and isinstance(st.session_state.simulation_results, dict):
         num_steps_from_sim = len(st.session_state.simulation_results.get('downtime_minutes', []))
         if num_steps_from_sim > 0: current_max_minutes_for_sliders = (num_steps_from_sim - 1) * 2
@@ -268,52 +246,31 @@ def main():
 
     if sb_run_sim_btn:
         with st.spinner("🚀 Simulating workplace operations..."):
-            try: 
-                st.session_state.simulation_results = run_simulation_logic(
-                    sb_team_size, sb_shift_duration, sb_disrupt_mins, sb_team_initiative
-                )
-                st.success("✅ Simulation completed!"); 
-                logger.info("Simulation run successful.", extra={'user_action': 'Run Simulation - Success'}); 
-                st.rerun() 
-            except Exception as e: 
-                logger.error(f"Simulation Run Error: {e}", exc_info=True, extra={'user_action': 'Run Simulation - Error'})
-                st.error(f"❌ Simulation failed: {e}"); 
-                st.session_state.simulation_results = None 
-    
+            try: st.session_state.simulation_results = run_simulation_logic(sb_team_size, sb_shift_duration, sb_disrupt_mins, sb_team_initiative); st.success("✅ Simulation completed!"); logger.info("Simulation run successful.", extra={'user_action': 'Run Simulation - Success'}); st.rerun() 
+            except Exception as e: logger.error(f"Simulation Run Error: {e}", exc_info=True, extra={'user_action': 'Run Simulation - Error'}); st.error(f"❌ Simulation failed: {e}"); st.session_state.simulation_results = None 
     if sb_load_data_btn:
         with st.spinner("🔄 Loading saved data..."):
             try:
                 loaded_data = load_simulation_data() 
                 if loaded_data and isinstance(loaded_data, dict):
-                    st.session_state.simulation_results = loaded_data; 
-                    cfg = loaded_data.get('config_params', {})
-                    # Update the session_state keys that sidebar widgets read from (using their specific keys)
+                    st.session_state.simulation_results = loaded_data; cfg = loaded_data.get('config_params', {})
                     st.session_state.sb_team_size_slider = cfg.get('TEAM_SIZE', st.session_state.get('sb_team_size_slider'))
                     st.session_state.sb_shift_duration_slider = cfg.get('SHIFT_DURATION_MINUTES', st.session_state.get('sb_shift_duration_slider'))
                     st.session_state.sb_team_initiative_selectbox = cfg.get('TEAM_INITIATIVE', st.session_state.get('sb_team_initiative_selectbox'))
                     st.session_state.sb_disruption_intervals_multiselect = cfg.get('DISRUPTION_INTERVALS_MINUTES', st.session_state.get('sb_disruption_intervals_multiselect'))
-                    
-                    st.success("✅ Data loaded successfully!"); 
-                    logger.info("Saved data loaded successfully.", extra={'user_action': 'Load Data - Success'}); 
-                    st.rerun() 
-                else: 
-                    st.error("❌ Failed to load data or data is not in the expected dictionary format.")
-                    logger.warning("Load data failed or invalid format.", extra={'user_action': 'Load Data - Fail/Invalid'})
-            except Exception as e: 
-                logger.error(f"Load Data Error: {e}", exc_info=True, extra={'user_action': 'Load Data - Error'})
-                st.error(f"❌ Failed to load data: {e}"); 
-                st.session_state.simulation_results = None
+                    st.success("✅ Data loaded successfully!"); logger.info("Saved data loaded successfully.", extra={'user_action': 'Load Data - Success'}); st.rerun() 
+                else: st.error("❌ Failed to load data or data is not in the expected dictionary format."); logger.warning("Load data failed or invalid format.", extra={'user_action': 'Load Data - Fail/Invalid'})
+            except Exception as e: logger.error(f"Load Data Error: {e}", exc_info=True, extra={'user_action': 'Load Data - Error'}); st.error(f"❌ Failed to load data: {e}"); st.session_state.simulation_results = None
     
     if st.session_state.get('show_tour'): 
-        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>🚀 Quick Dashboard Tour</h3><p>Welcome! ...</p></div>""", unsafe_allow_html=True) 
+        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>🚀 Quick Dashboard Tour</h3> ... </div>""", unsafe_allow_html=True) 
         if st.button("Got it!", key="tour_modal_close_btn"): st.session_state.show_tour = False; st.rerun()
     if st.session_state.get('show_help_glossary'): 
-        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>ℹ️ Help & Glossary</h3><p>This dashboard ...</p><h4>Metric Definitions:</h4>...</div>""", unsafe_allow_html=True) 
+        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>ℹ️ Help & Glossary</h3> ... </div>""", unsafe_allow_html=True) 
         if st.button("Understood", key="help_modal_close_btn"): st.session_state.show_help_glossary = False; st.rerun()
 
     tabs_main_names = ["📊 Overview & Insights", "📈 Operational Metrics", "👥 Worker Insights", "⏱️ Downtime Analysis", "📖 Glossary"]
     tabs = st.tabs(tabs_main_names)
-    
     plot_config_interactive = {'displaylogo': False, 'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'resetScale2d', 'zoomIn2d', 'zoomOut2d', 'pan2d'], 'toImageButtonOptions': {'format': 'png', 'filename': 'plot_export', 'scale': 2}}; plot_config_minimal = {'displayModeBar': False}
     current_high_contrast = st.session_state.get('sb_high_contrast_checkbox', False)
 
@@ -417,7 +374,7 @@ def main():
                     snap_step = st.slider("Select Time Step for Snapshot:", min_step, max_step, snap_val, 1, key=snap_slider_key, disabled=max_step < min_step, on_change=lambda:st.session_state.update({snap_val_key: st.session_state[snap_slider_key]}))
                     if not team_pos_df_all.empty and max_step >= min_step :
                         with st.container(border=True):
-                            try: st.plotly_chart(plot_worker_distribution(team_pos_df_all, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, st.session_state.get('sb_use_3d_distribution_checkbox', False), snap_step, show_ee, show_pl, current_high_contrast), use_container_width=True, config=plot_config_interactive) # use sb_ key
+                            try: st.plotly_chart(plot_worker_distribution(team_pos_df_all, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, st.session_state.get('sb_use_3d_distribution_checkbox', False), snap_step, show_ee, show_pl, current_high_contrast), use_container_width=True, config=plot_config_interactive) 
                             except Exception as e: logger.error(f"Worker Dist Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Worker Positions.")
                     else: st.caption("No data for positions snapshot with current filters.")
                 with cols_dist[1]:
@@ -445,13 +402,30 @@ def main():
                             try: st.plotly_chart(plot_psychological_safety(ps_scores_list, current_high_contrast), use_container_width=True, config=plot_config_interactive)
                             except Exception as e: logger.error(f"Psych Safety Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Psychological Safety.")
                     else: st.caption("No Psych. Safety data for this range.")
-                st.markdown("<h6>Well-Being Triggers (within selected time range):</h6>", unsafe_allow_html=True)
+                st.markdown("<h6>Well-Being Triggers & Considerations (selected time range):</h6>", unsafe_allow_html=True) # Changed title slightly
                 ww_trigs_disp_raw = safe_get(sim_data, 'worker_wellbeing.triggers', {}); ww_trigs_disp_filt = {k: [t for t in v if shared_start_idx <= t < shared_end_idx] for k, v in ww_trigs_disp_raw.items() if isinstance(v, list)}; ww_trigs_disp_filt['work_area'] = {wk: [t for t in wv if shared_start_idx <= t < shared_end_idx] for wk, wv in ww_trigs_disp_raw.get('work_area', {}).items()}
-                st.caption(f"**Threshold Alerts (< {DEFAULT_CONFIG.get('WELLBEING_THRESHOLD',0)*100}%):** {ww_trigs_disp_filt.get('threshold', 'None') or 'None'}"); st.caption(f"**Trend Alerts (Declining):** {ww_trigs_disp_filt.get('trend', 'None')or 'None'}"); st.caption(f"**Disruption-Related Alerts:** {ww_trigs_disp_filt.get('disruption', 'None') or 'None'}")
-                st.caption("**Work Area Specific Alerts:**"); wa_alert_found = False
-                for zone, trigs in ww_trigs_disp_filt.get('work_area', {}).items():
-                    if trigs: st.caption(f"    {zone}: {trigs}"); wa_alert_found = True
-                if not wa_alert_found: st.caption("    None")
+                
+                # More structured display of triggers
+                if not any(ww_trigs_disp_filt.values()):
+                     st.markdown("<p class='insight-text' style='color: #22D3EE;'>✅ No specific well-being alerts triggered in the selected period. Monitor trends proactively.</p>", unsafe_allow_html=True)
+                else:
+                    if ww_trigs_disp_filt.get('threshold'): st.markdown(f"<div class='alert-critical insight-text'><strong>Threshold Alerts Met ({len(ww_trigs_disp_filt['threshold'])} times):</strong> Steps {ww_trigs_disp_filt['threshold']}. Acute stress/fatigue likely.</div>", unsafe_allow_html=True)
+                    if ww_trigs_disp_filt.get('trend'): st.markdown(f"<div class='alert-warning insight-text'><strong>Declining Trend Alerts ({len(ww_trigs_disp_filt['trend'])} times):</strong> Steps {ww_trigs_disp_filt['trend']}. Accumulating stress/fatigue.</div>", unsafe_allow_html=True)
+                    if ww_trigs_disp_filt.get('disruption'): st.markdown(f"<div class='alert-info insight-text'><strong>Disruption-linked Alerts ({len(ww_trigs_disp_filt['disruption'])} times):</strong> Steps {ww_trigs_disp_filt['disruption']}. Support post-disruption.</div>", unsafe_allow_html=True)
+                    wa_alerts = ww_trigs_disp_filt.get('work_area', {})
+                    if any(wa_alerts.values()): 
+                        st.markdown(f"<div class='alert-warning insight-text'><strong>Work Area Specific Alerts:</strong>", unsafe_allow_html=True)
+                        for zone, trigs in wa_alerts.items():
+                            if trigs: st.markdown(f"  - {zone}: {len(trigs)} alerts at steps {trigs}", unsafe_allow_html=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown("<h6 style='margin-top:1rem;'>💡 Actionable Considerations:</h6>", unsafe_allow_html=True)
+                st.markdown("""<ul style="font-size:0.9rem; color: #D1D5DB; padding-left:20px;">
+                    <li><b>Low Well-being/Safety:</b> Review workload, break schedules, environmental factors (noise, light, ergonomics), and management practices. Consider anonymous surveys for direct feedback.</li>
+                    <li><b>Frequent Alerts:</b> Identify patterns. Are alerts clustered around specific times, tasks, or disruptions? This points to root causes.</li>
+                    <li><b>Disruption Impact:</b> If well-being consistently drops after disruptions, implement better post-disruption support or stress management techniques.</li>
+                    <li><b>Zone-Specific Issues:</b> If alerts concentrate in certain work areas, investigate localized stressors or resource imbalances.</li>
+                    <li><b>Initiative Evaluation:</b> Compare well-being metrics before and after implementing initiatives like 'more frequent breaks' or 'team recognition' against a 'Standard Operations' baseline to assess true impact.</li>
+                </ul>""", unsafe_allow_html=True)
         else: st.info("ℹ️ Run a simulation or load data to view Worker Insights.", icon="👥")
 
     with tabs[3]: 
@@ -468,8 +442,8 @@ def main():
             dt_data_list = safe_get(sim_data, 'downtime_minutes', [])[dt_start_idx:dt_end_idx]
             if dt_data_list:
                 total_downtime_period = sum(dt_data_list); avg_downtime_period = np.mean(dt_data_list) if dt_data_list else 0
-                st.metric("Total Downtime in Selected Period", f"{total_downtime_period:.1f} min", help="Sum of all downtime instances in the selected time frame.")
-                with st.container(border=True): st.markdown('<h5>Downtime Trend Over Time</h5>', unsafe_allow_html=True)
+                st.metric("Total Downtime in Selected Period", f"{total_downtime_period:.1f} min", help=f"Sum of all downtime instances from minute {time_range_dt[0]} to {time_range_dt[1]}. Target for entire shift: < {DEFAULT_CONFIG.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] * 0.05):.0f} min.")
+                with st.container(border=True): st.markdown('<h5>Downtime Trend Over Time (per Interval)</h5>', unsafe_allow_html=True)
                 try: st.plotly_chart(plot_downtime_trend(dt_data_list, DEFAULT_CONFIG.get('DOWNTIME_THRESHOLD', 10), current_high_contrast), use_container_width=True, config=plot_config_interactive)
                 except Exception as e: logger.error(f"Downtime Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Downtime Trend.")
             else: st.caption("No Downtime data for this time range.")
