@@ -1,11 +1,66 @@
 """
 visualizations.py
-Functions to create Plotly visualizations for the Industrial Workplace Shift Monitoring Dashboard.
+Functions to create Plotly visualizations for the Workplace Shift Monitoring Dashboard.
 """
 
 import plotly.graph_objects as go
 import numpy as np
 from config import DEFAULT_CONFIG
+
+def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None):
+    """
+    Create a gauge chart for key metrics with color-coded ranges and recommendations.
+    
+    Args:
+        value (float): Metric value (0-100).
+        title (str): Chart title.
+        threshold (float): Threshold for warning (0-100).
+        max_value (float): Maximum value for the gauge.
+        recommendation (str): Actionable recommendation if below threshold.
+    
+    Returns:
+        go.Figure: Gauge chart.
+    """
+    # Define color ranges
+    if value < threshold:
+        color = "#EF4444"  # Red for below threshold
+    elif value < threshold + 10:
+        color = "#FBBF24"  # Yellow for near threshold
+    else:
+        color = "#10B981"  # Green for good
+    
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        domain={'x': [0, 1], 'y': [0, 1]},
+        title={'text': title, 'font': {'size': 18, 'color': '#E6ECEF'}},
+        number={'suffix': "%", 'font': {'size': 30, 'color': '#E6ECEF'}},
+        gauge={
+            'axis': {'range': [0, max_value], 'tickwidth': 1, 'tickcolor': "#E6ECEF"},
+            'bar': {'color': color},
+            'bgcolor': "#2D3748",
+            'borderwidth': 2,
+            'bordercolor': "#E6ECEF",
+            'steps': [
+                {'range': [0, threshold], 'color': "#EF4444"},
+                {'range': [threshold, threshold + 10], 'color': "#FBBF24"},
+                {'range': [threshold + 10, max_value], 'color': "#10B981"}
+            ],
+            'threshold': {
+                'line': {'color': "#FFFFFF", 'width': 4},
+                'thickness': 0.75,
+                'value': threshold
+            }
+        }
+    ))
+    fig.update_layout(
+        font=dict(color='#E6ECEF', size=14),
+        template='plotly_dark',
+        plot_bgcolor='#1A252F',
+        paper_bgcolor='#1A252F',
+        margin=dict(l=20, r=20, t=50, b=20)
+    )
+    return fig, recommendation
 
 def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_scores):
     """
@@ -43,7 +98,7 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
                 annotation_position="top"
             )
     
-    # Add anomaly annotations
+    # Add anomaly annotations with recommendations
     annotations = []
     y_offset = 5
     for i, (score, z) in enumerate(zip(compliance_scores, z_scores)):
@@ -51,7 +106,7 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
             annotations.append(dict(
                 x=minutes[i],
                 y=score + y_offset,
-                text=f"Anomaly: {score:.1f}%",
+                text=f"Anomaly: {score:.1f}%<br>Review task protocols",
                 showarrow=True,
                 arrowhead=1,
                 ax=20,
@@ -112,6 +167,20 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
                 annotation_position="top"
             )
     
+    # Add recommendation if proximity is low
+    annotations = []
+    if np.mean(proximity_scores) < 60:
+        annotations.append(dict(
+            x=minutes[0],
+            y=max(proximity_scores) + 5,
+            text="Low collaboration<br>Encourage team activities",
+            showarrow=True,
+            arrowhead=1,
+            ax=20,
+            ay=-30,
+            font=dict(color='#EF4444', size=10)
+        ))
+    
     fig.update_layout(
         title=dict(text='Collaboration Proximity Index', x=0.5, font_size=22),
         xaxis_title='Time (minutes)',
@@ -122,6 +191,7 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
         paper_bgcolor='#1A252F',
         hovermode='x unified',
         legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
+        annotations=annotations,
         xaxis=dict(tickangle=45, nticks=len(minutes)//10 + 1)
     )
     return fig
@@ -149,6 +219,21 @@ def plot_operational_recovery(recovery_scores, productivity_loss):
         hovertemplate='Time: %{x} min<br>Loss: %{y:.1f}%'
     ))
     
+    # Add recommendation if loss is high
+    annotations = []
+    max_loss_idx = np.argmax(productivity_loss)
+    if productivity_loss[max_loss_idx] > 10:
+        annotations.append(dict(
+            x=minutes[max_loss_idx],
+            y=productivity_loss[max_loss_idx] + 5,
+            text=f"High loss: {productivity_loss[max_loss_idx]:.1f}%<br>Investigate cause",
+            showarrow=True,
+            arrowhead=1,
+            ax=20,
+            ay=-30,
+            font=dict(color='#EF4444', size=10)
+        ))
+    
     fig.update_layout(
         title=dict(text='Operational Recovery vs. Productivity Loss', x=0.5, font_size=22),
         xaxis_title='Time (minutes)',
@@ -159,6 +244,7 @@ def plot_operational_recovery(recovery_scores, productivity_loss):
         paper_bgcolor='#1A252F',
         hovermode='x unified',
         legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
+        annotations=annotations,
         xaxis=dict(tickangle=45, nticks=len(minutes)//10 + 1)
     )
     return fig
@@ -181,6 +267,20 @@ def plot_operational_efficiency(efficiency_df, selected_metrics):
             hovertemplate=f'Time: %{{x}} min<br>{metric.capitalize()}: %{{y:.1f}}%'
         ))
     
+    # Add recommendation if OEE is low
+    annotations = []
+    if 'oee' in selected_metrics and np.mean(efficiency_df['oee']) < 75:
+        annotations.append(dict(
+            x=minutes[0],
+            y=max(efficiency_df['oee']) + 5,
+            text="Low OEE<br>Optimize processes",
+            showarrow=True,
+            arrowhead=1,
+            ax=20,
+            ay=-30,
+            font=dict(color='#EF4444', size=10)
+        ))
+    
     fig.update_layout(
         title=dict(text='Operational Efficiency Metrics', x=0.5, font_size=22),
         xaxis_title='Time (minutes)',
@@ -191,79 +291,185 @@ def plot_operational_efficiency(efficiency_df, selected_metrics):
         paper_bgcolor='#1A252F',
         hovermode='x unified',
         legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
+        annotations=annotations,
         xaxis=dict(tickangle=45, nticks=len(minutes)//10 + 1)
     )
     return fig
 
-def plot_worker_distribution(positions_df, facility_size, config, use_3d=False):
+def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, selected_step=None):
     """
-    Plot worker distribution as a 2D or 3D scatter plot.
+    Plot worker distribution with a facility layout, color-coded zones, and workload status.
+    
+    Args:
+        positions_df (pd.DataFrame): Worker positions with workload status.
+        facility_size (int): Size of the facility in meters.
+        config (dict): Configuration settings.
+        use_3d (bool): Whether to use a 3D plot.
+        selected_step (int): Specific step to display (for 3D time slider).
+    
+    Returns:
+        go.Figure: Worker distribution plot.
     """
     if use_3d:
         fig = go.Figure()
+        if selected_step is not None:
+            positions_df = positions_df[positions_df['step'] == selected_step]
+        
         for zone, area in config['WORK_AREAS'].items():
             zone_df = positions_df[positions_df['zone'] == zone]
-            fig.add_trace(go.Scatter3d(
-                x=zone_df['x'],
-                y=zone_df['y'],
-                z=zone_df['step'],
-                mode='markers',
-                name=area['label'],
-                marker=dict(size=5)
-            ))
+            for status in ['Normal', 'High', 'Critical']:
+                status_df = zone_df[zone_df['workload_status'] == status]
+                color = '#10B981' if status == 'Normal' else '#FBBF24' if status == 'High' else '#EF4444'
+                fig.add_trace(go.Scatter3d(
+                    x=status_df['x'],
+                    y=status_df['y'],
+                    z=status_df['step'],
+                    mode='markers',
+                    name=f"{area['label']} ({status})",
+                    marker=dict(size=5, color=color),
+                    text=[f"Worker: {w}<br>Zone: {z}<br>Workload: {wl:.2f} ({s})"
+                          for w, z, wl, s in zip(status_df['worker'], status_df['zone'], status_df['workload'], status_df['workload_status'])],
+                    hoverinfo='text'
+                ))
         fig.update_layout(
-            title=dict(text='3D Worker Distribution', x=0.5, font_size=22),
+            title=dict(text='3D Worker Distribution Over Time', x=0.5, font_size=22),
             scene=dict(
                 xaxis_title='X (m)',
                 yaxis_title='Y (m)',
                 zaxis_title='Step',
-                xaxis=dict(range=[0, facility_size]),
-                yaxis=dict(range=[0, facility_size])
+                xaxis=dict(range=[0, facility_size], backgroundcolor="#2D3748"),
+                yaxis=dict(range=[0, facility_size], backgroundcolor="#2D3748"),
+                zaxis=dict(backgroundcolor="#2D3748")
             ),
             font=dict(color='#E6ECEF', size=14),
             template='plotly_dark',
             plot_bgcolor='#1A252F',
-            paper_bgcolor='#1A252F'
+            paper_bgcolor='#1A252F',
+            legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1)
         )
     else:
         fig = go.Figure()
+        
+        # Add facility layout with zones
+        shapes = []
+        colors = {'Assembly Line': 'rgba(59, 130, 246, 0.3)', 'Packaging Zone': 'rgba(16, 185, 129, 0.3)', 'Quality Control': 'rgba(236, 72, 153, 0.3)'}
+        for zone, area in config['WORK_AREAS'].items():
+            center_x, center_y = area['center']
+            shapes.append(dict(
+                type="rect",
+                x0=center_x - 15,
+                y0=center_y - 15,
+                x1=center_x + 15,
+                y1=center_y + 15,
+                fillcolor=colors[zone],
+                line=dict(color=colors[zone].replace('0.3', '1.0')),
+                opacity=0.3,
+                layer='below'
+            ))
+        
+        # Plot workers by workload status
         for zone, area in config['WORK_AREAS'].items():
             zone_df = positions_df[positions_df['zone'] == zone]
-            fig.add_trace(go.Scatter(
-                x=zone_df['x'],
-                y=zone_df['y'],
-                mode='markers',
-                name=area['label'],
-                marker=dict(size=8)
-            ))
+            if selected_step is not None:
+                zone_df = zone_df[zone_df['step'] == selected_step]
+            for status in ['Normal', 'High', 'Critical']:
+                status_df = zone_df[zone_df['workload_status'] == status]
+                color = '#10B981' if status == 'Normal' else '#FBBF24' if status == 'High' else '#EF4444'
+                fig.add_trace(go.Scatter(
+                    x=status_df['x'],
+                    y=status_df['y'],
+                    mode='markers',
+                    name=f"{area['label']} ({status})",
+                    marker=dict(size=8, color=color),
+                    text=[f"Worker: {w}<br>Zone: {z}<br>Workload: {wl:.2f} ({s})"
+                          for w, z, wl, s in zip(status_df['worker'], status_df['zone'], status_df['workload'], status_df['workload_status'])],
+                    hoverinfo='text'
+                ))
+        
+        # Detect overcrowding
+        annotations = []
+        for zone, area in config['WORK_AREAS'].items():
+            zone_df = positions_df[positions_df['zone'] == zone]
+            if selected_step is not None:
+                zone_df = zone_df[zone_df['step'] == selected_step]
+            if len(zone_df) > area['workers'] * 1.5:
+                annotations.append(dict(
+                    x=area['center'][0],
+                    y=area['center'][1],
+                    text=f"Overcrowded: {len(zone_df)} workers<br>Reassign tasks",
+                    showarrow=True,
+                    arrowhead=1,
+                    ax=20,
+                    ay=-30,
+                    font=dict(color='#EF4444', size=10)
+                ))
+        
         fig.update_layout(
-            title=dict(text='2D Worker Distribution', x=0.5, font_size=22),
+            title=dict(text='Worker Distribution with Facility Layout', x=0.5, font_size=22),
             xaxis_title='X (m)',
             yaxis_title='Y (m)',
-            xaxis=dict(range=[0, facility_size]),
-            yaxis=dict(range=[0, facility_size]),
+            xaxis=dict(range=[0, facility_size], gridcolor="#444", zerolinecolor="#444"),
+            yaxis=dict(range=[0, facility_size], gridcolor="#444", zerolinecolor="#444"),
             font=dict(color='#E6ECEF', size=14),
             template='plotly_dark',
             plot_bgcolor='#1A252F',
-            paper_bgcolor='#1A252F'
+            paper_bgcolor='#1A252F',
+            shapes=shapes,
+            annotations=annotations,
+            legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1)
         )
     return fig
 
 def plot_worker_density_heatmap(positions_df, facility_size, config):
     """
-    Plot worker density as a heatmap.
+    Plot worker density as a heatmap with facility layout.
     """
     x_bins = np.linspace(0, facility_size, config['DENSITY_GRID_SIZE'])
     y_bins = np.linspace(0, facility_size, config['DENSITY_GRID_SIZE'])
     heatmap, xedges, yedges = np.histogram2d(positions_df['x'], positions_df['y'], bins=[x_bins, y_bins])
+    
+    # Add facility layout
+    shapes = []
+    colors = {'Assembly Line': 'rgba(59, 130, 246, 0.3)', 'Packaging Zone': 'rgba(16, 185, 129, 0.3)', 'Quality Control': 'rgba(236, 72, 153, 0.3)'}
+    for zone, area in config['WORK_AREAS'].items():
+        center_x, center_y = area['center']
+        shapes.append(dict(
+            type="rect",
+            x0=center_x - 15,
+            y0=center_y - 15,
+            x1=center_x + 15,
+            y1=center_y + 15,
+            fillcolor=colors[zone],
+            line=dict(color=colors[zone].replace('0.3', '1.0')),
+            opacity=0.3,
+            layer='below'
+        ))
     
     fig = go.Figure(data=go.Heatmap(
         z=heatmap.T,
         x=xedges,
         y=yedges,
         colorscale='Viridis',
-        showscale=True
+        showscale=True,
+        hovertemplate='X: %{x} m<br>Y: %{y} m<br>Workers: %{z}'
     ))
+    
+    # Add overcrowding annotations
+    annotations = []
+    for zone, area in config['WORK_AREAS'].items():
+        zone_df = positions_df[positions_df['zone'] == zone]
+        if len(zone_df) > area['workers'] * 1.5:
+            annotations.append(dict(
+                x=area['center'][0],
+                y=area['center'][1],
+                text=f"High density<br>Reassign workers",
+                showarrow=True,
+                arrowhead=1,
+                ax=20,
+                ay=-30,
+                font=dict(color='#EF4444', size=10)
+            ))
+    
     fig.update_layout(
         title=dict(text='Worker Density Heatmap', x=0.5, font_size=22),
         xaxis_title='X (m)',
@@ -271,13 +477,15 @@ def plot_worker_density_heatmap(positions_df, facility_size, config):
         font=dict(color='#E6ECEF', size=14),
         template='plotly_dark',
         plot_bgcolor='#1A252F',
-        paper_bgcolor='#1A252F'
+        paper_bgcolor='#1A252F',
+        shapes=shapes,
+        annotations=annotations
     )
     return fig
 
 def plot_worker_wellbeing(wellbeing_scores, triggers):
     """
-    Plot worker well-being scores with trigger annotations.
+    Plot worker well-being scores with trigger annotations and recommendations.
     """
     minutes = [i * 2 for i in range(len(wellbeing_scores))]
     fig = go.Figure()
@@ -300,7 +508,7 @@ def plot_worker_wellbeing(wellbeing_scores, triggers):
         annotation_position="bottom right"
     )
     
-    # Add trigger annotations
+    # Add trigger annotations with recommendations
     annotations = []
     y_offset = 5
     for trigger_type, times in triggers.items():
@@ -312,7 +520,7 @@ def plot_worker_wellbeing(wellbeing_scores, triggers):
                         annotations.append(dict(
                             x=minutes[t],
                             y=score + y_offset,
-                            text=f"{DEFAULT_CONFIG['WORK_AREAS'][zone]['label']} Alert",
+                            text=f"{DEFAULT_CONFIG['WORK_AREAS'][zone]['label']} Alert<br>Check workload",
                             showarrow=True,
                             arrowhead=1,
                             ax=20,
@@ -326,10 +534,15 @@ def plot_worker_wellbeing(wellbeing_scores, triggers):
             for t in times:
                 if 0 <= t < len(minutes):
                     score = wellbeing_scores[t]
+                    text = f"{trigger_type.capitalize()} Alert"
+                    if trigger_type == 'threshold':
+                        text += "<br>Schedule break"
+                    elif trigger_type == 'trend':
+                        text += "<br>Monitor closely"
                     annotations.append(dict(
                         x=minutes[t],
                         y=score + y_offset,
-                        text=f"{trigger_type.capitalize()} Alert",
+                        text=text,
                         showarrow=True,
                         arrowhead=1,
                         ax=20,
@@ -380,33 +593,27 @@ def plot_psychological_safety(safety_scores):
         annotation_position="bottom right"
     )
     
-    # Add annotations for low safety scores
+    # Add annotations for low safety scores with recommendations
     annotations = []
     y_offset = 5
     max_annotations = 5
-    
     for i, (time, score) in enumerate(zip(minutes, safety_scores)):
         if score < threshold:
-            annotation = dict(
+            annotations.append(dict(
                 x=time,
                 y=score + y_offset,
-                xref="x",
-                yref="y",
-                text=f"Low safety: {score:.1f}%",
+                text=f"Low safety: {score:.1f}%<br>Enhance training",
                 showarrow=True,
                 arrowhead=1,
                 ax=20,
                 ay=-30,
-                font=dict(color="#EF4444", size=10),
-                align="left"
-            )
-            annotations.append(annotation)
+                font=dict(color='#EF4444', size=10)
+            ))
             y_offset += 5
             if y_offset > 20:
                 y_offset = 5
     
     fig.update_layout(
-        annotations=annotations[:max_annotations],
         title=dict(text='Psychological Safety Score', x=0.5, font_size=22),
         xaxis_title='Time (minutes)',
         yaxis_title='Score (%)',
@@ -416,13 +623,14 @@ def plot_psychological_safety(safety_scores):
         paper_bgcolor='#1A252F',
         hovermode='x unified',
         legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
+        annotations=annotations[:max_annotations],
         xaxis=dict(tickangle=45, nticks=len(minutes)//10 + 1)
     )
     return fig
 
 def plot_downtime_trend(downtime_minutes, threshold):
     """
-    Plot downtime trend with threshold alerts.
+    Plot downtime trend with threshold alerts and recommendations.
     """
     minutes = [i * 2 for i in range(len(downtime_minutes))]
     fig = go.Figure()
@@ -444,7 +652,7 @@ def plot_downtime_trend(downtime_minutes, threshold):
         annotation_position="bottom right"
     )
     
-    # Add annotations for high downtime
+    # Add annotations for high downtime with recommendations
     annotations = []
     y_offset = 5
     for i, (time, downtime) in enumerate(zip(minutes, downtime_minutes)):
@@ -452,7 +660,7 @@ def plot_downtime_trend(downtime_minutes, threshold):
             annotations.append(dict(
                 x=time,
                 y=downtime + y_offset,
-                text=f"High downtime: {downtime:.1f} min",
+                text=f"High downtime: {downtime:.1f} min<br>Investigate cause",
                 showarrow=True,
                 arrowhead=1,
                 ax=20,
