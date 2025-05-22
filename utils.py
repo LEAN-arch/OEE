@@ -38,15 +38,21 @@ def save_simulation_data(
         team_wellbeing (dict): Well-being data.
         safety (list): Safety scores.
         productivity_loss (list): Productivity loss values.
+
+    Raises:
+        Exception: If saving fails, with detailed logging.
     """
     try:
-        # Defensive import to handle Streamlit reloading
+        # Defensive import for Streamlit reloading
         import pandas as pd
-        logger.info("Starting save_simulation_data with pandas imported")
+        logger.info("save_simulation_data: Pandas imported successfully")
         
+        logger.info("Saving team_positions.csv")
         team_positions_df.to_csv('team_positions.csv', index=False)
+        logger.info("Saving efficiency_metrics.csv")
         efficiency_metrics_df.to_csv('efficiency_metrics.csv', index=False)
-        pd.DataFrame({
+        logger.info("Creating summary_metrics DataFrame")
+        summary_df = pd.DataFrame({
             'step': range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS']),
             'compliance_entropy': compliance_variability['data'],
             'collaboration_index': collaboration_index['data'],
@@ -54,8 +60,13 @@ def save_simulation_data(
             'wellbeing': team_wellbeing['scores'],
             'safety': safety,
             'productivity_loss': productivity_loss
-        }).to_csv('summary_metrics.csv', index=False)
+        })
+        logger.info("Saving summary_metrics.csv")
+        summary_df.to_csv('summary_metrics.csv', index=False)
         logger.info("Simulation data saved successfully")
+    except NameError as ne:
+        logger.error(f"NameError in save_simulation_data: {str(ne)}")
+        raise
     except Exception as e:
         logger.error(f"Failed to save simulation data: {str(e)}")
         raise
