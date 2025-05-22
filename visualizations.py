@@ -1,5 +1,6 @@
 # visualizations.py
 # Enhanced Plotly visualizations for the Workplace Shift Monitoring Dashboard with professional fonts, actionable data rendering, and high-quality visuals.
+# Fixed syntax error in plot_operational_efficiency (yaxis tickfont).
 
 import logging
 import plotly.graph_objects as go
@@ -563,7 +564,7 @@ def plot_operational_efficiency(efficiency_df, selected_metrics):
             gridcolor="#4B5EAA", 
             zeroline=False, 
             title_font=dict(size=18, family='Roboto'), 
-            tickfont=dict(size sprint('Roboto')
+            tickfont=dict(size=14, family='Roboto')
         ),
         font=dict(color='#F5F7FA', size=16, family='Roboto'),
         template='plotly_dark',
