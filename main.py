@@ -22,7 +22,7 @@ from visualizations import (
 )
 from simulation import simulate_workplace_operations
 from utils import save_simulation_data, load_simulation_data, generate_pdf_report
-from streamlit.runtime.media_file_storage import MediaFileStorageError
+from assets import LEAN_LOGO_BASE64  # Import the base64-encoded logo
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -130,15 +130,11 @@ st.markdown("""
 with st.sidebar:
     st.header("Shift Monitoring Dashboard")
     
-    # Company logo
-    logo_file = st.file_uploader("Upload Company Logo", type=['png', 'jpg'], key="logo_upload")
-    if logo_file:
-        st.image(logo_file, width=150)
-    elif DEFAULT_CONFIG['COMPANY_LOGO_PATH']:
-        try:
-            st.image(DEFAULT_CONFIG['COMPANY_LOGO_PATH'], width=150)
-        except (FileNotFoundError, MediaFileStorageError) as e:
-            st.warning(f"Default logo not found or inaccessible: {str(e)}. Please upload a logo.")
+    # Company logo (using base64-encoded image)
+    st.markdown(
+        f'<img src="{LEAN_LOGO_BASE64}" width="150" alt="Lean 2.0 Institute Logo">',
+        unsafe_allow_html=True
+    )
     
     with st.expander("Simulation Controls", expanded=True):
         team_size = st.slider(
@@ -209,7 +205,7 @@ with st.sidebar:
             - **Downtime**: Downtime trends with investigation prompts.
             - **Glossary**: Definitions of all metrics and terms.
             
-            Use the sidebar to adjust parameters, upload a company logo, load saved data, or download a PDF report.
+            Use the sidebar to adjust parameters, load saved data, or download a PDF report.
             Contact support@xai.com for assistance.
         """, unsafe_allow_html=True)
 
@@ -309,21 +305,27 @@ if st.session_state.simulation_results:
             hovertemplate='Time: %{x} min<br>Safety: %{y:.1f}%'
         ))
         
-        # Add annotations for actionable insights
+        # Add annotations for actionable insights with offset to avoid overlap
+        annotations = []
+        y_offset = 10
         if worker_wellbeing['scores'][time_indices[0]:time_indices[1]].mean() < DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:
-            fig.add_annotation(
-                x=minutes[time_indices[0]], y=worker_wellbeing['scores'][time_indices[0]],
+            annotations.append(dict(
+                x=minutes[time_indices[0]], 
+                y=worker_wellbeing['scores'][time_indices[0]] + y_offset,
                 text="Low well-being; recommend breaks",
                 showarrow=True, arrowhead=1, ax=20, ay=-30,
                 font=dict(color='#EF4444')
-            )
+            ))
+            y_offset += 5
         if psychological_safety[time_indices[0]:time_indices[1]].mean() < DEFAULT_CONFIG['SAFETY_THRESHOLD'] * 100:
-            fig.add_annotation(
-                x=minutes[time_indices[0]], y=psychological_safety[time_indices[0]],
+            annotations.append(dict(
+                x=minutes[time_indices[0]], 
+                y=psychological_safety[time_indices[0]] + y_offset,
                 text="Low safety; enhance training",
-                showarrow=True, arrowhead=1, ax=20, ay=30,
+                showarrow=True, arrowhead=1, ax=20, ay=-30,
                 font=dict(color='#EF4444')
-            )
+            ))
+            y_offset += 5
         
         fig.update_layout(
             title=dict(text='Key Performance Metrics', x=0.5, font_size=22),
@@ -334,7 +336,9 @@ if st.session_state.simulation_results:
             hovermode='x unified',
             plot_bgcolor='#1A252F',
             paper_bgcolor='#1A252F',
-            legend_title_text='Metrics'
+            legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
+            annotations=annotations[:2],  # Limit to 2 annotations
+            xaxis=dict(tickangle=45, nticks=len(minutes[time_indices[0]:time_indices[1]])//10 + 1)
         )
         st.plotly_chart(fig, use_container_width=True)
         
