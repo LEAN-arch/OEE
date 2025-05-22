@@ -55,7 +55,6 @@ def generate_pdf_report(summary_df: pd.DataFrame):
             label='tab:simsummary',
         )
         
-        # Corrected LaTeX comment
         latex_document = f"""
 \\documentclass[10pt,a4paper]{{article}}
 \\usepackage[utf8]{{inputenc}}
