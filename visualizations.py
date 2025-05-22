@@ -202,7 +202,7 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
                 'Time: %{x} min<br>'
                 'Compliance: %{y:.1f}%<br>'
                 'Z-Score: %{customdata:.2f}<br>'
-                'Action: Review protocols if <75%'  # Fixed: Added missing closing quote
+                'Action: Review protocols if <75%'
                 '<extra></extra>'
             ),
             customdata=z_scores,
@@ -335,7 +335,8 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
         hovertemplate=(
             'Time: %{x} min<br>'
             'Proximity: %{y:.1f}%<br>'
-            'Action: Encourage activities if <60%'<extra></extra>'
+            'Action: Encourage activities if <60%'
+            '<extra></extra>'
         ),
         showlegend=True
     ))
@@ -941,7 +942,8 @@ def plot_worker_wellbeing(scores, triggers):
         hovertemplate=(
             'Time: %{x} min<br>'
             'Score: %{y:.1f}%<br>'
-            'Action: Schedule breaks if <70%'<extra></extra>'
+            'Action: Schedule breaks if <70%'
+            '<extra></extra>'
         ),
         showlegend=True
     ))
@@ -1096,7 +1098,8 @@ def plot_downtime_trend(downtime_minutes, threshold):
         hovertemplate=(
             'Time: %{x} min<br>'
             'Downtime: %{y:.1f} min<br>'
-            'Action: Investigate if >30 min'<extra></extra>'
+            'Action: Investigate if >30 min'
+            '<extra></extra>'
         ),
         showlegend=True
     ))
