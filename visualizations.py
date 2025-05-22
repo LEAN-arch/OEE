@@ -28,6 +28,27 @@ def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score,
     Returns:
         list: List of Plotly gauge chart figures.
     """
+    # Validate inputs
+    for score, name in [
+        (compliance_score, "compliance_score"),
+        (proximity_score, "proximity_score"),
+        (wellbeing_score, "wellbeing_score"),
+        (downtime_minutes, "downtime_minutes")
+    ]:
+        if not isinstance(score, (int, float)) or score is None or np.isnan(score):
+            logger.error(
+                f"Invalid input: {name}={score}",
+                extra={'user_action': 'Plot Key Metrics'}
+            )
+            raise ValueError(f"Invalid input: {name} must be a number, got {score}")
+
+    # Log inputs
+    logger.info(
+        f"Inputs: compliance={compliance_score}, proximity={proximity_score}, "
+        f"wellbeing={wellbeing_score}, downtime={downtime_minutes}",
+        extra={'user_action': 'Plot Key Metrics'}
+    )
+
     # Ensure values are within valid ranges
     compliance_score = max(0, min(compliance_score, 100))
     proximity_score = max(0, min(proximity_score, 100))
@@ -87,6 +108,39 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
     Returns:
         go.Figure: Plotly gauge chart figure.
     """
+    # Validate inputs
+    if not isinstance(value, (int, float)) or value is None or np.isnan(value):
+        logger.error(
+            f"Invalid value: {value} for title={title}",
+            extra={'user_action': 'Plot Gauge Chart'}
+        )
+        raise ValueError(f"Invalid value: must be a number, got {value}")
+    if not isinstance(threshold, (int, float)) or threshold is None or np.isnan(threshold):
+        logger.error(
+            f"Invalid threshold: {threshold} for title={title}",
+            extra={'user_action': 'Plot Gauge Chart'}
+        )
+        raise ValueError(f"Invalid threshold: must be a number, got {threshold}")
+    if not isinstance(max_value, (int, float)) or max_value <= 0:
+        logger.error(
+            f"Invalid max_value: {max_value} for title={title}",
+            extra={'user_action': 'Plot Gauge Chart'}
+        )
+        raise ValueError(f"Invalid max_value: must be a positive number, got {max_value}")
+    if recommendation is not None and not isinstance(recommendation, str):
+        logger.error(
+            f"Invalid recommendation: {recommendation} for title={title}",
+            extra={'user_action': 'Plot Gauge Chart'}
+        )
+        raise ValueError(f"Invalid recommendation: must be a string or None, got {recommendation}")
+
+    # Log parameters
+    logger.info(
+        f"Plotting gauge: title={title}, value={value}, threshold={threshold}, "
+        f"max_value={max_value}, recommendation={recommendation}",
+        extra={'user_action': 'Plot Gauge Chart'}
+    )
+
     value = max(0, min(value, max_value))
     colors = sequential.Plasma_r
     color_idx = int((value / max_value) * (len(colors) - 1))
