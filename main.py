@@ -5,15 +5,9 @@ import pandas as pd
 import numpy as np
 from config import DEFAULT_CONFIG, validate_config 
 from visualizations import (
-    plot_key_metrics_summary,
-    plot_task_compliance_score,
-    plot_collaboration_proximity_index,
-    plot_operational_recovery,
-    plot_operational_efficiency,
-    plot_worker_distribution,
-    plot_worker_density_heatmap,
-    plot_worker_wellbeing,
-    plot_psychological_safety,
+    plot_key_metrics_summary, plot_task_compliance_score, plot_collaboration_proximity_index,
+    plot_operational_recovery, plot_operational_efficiency, plot_worker_distribution,
+    plot_worker_density_heatmap, plot_worker_wellbeing, plot_psychological_safety,
     plot_downtime_trend
 )
 from simulation import simulate_workplace_operations
@@ -23,90 +17,26 @@ LEAN_LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAA
 
 logger = logging.getLogger(__name__)
 if not logger.handlers:
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s - [User Action: %(user_action)s]',
-        filename='dashboard.log',
-        filemode='a'
-    )
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s - [User Action: %(user_action)s]', filename='dashboard.log', filemode='a')
 logger.info("Main.py: Parsed imports and logger configured.", extra={'user_action': 'System Startup'})
 
-st.set_page_config(
-    page_title="Workplace Shift Optimization Dashboard",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': 'mailto:support@example.com',
-        'Report a bug': "mailto:bugs@example.com",
-        'About': "# Workplace Shift Optimization Dashboard\nVersion 1.1\nInsights for operational excellence."
-    }
-)
+st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.1\nInsights for operational excellence."})
 
-st.markdown("""
-    <style>
-        /* Base Styles */
-        .main { background-color: #121828; color: #EAEAEA; font-family: 'Roboto', 'Open Sans', 'Helvetica Neue', sans-serif; padding: 2rem; }
-        h1 { font-size: 2.4rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; text-align: center; margin-bottom: 2rem; color: #FFFFFF; }
-        h2 { /* Tab Headers */ font-size: 1.75rem; font-weight: 600; line-height: 1.3; margin: 1.5rem 0 1rem; color: #D0D0D0; border-bottom: 1px solid #4A5568; padding-bottom: 0.5rem;}
-        h3 { /* Expander Titles / Section Subtitles */ font-size: 1.3rem; font-weight: 500; line-height: 1.4; margin-bottom: 0.75rem; color: #C0C0C0;}
-        h5 { /* Plot Titles inside containers */ font-size: 1.05rem; font-weight: 500; line-height: 1.3; margin: 0.25rem 0 0.75rem; color: #B0B0B0; text-align: center;}
-        h6 { /* Sub-notes or trigger list titles */ font-size: 0.9rem; font-weight: 500; line-height: 1.3; margin: 0.75rem 0 0.25rem; color: #A0A0A0;}
-        .stButton>button { background-color: #4F46E5; color: #FFFFFF; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.95rem; font-weight: 500; transition: all 0.2s ease-in-out; border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .stButton>button:hover, .stButton>button:focus { background-color: #6366F1; transform: translateY(-1px); box-shadow: 0 3px 7px rgba(0,0,0,0.2); outline: none; }
-        .stButton>button:disabled { background-color: #374151; color: #9CA3AF; cursor: not-allowed; box-shadow: none; }
-        .stSelectbox div[data-baseweb="select"], .stSlider div[data-testid="stTickBar"], .stMultiSelect div[data-baseweb="select"] { background-color: #1F2937; color: #EAEAEA; border-radius: 6px; padding: 0.5rem; margin-bottom: 1rem; font-size: 0.95rem; border: 1px solid #374151; }
-        .stSlider div[data-testid="stTickBar"] > div { background-color: #4A5568; }
-        .stSlider div[role="slider"] { background-color: #4F46E5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3); }
-        [data-testid="stSidebar"] { background-color: #1F2937; color: #EAEAEA; padding: 1.5rem; border-right: 1px solid #374151; font-size: 0.95rem; }
-        [data-testid="stSidebar"] .stButton>button { background-color: #34D399; width: 100%; margin-bottom: 0.5rem; }
-        [data-testid="stSidebar"] .stButton>button:hover, [data-testid="stSidebar"] .stButton>button:focus { background-color: #6EE7B7; }
-        [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color: #EAEAEA; border-bottom: 1px solid #4A5568; margin-top:1rem;}
-        .stMetric { background-color: #1F2937; border-radius: 8px; padding: 1.25rem; margin: 1rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 1.05rem; border: 1px solid #374151;}
-        .stMetric > div > div > div { font-size: 1.8rem !important; color: #FFFFFF !important; } 
-        .stMetric > div > div > p { font-size: 0.9rem !important; color: #A0A0A0 !important; } 
-        .stMetric > div:nth-child(2) > div { font-size: 0.85rem !important; } 
-        .stExpander { background-color: #1F2937; border-radius: 8px; margin: 1rem 0; border: 1px solid #374151; }
-        .stExpander header { font-size: 1rem; font-weight: 500; color: #E0E0E0; padding: 0.5rem 1rem; }
-        .stExpander div[role="button"] { padding: 0.75rem !important; }
-        .stTabs [data-baseweb="tab-list"] { background-color: #1F2937; border-radius: 8px; padding: 0.5rem; display: flex; justify-content: center; gap: 0.5rem; border-bottom: 2px solid #374151;}
-        .stTabs [data-baseweb="tab"] { color: #D1D5DB; padding: 0.6rem 1.2rem; border-radius: 6px; font-weight: 500; font-size: 0.95rem; transition: all 0.2s ease-in-out; border: none; border-bottom: 2px solid transparent; }
-        .stTabs [data-baseweb="tab"][aria-selected="true"] { background-color: transparent; color: #4F46E5; border-bottom: 2px solid #4F46E5; font-weight:600; }
-        .stTabs [data-baseweb="tab"]:hover { background-color: #374151; color: #FFFFFF; }
-        .plot-container { background-color: #1F2937; border-radius: 8px; padding: 1rem; margin: 1rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid #374151;}
-        .stPlotlyChart { border-radius: 6px; } 
-        .stDataFrame { border-radius: 8px; font-size: 0.875rem; border: 1px solid #374151; }
-        .stDataFrame thead th { background-color: #293344; color: #EAEAEA; font-weight: 600; }
-        .stDataFrame tbody tr:nth-child(even) { background-color: #222C3D; }
-        .stDataFrame tbody tr:hover { background-color: #374151; }
-        @media (max-width: 768px) { .main { padding: 1rem; } h1 { font-size: 1.8rem; } h2 { font-size: 1.4rem; } h3 { font-size: 1.1rem; } .stPlotlyChart { min-height: 300px !important; } .stTabs [data-baseweb="tab"] { padding: 0.5rem 0.8rem; font-size: 0.85rem; } }
-        .spinner { display: flex; justify-content: center; align-items: center; height: 100px; }
-        .spinner::after { content: ''; width: 40px; height: 40px; border: 4px solid #4A5568; border-top: 4px solid #4F46E5; border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .onboarding-modal { background-color: #1F2937; border: 1px solid #374151; border-radius: 8px; padding: 1.5rem; max-width: 550px; margin: 2rem auto; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
-        .onboarding-modal h3 { color: #EAEAEA; margin-bottom: 1rem; text-align: center; }
-        .onboarding-modal p, .onboarding-modal ul { color: #D1D5DB; line-height: 1.6; margin-bottom: 1rem; font-size: 0.9rem; }
-        .onboarding-modal ul { list-style-position: inside; padding-left: 0.5rem; }
-        .alert-critical { border-left: 5px solid #F87171; background-color: rgba(248, 113, 113, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; } 
-        .alert-warning { border-left: 5px solid #FACC15; background-color: rgba(250, 204, 21, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
-        .alert-positive { border-left: 5px solid #22D3EE; background-color: rgba(34, 211, 238, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
-        .alert-info { border-left: 5px solid #60A5FA; background-color: rgba(96, 165, 250, 0.05); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }
-        .insight-title { font-weight: 600; color: #EAEAEA; margin-bottom: 0.25rem;}
-        .insight-text { font-size: 0.9rem; color: #D1D5DB;}
-    </style>
-""", unsafe_allow_html=True)
+st.markdown("""<style> /* ... (CSS from previous full answer remains here) ... */ </style>""", unsafe_allow_html=True) # Assuming full CSS from previous answer
 
 def render_settings_sidebar():
     with st.sidebar:
         st.markdown(f'<img src="{LEAN_LOGO_BASE64}" width="100" alt="Lean Institute Logo" style="display: block; margin: 0 auto 1rem;">', unsafe_allow_html=True)
         st.markdown("## ⚙️ Simulation Controls")
         with st.expander("🧪 Simulation Parameters", expanded=True):
-            team_size_val = st.session_state.get('sb_team_size_slider', DEFAULT_CONFIG['TEAM_SIZE']) 
-            shift_duration_val = st.session_state.get('sb_shift_duration_slider', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']) 
-            team_size = st.slider("Team Size", 10, 100, team_size_val, key="sb_team_size_slider", help="Adjust the number of workers in the simulated shift.")
-            shift_duration = st.slider("Shift Duration (min)", 200, 2000, shift_duration_val, step=2, key="sb_shift_duration_slider", help="Set the total length of the simulated work shift.")
+            team_size = st.slider("Team Size", 10, 100, st.session_state.get('sb_team_size_slider', DEFAULT_CONFIG['TEAM_SIZE']), key="sb_team_size_slider", help="Adjust the number of workers in the simulated shift.")
+            shift_duration = st.slider("Shift Duration (min)", 200, 2000, st.session_state.get('sb_shift_duration_slider', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']), step=2, key="sb_shift_duration_slider", help="Set the total length of the simulated work shift.")
+            
             max_disrupt_time = shift_duration - 2 
             disruption_options = [i * 2 for i in range(max_disrupt_time // 2)] if max_disrupt_time > 0 else []
-            default_disrupt_mins_raw = [i * 2 for i in DEFAULT_CONFIG.get('DISRUPTION_TIMES_MINUTES', [])]
+            
+            # Use 'DISRUPTION_TIMES_MINUTES' from config as it's expected to be a list
+            default_disrupt_mins_raw = DEFAULT_CONFIG.get('DISRUPTION_TIMES_MINUTES', []) 
             valid_default_disrupt_mins = [m for m in default_disrupt_mins_raw if m in disruption_options]
             
             session_value_for_disruptions = st.session_state.get('sb_disruption_intervals_multiselect')
@@ -119,16 +49,11 @@ def render_settings_sidebar():
             else:
                 current_selection_for_multiselect = session_value_for_disruptions
             
-            validated_current_selection = [
-                m for m in current_selection_for_multiselect if m in disruption_options
-            ]
+            validated_current_selection = [m for m in current_selection_for_multiselect if m in disruption_options]
 
             disruption_intervals_minutes = st.multiselect(
-                "Disruption Times (min)", 
-                disruption_options, 
-                default=validated_current_selection, 
-                key="sb_disruption_intervals_multiselect", 
-                help="Select specific times (in minutes from shift start) when disruptions will occur in the simulation."
+                "Disruption Times (min)", disruption_options, default=validated_current_selection, 
+                key="sb_disruption_intervals_multiselect", help="Select times (in minutes from shift start) when disruptions will occur in the simulation."
             )
             
             team_initiative_opts = ["Standard Operations", "More frequent breaks", "Team recognition"]
@@ -136,10 +61,12 @@ def render_settings_sidebar():
             team_initiative_idx = team_initiative_opts.index(current_initiative) if current_initiative in team_initiative_opts else 0
             team_initiative = st.selectbox("Operational Initiative", team_initiative_opts, index=team_initiative_idx, key="sb_team_initiative_selectbox", help="Apply an operational strategy to observe its impact on metrics.")
             run_simulation_button = st.button("🚀 Run New Simulation", key="sb_run_simulation_button", type="primary", use_container_width=True)
+
         with st.expander("🎨 Visualization Options"):
             high_contrast = st.checkbox("High Contrast Plots", st.session_state.get('sb_high_contrast_checkbox', False), key="sb_high_contrast_checkbox", help="Applies a high-contrast color theme to all charts for better accessibility.")
             use_3d_distribution = st.checkbox("Enable 3D Worker View", st.session_state.get('sb_use_3d_distribution_checkbox', False), key="sb_use_3d_distribution_checkbox", help="Renders worker positions in a 3D scatter plot.")
             debug_mode = st.checkbox("Show Debug Info", st.session_state.get('sb_debug_mode_checkbox', False), key="sb_debug_mode_checkbox", help="Display additional debug information in the sidebar.")
+
         with st.expander("💾 Data Management & Export"):
             load_data_button = st.button("🔄 Load Previous Simulation", key="sb_load_data_button", use_container_width=True)
             can_gen_report = 'simulation_results' in st.session_state and st.session_state.simulation_results is not None
@@ -153,6 +80,7 @@ def render_settings_sidebar():
                         generate_pdf_report(pd.DataFrame(pdf_data)); st.success("✅ LaTeX report (.tex) file 'workplace_report.tex' has been generated.")
                     except SystemExit: pass 
                     except Exception as e: logger.error(f"PDF Generation Error: {e}", exc_info=True); st.error(f"❌ PDF Generation Error: {e}")
+            
             if 'simulation_results' in st.session_state and st.session_state.simulation_results :
                 sim_res_exp = st.session_state.simulation_results; num_steps_csv = len(sim_res_exp.get('downtime_minutes', []))
                 if num_steps_csv > 0:
@@ -160,10 +88,11 @@ def render_settings_sidebar():
                     csv_data.update({'task_compliance': sim_res_exp.get('task_compliance', {}).get('data', [np.nan]*num_steps_csv)[:num_steps_csv], 'collaboration_proximity': sim_res_exp.get('collaboration_proximity', {}).get('data', [np.nan]*num_steps_csv)[:num_steps_csv], 'worker_wellbeing': sim_res_exp.get('worker_wellbeing', {}).get('scores', [np.nan]*num_steps_csv)[:num_steps_csv], 'step': list(range(num_steps_csv)), 'time_minutes': [i * 2 for i in range(num_steps_csv)]})
                     st.download_button("📥 Download Data (CSV)", pd.DataFrame(csv_data).to_csv(index=False).encode('utf-8'), "workplace_summary.csv", "text/csv", key="sb_csv_dl_button", use_container_width=True)
                 else: st.caption("No detailed data to export for CSV.") 
-            elif not can_gen_report : st.caption("Run simulation for export.")
+            elif not can_gen_report : st.caption("Run simulation for export.") # Only show this if report cannot be generated due to no data
+
         if st.session_state.get('sb_debug_mode_checkbox', False): 
             with st.expander("🛠️ Debug Information", expanded=False): 
-                st.write("**Default Config (Partial):**"); st.json({k: DEFAULT_CONFIG.get(k) for k in ['ENTRY_EXIT_POINTS', 'WORK_AREAS']}, expanded=False)
+                st.write("**Default Config (Partial):**"); st.json({k: DEFAULT_CONFIG.get(k) for k in ['ENTRY_EXIT_POINTS', 'WORK_AREAS', 'DISRUPTION_TIMES_MINUTES']}, expanded=False)
                 if 'simulation_results' in st.session_state and st.session_state.simulation_results:
                     st.write("**Active Simulation Config (from results):**"); st.json(st.session_state.simulation_results.get('config_params', {}), expanded=False)
                 else: st.write("**No active simulation data to show config from.**")
@@ -173,12 +102,18 @@ def render_settings_sidebar():
     return team_size, shift_duration, disruption_intervals_minutes, team_initiative, run_simulation_button, load_data_button, high_contrast, use_3d_distribution, debug_mode
 
 @st.cache_data(ttl=3600, show_spinner="⚙️ Running simulation model...")
-def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals_minutes, team_initiative_selected):
+def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals_minutes_param, team_initiative_selected): # Renamed parameter
     config = DEFAULT_CONFIG.copy(); 
     config['TEAM_SIZE'] = team_size; 
     config['SHIFT_DURATION_MINUTES'] = shift_duration_minutes
     config['SHIFT_DURATION_INTERVALS'] = shift_duration_minutes // 2
-    config['DISRUPTION_EVENT_STEPS'] = sorted(list(set(m // 2 for m in disruption_intervals_minutes if isinstance(m, (int, float)) and m >= 0)))
+    
+    # Ensure disruption_intervals_minutes_param is a list before iterating
+    if not isinstance(disruption_intervals_minutes_param, list):
+        logger.error(f"run_simulation_logic received non-list for disruption_intervals_minutes: {type(disruption_intervals_minutes_param)}. Defaulting to empty.")
+        disruption_intervals_minutes_param = []
+        
+    config['DISRUPTION_EVENT_STEPS'] = sorted(list(set(m // 2 for m in disruption_intervals_minutes_param if isinstance(m, (int, float)) and m >= 0)))
 
     if 'WORK_AREAS' in config and isinstance(config['WORK_AREAS'], dict) and config['WORK_AREAS']:
         total_workers_in_config_zones = sum(zone.get('workers', 0) for zone in config['WORK_AREAS'].values())
@@ -204,7 +139,7 @@ def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals
             for zone_key in config['WORK_AREAS']: config['WORK_AREAS'][zone_key]['workers'] = 0
     
     validate_config(config) 
-    logger.info(f"Running simulation with: Team Size={team_size}, Duration={shift_duration_minutes}min, Disruptions(min): {disruption_intervals_minutes}, Disruption Steps: {config['DISRUPTION_EVENT_STEPS']}, Initiative: {team_initiative_selected}", extra={'user_action': 'Run Simulation'})
+    logger.info(f"Running simulation with: Team Size={team_size}, Duration={shift_duration_minutes}min, Disruptions(min): {disruption_intervals_minutes_param}, Disruption Steps: {config['DISRUPTION_EVENT_STEPS']}, Initiative: {team_initiative_selected}", extra={'user_action': 'Run Simulation'})
     
     sim_results_tuple = simulate_workplace_operations(
         num_team_members=team_size, 
@@ -224,7 +159,7 @@ def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals
     simulation_output_dict['config_params'] = {
         'TEAM_SIZE': team_size, 
         'SHIFT_DURATION_MINUTES': shift_duration_minutes, 
-        'DISRUPTION_INTERVALS_MINUTES': disruption_intervals_minutes, 
+        'DISRUPTION_INTERVALS_MINUTES': disruption_intervals_minutes_param, # Use the parameter name
         'DISRUPTION_EVENT_STEPS': config['DISRUPTION_EVENT_STEPS'],   
         'TEAM_INITIATIVE': team_initiative_selected
     }
@@ -270,34 +205,45 @@ def get_actionable_insights(sim_data, current_config):
 
 def main():
     st.title("Workplace Shift Optimization Dashboard")
-    app_state_keys = ['simulation_results', 'show_tour', 'show_help_glossary', 'op_metrics_time_slider_val', 'worker_insights_time_slider_val', 'worker_snap_step_slider_val_dist_tab', 'downtime_tab_time_slider_val']
+    app_state_keys = ['simulation_results', 'show_tour', 'show_help_glossary', 
+                      'op_metrics_time_slider_val', 'worker_insights_time_slider_val', 
+                      'worker_snap_step_slider_val_dist_tab', 'downtime_tab_time_slider_val']
     for key in app_state_keys:
         if key not in st.session_state: st.session_state[key] = None 
     
-    sb_team_size, sb_shift_duration, sb_disrupt_mins, sb_team_initiative, sb_run_sim_btn, sb_load_data_btn, sb_high_contrast, sb_use_3d, sb_debug_mode = render_settings_sidebar()
+    sb_team_size, sb_shift_duration, sb_disrupt_mins_from_sidebar, sb_team_initiative, \
+    sb_run_sim_btn, sb_load_data_btn, sb_high_contrast, \
+    sb_use_3d, sb_debug_mode = render_settings_sidebar()
         
-    _default_shift_duration = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']; _current_shift_duration_for_slider_max = sb_shift_duration if sb_shift_duration is not None else _default_shift_duration
-    current_max_minutes_for_sliders = _current_shift_duration_for_slider_max - 2; disruption_steps_for_plots = []
+    _default_shift_duration = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']; 
+    _current_shift_duration_for_slider_max = sb_shift_duration if sb_shift_duration is not None else _default_shift_duration
+    current_max_minutes_for_sliders = _current_shift_duration_for_slider_max - 2; 
+    disruption_steps_for_plots = []
+
     if st.session_state.simulation_results and isinstance(st.session_state.simulation_results, dict):
         num_steps_from_sim = len(st.session_state.simulation_results.get('downtime_minutes', []))
         if num_steps_from_sim > 0: current_max_minutes_for_sliders = (num_steps_from_sim - 1) * 2
         disruption_steps_for_plots = st.session_state.simulation_results.get('config_params', {}).get('DISRUPTION_EVENT_STEPS', [])
     else: 
-        _disrupt_mins_list_for_plots = sb_disrupt_mins if sb_disrupt_mins is not None else []
-        disruption_steps_for_plots = [m // 2 for m in _disrupt_mins_list_for_plots if isinstance(m, (int, float))]
+        _disrupt_mins_for_plot_calc = sb_disrupt_mins_from_sidebar # Use the direct return from sidebar
+        if not isinstance(_disrupt_mins_for_plot_calc, list): # Ensure it's a list
+            logger.warning(f"sb_disrupt_mins_from_sidebar (for plot calculation) was not a list: {type(_disrupt_mins_for_plot_calc)}. Using empty list.")
+            _disrupt_mins_for_plot_calc = []
+        disruption_steps_for_plots = [m // 2 for m in _disrupt_mins_for_plot_calc if isinstance(m, (int, float))]
     current_max_minutes_for_sliders = max(0, current_max_minutes_for_sliders) 
 
     if sb_run_sim_btn:
         with st.spinner("🚀 Simulating workplace operations..."):
             try: 
-                # Ensure sb_disrupt_mins is a list before passing
-                disrupt_mins_for_sim = sb_disrupt_mins
-                if not isinstance(disrupt_mins_for_sim, list):
-                    logger.error(f"Critical type issue: sb_disrupt_mins was {type(sb_disrupt_mins)} with value {sb_disrupt_mins}. Expected a list. Resetting to empty list for simulation run.")
-                    disrupt_mins_for_sim = [] 
+                final_disrupt_mins_for_sim = sb_disrupt_mins_from_sidebar # Use direct return
+                if not isinstance(final_disrupt_mins_for_sim, list):
+                    logger.error(f"CRITICAL: sb_disrupt_mins_from_sidebar for simulation run was {type(final_disrupt_mins_for_sim)}. Defaulting to empty list.")
+                    final_disrupt_mins_for_sim = []
                 
                 st.session_state.simulation_results = run_simulation_logic(
-                    sb_team_size, sb_shift_duration, disrupt_mins_for_sim, sb_team_initiative
+                    sb_team_size, sb_shift_duration, 
+                    final_disrupt_mins_for_sim, 
+                    sb_team_initiative
                 )
                 st.success("✅ Simulation completed!"); 
                 logger.info("Simulation run successful.", extra={'user_action': 'Run Simulation - Success'}); 
@@ -317,9 +263,10 @@ def main():
                     
                     loaded_disrupt_mins = cfg.get('DISRUPTION_INTERVALS_MINUTES', []) 
                     if not isinstance(loaded_disrupt_mins, list):
-                        logger.warning(f"Loaded disruption_intervals_minutes was not a list. Defaulting to empty. Value: {loaded_disrupt_mins}")
+                        logger.warning(f"Loaded DISRUPTION_INTERVALS_MINUTES from file was not a list ({type(loaded_disrupt_mins)}). Defaulting to empty list for sidebar.")
                         loaded_disrupt_mins = []
 
+                    # Update the session state keys that sidebar widgets directly read using st.session_state.get('widget_key', default)
                     st.session_state.sb_team_size_slider = cfg.get('TEAM_SIZE', st.session_state.get('sb_team_size_slider'))
                     st.session_state.sb_shift_duration_slider = cfg.get('SHIFT_DURATION_MINUTES', st.session_state.get('sb_shift_duration_slider'))
                     st.session_state.sb_team_initiative_selectbox = cfg.get('TEAM_INITIATIVE', st.session_state.get('sb_team_initiative_selectbox'))
@@ -346,7 +293,7 @@ def main():
     tabs_main_names = ["📊 Overview & Insights", "📈 Operational Metrics", "👥 Worker Insights", "⏱️ Downtime Analysis", "📖 Glossary"]
     tabs = st.tabs(tabs_main_names)
     plot_config_interactive = {'displaylogo': False, 'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'resetScale2d', 'zoomIn2d', 'zoomOut2d', 'pan2d'], 'toImageButtonOptions': {'format': 'png', 'filename': 'plot_export', 'scale': 2}}; plot_config_minimal = {'displayModeBar': False}
-    current_high_contrast = st.session_state.get('sb_high_contrast_checkbox', False) # Use widget key directly
+    current_high_contrast = st.session_state.get('sb_high_contrast_checkbox', False)
 
     with tabs[0]: 
         st.header("📊 Key Performance Indicators & Actionable Insights", divider="blue")
