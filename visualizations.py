@@ -296,9 +296,9 @@ def plot_operational_efficiency(efficiency_df, selected_metrics):
     )
     return fig
 
-def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, selected_step=None):
+def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, selected_step=None, show_entry_exit=True, show_production_lines=True):
     """
-    Plot worker distribution with a facility layout, color-coded zones, and workload status.
+    Plot worker distribution with a facility layout, color-coded zones, workload status, entry/exit points, and production lines.
     
     Args:
         positions_df (pd.DataFrame): Worker positions with workload status.
@@ -306,6 +306,8 @@ def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, 
         config (dict): Configuration settings.
         use_3d (bool): Whether to use a 3D plot.
         selected_step (int): Specific step to display (for 3D time slider).
+        show_entry_exit (bool): Whether to show entry/exit points.
+        show_production_lines (bool): Whether to show production lines.
     
     Returns:
         go.Figure: Worker distribution plot.
@@ -315,6 +317,7 @@ def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, 
         if selected_step is not None:
             positions_df = positions_df[positions_df['step'] == selected_step]
         
+        # Plot workers
         for zone, area in config['WORK_AREAS'].items():
             zone_df = positions_df[positions_df['zone'] == zone]
             for status in ['Normal', 'High', 'Critical']:
@@ -331,6 +334,36 @@ def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, 
                           for w, z, wl, s in zip(status_df['worker'], status_df['zone'], status_df['workload'], status_df['workload_status'])],
                     hoverinfo='text'
                 ))
+        
+        # Add production lines
+        if show_production_lines:
+            for line in config['PRODUCTION_LINES']:
+                fig.add_trace(go.Scatter3d(
+                    x=[line['start'][0], line['end'][0]],
+                    y=[line['start'][1], line['end'][1]],
+                    z=[selected_step, selected_step],
+                    mode='lines',
+                    name=line['label'],
+                    line=dict(color='#FFFFFF', width=4, dash='dash'),
+                    hovertemplate=f"{line['label']}<br>Start: ({line['start'][0]}, {line['start'][1]})<br>End: ({line['end'][0]}, {line['end'][1]})"
+                ))
+        
+        # Add entry/exit points
+        if show_entry_exit:
+            for point in config['ENTRY_EXIT_POINTS']:
+                marker_color = '#00FF00' if point['type'] == 'Entry' else '#FF0000' if point['type'] == 'Exit' else '#FFFF00'
+                fig.add_trace(go.Scatter3d(
+                    x=[point['coords'][0]],
+                    y=[point['coords'][1]],
+                    z=[selected_step],
+                    mode='markers+text',
+                    name=point['label'],
+                    marker=dict(size=8, color=marker_color, symbol='diamond'),
+                    text=[point['label']],
+                    textposition='top center',
+                    hovertemplate=f"{point['label']} ({point['type']})<br>Coords: ({point['coords'][0]}, {point['coords'][1]})"
+                ))
+        
         fig.update_layout(
             title=dict(text='3D Worker Distribution Over Time', x=0.5, font_size=22),
             scene=dict(
@@ -367,6 +400,30 @@ def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, 
                 layer='below'
             ))
         
+        # Add production lines
+        if show_production_lines:
+            for line in config['PRODUCTION_LINES']:
+                shapes.append(dict(
+                    type="line",
+                    x0=line['start'][0],
+                    y0=line['start'][1],
+                    x1=line['end'][0],
+                    y1=line['end'][1],
+                    line=dict(color='#FFFFFF', width=4, dash='dash'),
+                    layer='below'
+                ))
+                # Add label for production line
+                mid_x = (line['start'][0] + line['end'][0]) / 2
+                mid_y = (line['start'][1] + line['end'][1]) / 2
+                fig.add_annotation(
+                    x=mid_x,
+                    y=mid_y,
+                    text=line['label'],
+                    showarrow=False,
+                    font=dict(color='#FFFFFF', size=10),
+                    yshift=10
+                )
+        
         # Plot workers by workload status
         for zone, area in config['WORK_AREAS'].items():
             zone_df = positions_df[positions_df['zone'] == zone]
@@ -386,7 +443,22 @@ def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, 
                     hoverinfo='text'
                 ))
         
-        # Detect overcrowding
+        # Add entry/exit points
+        if show_entry_exit:
+            for point in config['ENTRY_EXIT_POINTS']:
+                marker_color = '#00FF00' if point['type'] == 'Entry' else '#FF0000' if point['type'] == 'Exit' else '#FFFF00'
+                fig.add_trace(go.Scatter(
+                    x=[point['coords'][0]],
+                    y=[point['coords'][1]],
+                    mode='markers+text',
+                    name=point['label'],
+                    marker=dict(size=10, color=marker_color, symbol='diamond'),
+                    text=[point['label']],
+                    textposition='top center',
+                    hovertemplate=f"{point['label']} ({point['type']})<br>Coords: ({point['coords'][0]}, {point['coords'][1]})"
+                ))
+        
+        # Detect overcrowding and high traffic near entry/exit points
         annotations = []
         for zone, area in config['WORK_AREAS'].items():
             zone_df = positions_df[positions_df['zone'] == zone]
@@ -404,6 +476,26 @@ def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, 
                     font=dict(color='#EF4444', size=10)
                 ))
         
+        # Check for high traffic near entry/exit points
+        if show_entry_exit:
+            for point in config['ENTRY_EXIT_POINTS']:
+                x, y = point['coords']
+                nearby_workers = positions_df[
+                    (positions_df['step'] == selected_step) &
+                    (np.sqrt((positions_df['x'] - x)**2 + (positions_df['y'] - y)**2) < 10)
+                ]
+                if len(nearby_workers) > 5:
+                    annotations.append(dict(
+                        x=x,
+                        y=y,
+                        text=f"High traffic at {point['label']}: {len(nearby_workers)} workers<br>Monitor for safety",
+                        showarrow=True,
+                        arrowhead=1,
+                        ax=20,
+                        ay=30,
+                        font=dict(color='#FBBF24', size=10)
+                    ))
+        
         fig.update_layout(
             title=dict(text='Worker Distribution with Facility Layout', x=0.5, font_size=22),
             xaxis_title='X (m)',
@@ -420,9 +512,9 @@ def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, 
         )
     return fig
 
-def plot_worker_density_heatmap(positions_df, facility_size, config):
+def plot_worker_density_heatmap(positions_df, facility_size, config, show_entry_exit=True, show_production_lines=True):
     """
-    Plot worker density as a heatmap with facility layout.
+    Plot worker density as a heatmap with facility layout, entry/exit points, and production lines.
     """
     x_bins = np.linspace(0, facility_size, config['DENSITY_GRID_SIZE'])
     y_bins = np.linspace(0, facility_size, config['DENSITY_GRID_SIZE'])
@@ -445,6 +537,32 @@ def plot_worker_density_heatmap(positions_df, facility_size, config):
             layer='below'
         ))
     
+    # Add production lines
+    if show_production_lines:
+        for line in config['PRODUCTION_LINES']:
+            shapes.append(dict(
+                type="line",
+                x0=line['start'][0],
+                y0=line['start'][1],
+                x1=line['end'][0],
+                y1=line['end'][1],
+                line=dict(color='#FFFFFF', width=4, dash='dash'),
+                layer='below'
+            ))
+            # Add label for production line
+            mid_x = (line['start'][0] + line['end'][0]) / 2
+            mid_y = (line['start'][1] + line['end'][1]) / 2
+            shapes.append(dict(
+                type="text",
+                x=mid_x,
+                y=mid_y,
+                text=line['label'],
+                showarrow=False,
+                font=dict(color='#FFFFFF', size=10),
+                yshift=10
+            ))
+    
+    # Create heatmap
     fig = go.Figure(data=go.Heatmap(
         z=heatmap.T,
         x=xedges,
@@ -454,7 +572,22 @@ def plot_worker_density_heatmap(positions_df, facility_size, config):
         hovertemplate='X: %{x} m<br>Y: %{y} m<br>Workers: %{z}'
     ))
     
-    # Add overcrowding annotations
+    # Add entry/exit points
+    if show_entry_exit:
+        for point in config['ENTRY_EXIT_POINTS']:
+            marker_color = '#00FF00' if point['type'] == 'Entry' else '#FF0000' if point['type'] == 'Exit' else '#FFFF00'
+            fig.add_trace(go.Scatter(
+                x=[point['coords'][0]],
+                y=[point['coords'][1]],
+                mode='markers+text',
+                name=point['label'],
+                marker=dict(size=10, color=marker_color, symbol='diamond'),
+                text=[point['label']],
+                textposition='top center',
+                hovertemplate=f"{point['label']} ({point['type']})<br>Coords: ({point['coords'][0]}, {point['coords'][1]})"
+            ))
+    
+    # Add overcrowding and high traffic annotations
     annotations = []
     for zone, area in config['WORK_AREAS'].items():
         zone_df = positions_df[positions_df['zone'] == zone]
@@ -469,6 +602,24 @@ def plot_worker_density_heatmap(positions_df, facility_size, config):
                 ay=-30,
                 font=dict(color='#EF4444', size=10)
             ))
+    
+    if show_entry_exit:
+        for point in config['ENTRY_EXIT_POINTS']:
+            x, y = point['coords']
+            nearby_workers = positions_df[
+                (np.sqrt((positions_df['x'] - x)**2 + (positions_df['y'] - y)**2) < 10)
+            ]
+            if len(nearby_workers) > 5:
+                annotations.append(dict(
+                    x=x,
+                    y=y,
+                    text=f"High traffic at {point['label']}: {len(nearby_workers)} workers<br>Monitor for safety",
+                    showarrow=True,
+                    arrowhead=1,
+                    ax=20,
+                    ay=30,
+                    font=dict(color='#FBBF24', size=10)
+                ))
     
     fig.update_layout(
         title=dict(text='Worker Density Heatmap', x=0.5, font_size=22),
