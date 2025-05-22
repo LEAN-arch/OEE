@@ -3,6 +3,7 @@
 # Enhanced for professional visuals, seamless UX, accessibility, fixed tab rendering, debug mode, and error handling for plot_task_compliance_score.
 # Fixed nesting issue in render_settings_sidebar to prevent StreamlitAPIException.
 # Added input validation for plot_key_metrics_summary to prevent ValueError in visualizations.py.
+# Fixed syntax error in Help Modal (incomplete 'if' statement).
 
 import logging
 import streamlit as st
@@ -539,9 +540,7 @@ def main():
                 st.session_state.show_tour = False
 
     # Help Modal
-    if
-
- st.session_state.show_help:
+    if st.session_state.show_help:
         with st.container():
             st.markdown("""
                 <div class="onboarding-modal" role="dialog" aria-label="Help Section">
