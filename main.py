@@ -8,6 +8,7 @@ import logging
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import numpy as np
 from config import DEFAULT_CONFIG, validate_config
 from visualizations import (
     plot_task_compliance_score,
@@ -328,23 +329,27 @@ if st.session_state.simulation_results:
         # Annotations with offset
         annotations = []
         y_offset = 10
-        if worker_wellbeing['scores'][time_indices[0]:time_indices[1]].mean() < DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:
-            annotations.append(dict(
-                x=minutes[time_indices[0]], 
-                y=worker_wellbeing['scores'][time_indices[0]] + y_offset,
-                text="Low well-being; recommend breaks",
-                showarrow=True, arrowhead=1, ax=20, ay=-30,
-                font=dict(color='#EF4444')
-            ))
-            y_offset += 5
-        if psychological_safety[time_indices[0]:time_indices[1]].mean() < DEFAULT_CONFIG['SAFETY_THRESHOLD'] * 100:
-            annotations.append(dict(
-                x=minutes[time_indices[0]], 
-                y=psychological_safety[time_indices[0]] + y_offset,
-                text="Low safety; enhance training",
-                showarrow=True, arrowhead=1, ax=20, ay=-30,
-                font=dict(color='#EF4444')
-            ))
+        wellbeing_slice = worker_wellbeing['scores'][time_indices[0]:time_indices[1]]
+        if wellbeing_slice:  # Check if slice is non-empty
+            if np.mean(wellbeing_slice) < DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:
+                annotations.append(dict(
+                    x=minutes[time_indices[0]], 
+                    y=worker_wellbeing['scores'][time_indices[0]] + y_offset,
+                    text="Low well-being; recommend breaks",
+                    showarrow=True, arrowhead=1, ax=20, ay=-30,
+                    font=dict(color='#EF4444')
+                ))
+                y_offset += 5
+        safety_slice = psychological_safety[time_indices[0]:time_indices[1]]
+        if safety_slice:  # Check if slice is non-empty
+            if np.mean(safety_slice) < DEFAULT_CONFIG['SAFETY_THRESHOLD'] * 100:
+                annotations.append(dict(
+                    x=minutes[time_indices[0]], 
+                    y=psychological_safety[time_indices[0]] + y_offset,
+                    text="Low safety; enhance training",
+                    showarrow=True, arrowhead=1, ax=20, ay=-30,
+                    font=dict(color='#EF4444')
+                ))
         
         fig.update_layout(
             title=dict(text='Key Performance Metrics', x=0.5, font_size=22),
@@ -366,19 +371,21 @@ if st.session_state.simulation_results:
             with col1:
                 st.metric("Average OEE", f"{efficiency_metrics_df['oee'].mean():.1f}%", delta=f"{efficiency_metrics_df['oee'].mean() - 85:.1f}% vs benchmark")
             with col2:
-                st.metric("Average Well-Being", f"{worker_wellbeing['scores'].mean():.1f}%", delta=f"{worker_wellbeing['scores'].mean() - DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:.1f}%")
+                wellbeing_mean = np.mean(worker_wellbeing['scores']) if worker_wellbeing['scores'] else 0
+                st.metric("Average Well-Being", f"{wellbeing_mean:.1f}%", delta=f"{wellbeing_mean - DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:.1f}%")
             with col3:
-                st.metric("Average Safety", f"{psychological_safety.mean():.1f}%", delta=f"{psychological_safety.mean() - DEFAULT_CONFIG['SAFETY_THRESHOLD'] * 100:.1f}%")
+                safety_mean = np.mean(psychological_safety) if psychological_safety else 0
+                st.metric("Average Safety", f"{safety_mean:.1f}%", delta=f"{safety_mean - DEFAULT_CONFIG['SAFETY_THRESHOLD'] * 100:.1f}%")
             with col4:
-                st.metric("Total Downtime", f"{downtime_minutes.sum():.1f} min", delta_color="inverse")
+                st.metric("Total Downtime", f"{np.sum(downtime_minutes):.1f} min", delta_color="inverse")
     
     with tabs[1]:
         st.header("Operational Efficiency")
         st.markdown('<div class="tooltip">Efficiency Metrics<span class="tooltiptext">Trends for uptime, throughput, quality, and OEE with rolling averages.</span></div>', unsafe_allow_html=True)
         selected_metrics = st.multiselect(
             "Select Metrics",
-            options=['uptime', 'throughput', 'quality', 'oee'],
-            default=['uptime', 'throughput', 'quality', 'oee'],
+            options=['uptime', 'throughput', "quality", 'oee'],
+            default=['uptime', 'throughput', "quality", 'oee'],
             key="efficiency_metrics"
         )
         filtered_df = efficiency_metrics_df.iloc[time_indices[0]:time_indices[1]]
