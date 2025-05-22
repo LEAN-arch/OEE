@@ -36,7 +36,7 @@ def plot_key_metrics_summary(compliance, proximity, wellbeing, downtime, high_co
             delta={'reference': float(target), 'increasing': {'color': delta_increasing_color}, 'decreasing': {'color': delta_decreasing_color}, 'font': {'size': 12}},
             title={'text': title, 'font': {'size': 12, 'color': n_c}}, number={'suffix': suffix, 'font': {'size': 18, 'color': p_c if high_contrast else "#FFFFFF"}},
             gauge={'axis': {'range': [0, 100 if suffix == "%" else max(target * 1.5, value * 1.2, 10)], 'tickwidth': 1, 'tickcolor': n_c}, 'bar': {'color': bar_color, 'thickness': 0.65}, 'bgcolor': "#2a3447" if not high_contrast else "#222222", 'borderwidth': 0.5, 'bordercolor': n_c,
-                   'steps': [{'range': [0, target * (0.8 if not lower_is_better else 1.2) ], 'color': cr_c if not lower_is_better else pos_c }, {'range': [target * (0.8 if not lower_is_better else 1.2), target * (0.9 if not lower_is_better else 2.5)], 'color': a_c if not lower_is_better else cr_c}], # Corrected one step range condition
+                   'steps': [{'range': [0, target * (0.8 if not lower_is_better else 1.2) ], 'color': cr_c if not lower_is_better else pos_c }, {'range': [target * (0.8 if not lower_is_better else 1.2), target * (1.0 if not lower_is_better else target * 100) ], 'color': a_c if not lower_is_better else cr_c}], # ensure full range for 'fair' if upper bound high for downtime
                    'threshold': {'line': {'color': p_c if high_contrast else "white", 'width': 2.5}, 'thickness': 0.8, 'value': target}}))
         fig.update_layout(height=180, margin=dict(l=10,r=10,t=30,b=10), paper_bgcolor="rgba(0,0,0,0)", font=dict(color=p_c if high_contrast else "#D1D5DB")); figs.append(fig)
     return figs
