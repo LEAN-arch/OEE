@@ -421,7 +421,7 @@ if st.session_state.simulation_results:
                 downtime_fig, downtime_rec = plot_gauge_chart(
                     value=total_downtime,
                     title="Total Downtime",
-                    threshold=DEFAULT_CONFIG['DOWNTIME_THRESHOLD'] * 5,  # Scale threshold for total
+                    threshold=DEFAULT_CONFIG['DOWNTIME_THRESHOLD'] * 5,
                     max_value=DEFAULT_CONFIG['DOWNTIME_THRESHOLD'] * 10,
                     recommendation="Investigate equipment or process issues."
                 )
@@ -445,10 +445,14 @@ if st.session_state.simulation_results:
     
     with tabs[2]:
         st.header("Team Distribution")
-        st.markdown('<div class="tooltip">Worker Positions<span class="tooltiptext">2D layout or 3D scatter with time slider showing worker locations in meters, color-coded by workload status.</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="tooltip">Worker Positions<span class="tooltiptext">2D layout or 3D scatter with time slider showing worker locations in meters, color-coded by workload status, with entry/exit points and production lines.</span></div>', unsafe_allow_html=True)
         zone_filter = st.selectbox("Filter by Zone", options=["All"] + list(DEFAULT_CONFIG['WORK_AREAS'].keys()))
         filtered_df = team_positions_df if zone_filter == "All" else team_positions_df[team_positions_df['zone'] == zone_filter]
         filtered_df = filtered_df[(filtered_df['step'] >= time_indices[0]) & (filtered_df['step'] < time_indices[1])]
+        
+        # Add toggles for entry/exit points and production lines
+        show_entry_exit = st.checkbox("Show Entry/Exit Points", value=True, key="show_entry_exit")
+        show_production_lines = st.checkbox("Show Production Lines", value=True, key="show_production_lines")
         
         if use_3d_distribution:
             selected_step = st.slider(
@@ -458,11 +462,25 @@ if st.session_state.simulation_results:
                 value=int(time_indices[0]),
                 key="team_distribution_step"
             )
-            distribution_fig = plot_worker_distribution(filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=True, selected_step=selected_step)
+            distribution_fig = plot_worker_distribution(
+                filtered_df, 
+                DEFAULT_CONFIG['FACILITY_SIZE'], 
+                DEFAULT_CONFIG, 
+                use_3d=True, 
+                selected_step=selected_step,
+                show_entry_exit=show_entry_exit,
+                show_production_lines=show_production_lines
+            )
             st.plotly_chart(distribution_fig, use_container_width=True)
         else:
             if st.checkbox("Show Density Heatmap"):
-                heatmap_fig = plot_worker_density_heatmap(filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG)
+                heatmap_fig = plot_worker_density_heatmap(
+                    filtered_df, 
+                    DEFAULT_CONFIG['FACILITY_SIZE'], 
+                    DEFAULT_CONFIG,
+                    show_entry_exit=show_entry_exit,
+                    show_production_lines=show_production_lines
+                )
                 st.plotly_chart(heatmap_fig, use_container_width=True)
             else:
                 selected_step = st.slider(
@@ -472,7 +490,15 @@ if st.session_state.simulation_results:
                     value=int(time_indices[0]),
                     key="team_distribution_step_2d"
                 )
-                distribution_fig = plot_worker_distribution(filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=False, selected_step=selected_step)
+                distribution_fig = plot_worker_distribution(
+                    filtered_df, 
+                    DEFAULT_CONFIG['FACILITY_SIZE'], 
+                    DEFAULT_CONFIG, 
+                    use_3d=False, 
+                    selected_step=selected_step,
+                    show_entry_exit=show_entry_exit,
+                    show_production_lines=show_production_lines
+                )
                 st.plotly_chart(distribution_fig, use_container_width=True)
     
     with tabs[3]:
