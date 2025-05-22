@@ -111,31 +111,12 @@ def plot_worker_wellbeing(scores, triggers, high_contrast=False):
     avg_wellbeing = np.mean(scores) if scores else None
     if avg_wellbeing is not None: fig.add_hline(y=avg_wellbeing, line=dict(color=n_c, width=1, dash="dot"), annotation_text=f"Avg: {avg_wellbeing:.1f}%", annotation_position="bottom left", annotation_font_size=10)
     trigger_colors = {'threshold': cr_c, 'trend': a_c, 'disruption': h_c, 'work_area_general': s_c}; trigger_symbols = {'threshold': 'x', 'trend': 'triangle-down', 'disruption': 'star-diamond', 'work_area_general': 'diamond-tall'}
-    # Plotting each trigger type for better legend and control if needed
-    for trigger_key, trigger_points in triggers.items():
-        if trigger_key == 'work_area': # Special handling for work_area which is a dict
-            all_wa_points = set()
-            if isinstance(trigger_points, dict):
-                for area_alerts in trigger_points.values():
-                    if isinstance(area_alerts, list): all_wa_points.update(area_alerts)
-            valid_points = sorted(list(p for p in all_wa_points if 0 <= p < len(scores)))
-            plot_name = "Work Area Alerts"
-            marker_color = trigger_colors.get('work_area_general', n_c)
-            marker_symbol = trigger_symbols.get('work_area_general', 'circle')
-        elif isinstance(trigger_points, list) and trigger_points: # For list-based triggers like threshold, trend, disruption
-            valid_points = sorted(list(set(p for p in trigger_points if 0 <= p < len(scores))))
-            plot_name = f'{trigger_key.replace("_", " ").title()} Alert'
-            marker_color = trigger_colors.get(trigger_key, n_c)
-            marker_symbol = trigger_symbols.get(trigger_key, 'circle')
-        else:
-            continue # Skip if not list or work_area dict
-
-        if valid_points:
-            fig.add_trace(go.Scatter(x=valid_points, y=[scores[p] for p in valid_points], mode='markers', 
-                                     name=plot_name, 
-                                     marker=dict(color=marker_color, size=10, symbol=marker_symbol, 
-                                                 line=dict(width=1, color=p_c if high_contrast else "#FFFFFF" )), 
-                                     hovertemplate=f'{plot_name}: %{{y:.1f}}% at Step %{{x}}<extra></extra>'))
+    for trigger_type, points in triggers.items():
+        flat_points = []; processed_trigger_type = trigger_type
+        if isinstance(points, list): flat_points = points
+        elif isinstance(points, dict) and trigger_type == 'work_area': all_wa_points = set(); [all_wa_points.update(p_list) for p_list in points.values() if p_list]; flat_points = list(all_wa_points); processed_trigger_type = 'work_area_general'
+        valid_points = sorted(list(set(p for p in flat_points if 0 <= p < len(scores))))
+        if valid_points: fig.add_trace(go.Scatter(x=valid_points, y=[scores[p] for p in valid_points], mode='markers', name=f'{processed_trigger_type.replace("_", " ").title()} Alert', marker=dict(color=trigger_colors.get(processed_trigger_type, n_c), size=10, symbol=trigger_symbols.get(processed_trigger_type, 'circle-open'), line=dict(width=1, color=p_c if high_contrast else "#FFFFFF" )), hovertemplate=f'{processed_trigger_type.replace("_", " ").title()}: %{{y:.1f}}% at Step %{{x}}<extra></extra>'))
     _apply_common_layout_settings(fig, "Worker Well-Being Index Trend", high_contrast, yaxis_title="Index (%)", yaxis_range=[0, 105]); return fig
 
 def plot_psychological_safety(data, high_contrast=False):
@@ -152,43 +133,17 @@ def plot_downtime_trend(downtime_minutes, threshold, high_contrast=False):
     fig.add_hline(y=threshold, line=dict(color=a_c, width=1.5, dash="longdash"), annotation_text=f"Alert Threshold: {threshold} min", annotation_position="top right", annotation=dict(font_size=10, bgcolor="rgba(250,204,21,0.7)", borderpad=2))
     _apply_common_layout_settings(fig, "Downtime per Interval", high_contrast, yaxis_title="Downtime (minutes)"); max_y_val = max(max(downtime_minutes) * 1.15 if downtime_minutes else threshold * 1.5, threshold * 1.5, 10); fig.update_yaxes(range=[0, max_y_val]); return fig
 
-# --- New Plots for Psychosocial Factors ---
 def plot_team_cohesion(data, high_contrast=False):
-    p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast)
-    fig = go.Figure()
-    x_vals = list(range(len(data)))
-    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines', name='Team Cohesion', 
-                             line=dict(color=s_c, width=2), 
-                             hovertemplate='Cohesion: %{y:.1f}%<extra></extra>'))
+    p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast); fig = go.Figure(); x_vals = list(range(len(data)))
+    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines', name='Team Cohesion', line=dict(color=s_c, width=2), hovertemplate='Cohesion: %{y:.1f}%<extra></extra>'))
     avg_cohesion = np.mean(data) if data else None
-    if avg_cohesion is not None:
-        fig.add_hline(y=avg_cohesion, line=dict(color=n_c, width=1, dash="dot"), 
-                      annotation_text=f"Avg: {avg_cohesion:.1f}%", 
-                      annotation_position="top left", annotation_font_size=10)
-    _apply_common_layout_settings(fig, "Team Cohesion Index Trend", high_contrast, 
-                                  yaxis_title="Cohesion Index (%)", yaxis_range=[0, 105])
-    return fig
+    if avg_cohesion is not None: fig.add_hline(y=avg_cohesion, line=dict(color=n_c, width=1, dash="dot"), annotation_text=f"Avg: {avg_cohesion:.1f}%", annotation_position="top left", annotation_font_size=10)
+    _apply_common_layout_settings(fig, "Team Cohesion Index Trend", high_contrast, yaxis_title="Cohesion Index (%)", yaxis_range=[0, 105]); return fig
 
 def plot_perceived_workload(data, high_workload_threshold, very_high_workload_threshold, high_contrast=False):
-    p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast)
-    fig = go.Figure()
-    x_vals = list(range(len(data)))
-    
-    # Color points based on workload level - simpler: one line, color changes on hover/thresholds implicitly
-    # For a single line with threshold regions, we can use shapes or line segments.
-    # Here, we use a single line and rely on threshold lines.
-    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines+markers', name='Perceived Workload',
-                             line=dict(color=p_c, width=1.5), 
-                             marker=dict(size=5, color=p_c), # Color markers based on threshold would require more complex trace generation
-                             hovertemplate='Workload: %{y:.1f}/10<extra></extra>'))
-    
-    fig.add_hline(y=high_workload_threshold, line=dict(color=a_c, width=1.5, dash="dash"), 
-                  annotation_text=f"High Load ({high_workload_threshold})", annotation_position="bottom right",
-                  annotation_font=dict(color=a_c, size=10))
-    fig.add_hline(y=very_high_workload_threshold, line=dict(color=cr_c, width=1.5, dash="dash"), 
-                  annotation_text=f"Very High ({very_high_workload_threshold})", annotation_position="top right",
-                  annotation_font=dict(color=cr_c, size=10))
-
-    _apply_common_layout_settings(fig, "Perceived Workload Index (0-10 Scale)", high_contrast, 
-                                  yaxis_title="Workload Index", yaxis_range=[0, 10.5])
-    return fig
+    p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast); fig = go.Figure(); x_vals = list(range(len(data)))
+    colors = [cr_c if val >= very_high_workload_threshold else a_c if val >= high_workload_threshold else p_c for val in data]
+    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines+markers', name='Perceived Workload', line=dict(color=p_c, width=1.5), marker=dict(color=colors, size=6, line=dict(width=0.5, color=n_c)), hovertemplate='Workload: %{y:.1f}/10<extra></extra>')) # Segmented coloring for markers could be done by adding multiple traces if needed.
+    fig.add_hline(y=high_workload_threshold, line=dict(color=a_c, width=1.5, dash="dash"), annotation_text=f"High Load ({high_workload_threshold})", annotation_position="bottom right", annotation_font=dict(color=a_c, size=10))
+    fig.add_hline(y=very_high_workload_threshold, line=dict(color=cr_c, width=1.5, dash="dash"), annotation_text=f"Very High ({very_high_workload_threshold})", annotation_position="top right", annotation_font=dict(color=cr_c, size=10))
+    _apply_common_layout_settings(fig, "Perceived Workload Index (0-10 Scale)", high_contrast, yaxis_title="Workload Index", yaxis_range=[0, 10.5]); return fig
