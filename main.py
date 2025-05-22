@@ -1,6 +1,6 @@
 # main.py
 # Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
-# Enhanced for professional visuals, seamless UX, and accessibility.
+# Enhanced for professional visuals, seamless UX, accessibility, and fixed tab rendering.
 
 import logging
 import streamlit as st
@@ -492,238 +492,241 @@ def main():
     tab_names = ["Overview", "Operational Metrics", "Worker Insights", "Downtime", "Glossary"]
     tabs = st.tabs(tab_names)
 
-    # Only render the active tab's content
-    active_tab = st.session_state.active_tab
+    # Hidden selectbox to synchronize tab selection
+    tab_index = st.selectbox(
+        "Select Tab",
+        options=range(len(tab_names)),
+        format_func=lambda x: tab_names[x],
+        key="tab_selector",
+        label_visibility="collapsed"
+    )
+    if tab_index != st.session_state.active_tab:
+        st.session_state.active_tab = tab_index
 
     # Overview Tab
-    if active_tab == 0:
-        with tabs[0]:
-            with st.container():
-                st.header("Overview", divider="grey")
-                st.markdown(
-                    '<div class="tooltip">Key Metrics<span class="tooltiptext">Summary of Task Compliance, Collaboration Proximity, Worker Well-Being, and Downtime with recommendations.</span></div>',
-                    unsafe_allow_html=True
-                )
-                if st.session_state.simulation_results:
-                    (team_positions_df, task_compliance, collaboration_proximity, operational_recovery,
-                     efficiency_metrics_df, productivity_loss, worker_wellbeing, psychological_safety,
-                     feedback_impact, downtime_minutes, task_completion_rate) = st.session_state.simulation_results
-                    compliance_mean = np.mean(task_compliance['data'])
-                    proximity_mean = np.mean(collaboration_proximity['data'])
-                    wellbeing_mean = np.mean(worker_wellbeing['scores']) if worker_wellbeing['scores'] else 0
-                    total_downtime = np.sum(downtime_minutes)
-                    
-                    # Summary Cards
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.markdown(f'<div class="summary-card"><h4>Task Compliance</h4><p>{compliance_mean:.1f}%</p></div>', unsafe_allow_html=True)
-                    with col2:
-                        st.markdown(f'<div class="summary-card"><h4>Collaboration</h4><p>{proximity_mean:.1f}%</p></div>', unsafe_allow_html=True)
-                    with col3:
-                        st.markdown(f'<div class="summary-card"><h4>Well-Being</h4><p>{wellbeing_mean:.1f}%</p></div>', unsafe_allow_html=True)
-                    with col4:
-                        st.markdown(f'<div class="summary-card"><h4>Downtime</h4><p>{total_downtime:.1f} min</p></div>', unsafe_allow_html=True)
-                    
-                    # Gauge Charts
-                    col1, col2 = st.columns(2)
-                    summary_figs = plot_key_metrics_summary(compliance_mean, proximity_mean, wellbeing_mean, total_downtime)
-                    with col1:
-                        st.plotly_chart(summary_figs[0], use_container_width=True)
-                        st.plotly_chart(summary_figs[1], use_container_width=True)
-                    with col2:
-                        st.plotly_chart(summary_figs[2], use_container_width=True)
-                        if wellbeing_mean < DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:
-                            if st.button("Suggest Break Schedule", key="break_schedule"):
-                                st.info("Recommended: 10-minute breaks every 60 minutes.")
-                        st.plotly_chart(summary_figs[3], use_container_width=True)
-                else:
-                    st.info("Run a simulation or load data to view metrics.", icon="ℹ️")
+    with tabs[0]:
+        with st.container():
+            st.header("Overview", divider="grey")
+            st.markdown(
+                '<div class="tooltip">Key Metrics<span class="tooltiptext">Summary of Task Compliance, Collaboration Proximity, Worker Well-Being, and Downtime with recommendations.</span></div>',
+                unsafe_allow_html=True
+            )
+            if st.session_state.simulation_results:
+                (team_positions_df, task_compliance, collaboration_proximity, operational_recovery,
+                 efficiency_metrics_df, productivity_loss, worker_wellbeing, psychological_safety,
+                 feedback_impact, downtime_minutes, task_completion_rate) = st.session_state.simulation_results
+                compliance_mean = np.mean(task_compliance['data'])
+                proximity_mean = np.mean(collaboration_proximity['data'])
+                wellbeing_mean = np.mean(worker_wellbeing['scores']) if worker_wellbeing['scores'] else 0
+                total_downtime = np.sum(downtime_minutes)
+                
+                # Summary Cards
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.markdown(f'<div class="summary-card"><h4>Task Compliance</h4><p>{compliance_mean:.1f}%</p></div>', unsafe_allow_html=True)
+                with col2:
+                    st.markdown(f'<div class="summary-card"><h4>Collaboration</h4><p>{proximity_mean:.1f}%</p></div>', unsafe_allow_html=True)
+                with col3:
+                    st.markdown(f'<div class="summary-card"><h4>Well-Being</h4><p>{wellbeing_mean:.1f}%</p></div>', unsafe_allow_html=True)
+                with col4:
+                    st.markdown(f'<div class="summary-card"><h4>Downtime</h4><p>{total_downtime:.1f} min</p></div>', unsafe_allow_html=True)
+                
+                # Gauge Charts
+                col1, col2 = st.columns(2)
+                summary_figs = plot_key_metrics_summary(compliance_mean, proximity_mean, wellbeing_mean, total_downtime)
+                with col1:
+                    st.plotly_chart(summary_figs[0], use_container_width=True)
+                    st.plotly_chart(summary_figs[1], use_container_width=True)
+                with col2:
+                    st.plotly_chart(summary_figs[2], use_container_width=True)
+                    if wellbeing_mean < DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:
+                        if st.button("Suggest Break Schedule", key="break_schedule"):
+                            st.info("Recommended: 10-minute breaks every 60 minutes.")
+                    st.plotly_chart(summary_figs[3], use_container_width=True)
+            else:
+                st.info("Run a simulation or load data to view metrics.", icon="ℹ️")
 
     # Operational Metrics Tab
-    elif active_tab == 1:
-        with tabs[1]:
-            with st.container():
-                st.header("Operational Metrics", divider="grey")
-                st.markdown(
-                    '<div class="tooltip">Performance Trends<span class="tooltiptext">Trends for task compliance, collaboration, recovery, and efficiency.</span></div>',
-                    unsafe_allow_html=True
+    with tabs[1]:
+        with st.container():
+            st.header("Operational Metrics", divider="grey")
+            st.markdown(
+                '<div class="tooltip">Performance Trends<span class="tooltiptext">Trends for task compliance, collaboration, recovery, and efficiency.</span></div>',
+                unsafe_allow_html=True
+            )
+            if st.session_state.simulation_results:
+                time_range = st.slider(
+                    "Time Range (minutes)",
+                    min_value=0,
+                    max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
+                    value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
+                    step=2,
+                    key="time_range_op"
                 )
-                if st.session_state.simulation_results:
-                    time_range = st.slider(
-                        "Time Range (minutes)",
-                        min_value=0,
-                        max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
-                        value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
-                        step=2,
-                        key="time_range_op"
+                time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
+                filtered_compliance = task_compliance['data'][time_indices[0]:time_indices[1]]
+                filtered_z_scores = task_compliance['z_scores'][time_indices[0]:time_indices[1]]
+                filtered_forecast = task_compliance['forecast'][time_indices[0]:time_indices[1]] if task_compliance['forecast'] is not None else None
+                filtered_disruptions = [t for t in DEFAULT_CONFIG['DISRUPTION_INTERVALS'] if time_indices[0] <= t < time_indices[1]]
+                compliance_fig = plot_task_compliance_score(filtered_compliance, filtered_disruptions, filtered_forecast, filtered_z_scores)
+                st.plotly_chart(compliance_fig, use_container_width=True)
+                filtered_collab = collaboration_proximity['data'][time_indices[0]:time_indices[1]]
+                filtered_forecast = collaboration_proximity['forecast'][time_indices[0]:time_indices[1]] if collaboration_proximity['forecast'] is not None else None
+                collaboration_fig = plot_collaboration_proximity_index(filtered_collab, filtered_disruptions, filtered_forecast)
+                st.plotly_chart(collaboration_fig, use_container_width=True)
+                with st.expander("Additional Metrics"):
+                    filtered_recovery = operational_recovery[time_indices[0]:time_indices[1]]
+                    filtered_loss = productivity_loss[time_indices[0]:time_indices[1]]
+                    resilience_fig = plot_operational_recovery(filtered_recovery, filtered_loss)
+                    st.plotly_chart(resilience_fig, use_container_width=True)
+                    selected_metrics = st.multiselect(
+                        "Efficiency Metrics",
+                        options=['uptime', 'throughput', 'quality', 'oee'],
+                        default=['uptime', 'throughput', 'quality', 'oee'],
+                        key="efficiency_metrics_op"
                     )
-                    time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
-                    filtered_compliance = task_compliance['data'][time_indices[0]:time_indices[1]]
-                    filtered_z_scores = task_compliance['z_scores'][time_indices[0]:time_indices[1]]
-                    filtered_forecast = task_compliance['forecast'][time_indices[0]:time_indices[1]]
-                    filtered_disruptions = [t for t in DEFAULT_CONFIG['DISRUPTION_INTERVALS'] if time_indices[0] <= t < time_indices[1]]
-                    compliance_fig = plot_task_compliance_score(filtered_compliance, filtered_disruptions, filtered_forecast, filtered_z_scores)
-                    st.plotly_chart(compliance_fig, use_container_width=True)
-                    filtered_collab = collaboration_proximity['data'][time_indices[0]:time_indices[1]]
-                    filtered_forecast = collaboration_proximity['forecast'][time_indices[0]:time_indices[1]]
-                    collaboration_fig = plot_collaboration_proximity_index(filtered_collab, filtered_disruptions, filtered_forecast)
-                    st.plotly_chart(collaboration_fig, use_container_width=True)
-                    with st.expander("Additional Metrics"):
-                        filtered_recovery = operational_recovery[time_indices[0]:time_indices[1]]
-                        filtered_loss = productivity_loss[time_indices[0]:time_indices[1]]
-                        resilience_fig = plot_operational_recovery(filtered_recovery, filtered_loss)
-                        st.plotly_chart(resilience_fig, use_container_width=True)
-                        selected_metrics = st.multiselect(
-                            "Efficiency Metrics",
-                            options=['uptime', 'throughput', 'quality', 'oee'],
-                            default=['uptime', 'throughput', 'quality', 'oee'],
-                            key="efficiency_metrics_op"
-                        )
-                        filtered_df = efficiency_metrics_df.iloc[time_indices[0]:time_indices[1]]
-                        efficiency_fig = plot_operational_efficiency(filtered_df, selected_metrics)
-                        st.plotly_chart(efficiency_fig, use_container_width=True)
-                else:
-                    st.info("Run a simulation or load data to view metrics.", icon="ℹ️")
+                    filtered_df = efficiency_metrics_df.iloc[time_indices[0]:time_indices[1]]
+                    efficiency_fig = plot_operational_efficiency(filtered_df, selected_metrics)
+                    st.plotly_chart(efficiency_fig, use_container_width=True)
+            else:
+                st.info("Run a simulation or load data to view metrics.", icon="ℹ️")
 
     # Worker Insights Tab
-    elif active_tab == 2:
-        with tabs[2]:
-            with st.container():
-                st.header("Worker Insights", divider="grey")
-                st.markdown(
-                    '<div class="tooltip">Worker Metrics<span class="tooltiptext">Distribution, well-being, and safety metrics.</span></div>',
-                    unsafe_allow_html=True
-                )
-                if st.session_state.simulation_results:
-                    with st.expander("Worker Distribution", expanded=True):
-                        time_range = st.slider(
-                            "Time Range (minutes)",
-                            min_value=0,
-                            max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
-                            value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
-                            step=2,
-                            key="time_range_dist"
-                        )
-                        time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
-                        zone_filter = st.selectbox(
-                            "Zone", 
-                            options=["All"] + list(DEFAULT_CONFIG['WORK_AREAS'].keys())
-                        )
-                        filtered_df = team_positions_df if zone_filter == "All" else team_positions_df[team_positions_df['zone'] == zone_filter]
-                        filtered_df = filtered_df[(filtered_df['step'] >= time_indices[0]) & (filtered_df['step'] < time_indices[1])]
-                        show_entry_exit = st.checkbox("Show Entry/Exit Points", value=True, key="show_entry_exit_dist")
-                        show_production_lines = st.checkbox("Show Production Lines", value=True, key="show_production_lines_dist")
-                        col_dist1, col_dist2 = st.columns(2)
-                        with col_dist1:
-                            st.markdown("### Worker Positions")
-                            selected_step = st.slider(
-                                "Time Step",
-                                min_value=int(time_indices[0]),
-                                max_value=int(time_indices[1] - 1),
-                                value=int(time_indices[0]),
-                                key="team_distribution_step"
-                            )
-                            distribution_fig = plot_worker_distribution(
-                                filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=use_3d_distribution,
-                                selected_step=selected_step, show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
-                            )
-                            st.plotly_chart(distribution_fig, use_container_width=True)
-                        with col_dist2:
-                            st.markdown("### Density Heatmap")
-                            heatmap_fig = plot_worker_density_heatmap(
-                                filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG,
-                                show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
-                            )
-                            st.plotly_chart(heatmap_fig, use_container_width=True)
-
-                    with st.expander("Worker Well-Being & Safety"):
-                        time_range = st.slider(
-                            "Time Range (minutes)",
-                            min_value=0,
-                            max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
-                            value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
-                            step=2,
-                            key="time_range_well"
-                        )
-                        time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
-                        col_well1, col_well2 = st.columns(2)
-                        with col_well1:
-                            st.markdown("### Well-Being Index")
-                            filtered_scores = worker_wellbeing['scores'][time_indices[0]:time_indices[1]]
-                            filtered_triggers = {
-                                'threshold': [t for t in worker_wellbeing['triggers']['threshold'] if time_indices[0] <= t < time_indices[1]],
-                                'trend': [t for t in worker_wellbeing['triggers']['trend'] if time_indices[0] <= t < time_indices[1]],
-                                'work_area': {k: [t for t in v if time_indices[0] <= t < time_indices[1]] for k, v in worker_wellbeing['triggers']['work_area'].items()},
-                                'disruption': [t for t in worker_wellbeing['triggers']['disruption'] if time_indices[0] <= t < time_indices[1]]
-                            }
-                            wellbeing_fig = plot_worker_wellbeing(filtered_scores, filtered_triggers)
-                            st.plotly_chart(wellbeing_fig, use_container_width=True)
-                        with col_well2:
-                            st.markdown("### Psychological Safety")
-                            filtered_safety = psychological_safety[time_indices[0]:time_indices[1]]
-                            safety_fig = plot_psychological_safety(filtered_safety)
-                            st.plotly_chart(safety_fig, use_container_width=True)
-                        st.markdown("### Well-Being Triggers")
-                        st.write(f"**Threshold Alerts (< {DEFAULT_CONFIG['WELLBEING_THRESHOLD']*100}%):** {filtered_triggers['threshold']}")
-                        st.write(f"**Trend Alerts (Declining):** {filtered_triggers['trend']}")
-                        st.write("**Work Area Alerts:**")
-                        for zone, triggers in filtered_triggers['work_area'].items():
-                            st.write(f"{zone}: {triggers}")
-                        st.write(f"**Disruption Alerts:** {filtered_triggers['disruption']}")
-                else:
-                    st.info("Run a simulation or load data to view insights.", icon="ℹ️")
-
-    # Downtime Tab
-    elif active_tab == 3:
-        with tabs[3]:
-            with st.container():
-                st.header("Downtime Analysis", divider="grey")
-                st.markdown(
-                    '<div class="tooltip">Downtime Trends<span class="tooltiptext">Downtime with alerts for high values.</span></div>',
-                    unsafe_allow_html=True
-                )
-                if st.session_state.simulation_results:
+    with tabs[2]:
+        with st.container():
+            st.header("Worker Insights", divider="grey")
+            st.markdown(
+                '<div class="tooltip">Worker Metrics<span class="tooltiptext">Distribution, well-being, and safety metrics.</span></div>',
+                unsafe_allow_html=True
+            )
+            if st.session_state.simulation_results:
+                with st.expander("Worker Distribution", expanded=True):
                     time_range = st.slider(
                         "Time Range (minutes)",
                         min_value=0,
                         max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
                         value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
                         step=2,
-                        key="time_range_down"
+                        key="time_range_dist"
                     )
                     time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
-                    filtered_downtime = downtime_minutes[time_indices[0]:time_indices[1]]
-                    downtime_fig = plot_downtime_trend(filtered_downtime, DEFAULT_CONFIG['DOWNTIME_THRESHOLD'])
-                    st.plotly_chart(downtime_fig, use_container_width=True)
-                else:
-                    st.info("Run a simulation or load data to view analysis.", icon="ℹ️")
+                    zone_filter = st.selectbox(
+                        "Zone", 
+                        options=["All"] + list(DEFAULT_CONFIG['WORK_AREAS'].keys())
+                    )
+                    filtered_df = team_positions_df if zone_filter == "All" else team_positions_df[team_positions_df['zone'] == zone_filter]
+                    filtered_df = filtered_df[(filtered_df['step'] >= time_indices[0]) & (filtered_df['step'] < time_indices[1])]
+                    show_entry_exit = st.checkbox("Show Entry/Exit Points", value=True, key="show_entry_exit_dist")
+                    show_production_lines = st.checkbox("Show Production Lines", value=True, key="show_production_lines_dist")
+                    col_dist1, col_dist2 = st.columns(2)
+                    with col_dist1:
+                        st.markdown("### Worker Positions")
+                        selected_step = st.slider(
+                            "Time Step",
+                            min_value=int(time_indices[0]),
+                            max_value=int(time_indices[1] - 1),
+                            value=int(time_indices[0]),
+                            key="team_distribution_step"
+                        )
+                        distribution_fig = plot_worker_distribution(
+                            filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=use_3d_distribution,
+                            selected_step=selected_step, show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
+                        )
+                        st.plotly_chart(distribution_fig, use_container_width=True)
+                    with col_dist2:
+                        st.markdown("### Density Heatmap")
+                        heatmap_fig = plot_worker_density_heatmap(
+                            filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG,
+                            show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
+                        )
+                        st.plotly_chart(heatmap_fig, use_container_width=True)
+
+                with st.expander("Worker Well-Being & Safety"):
+                    time_range = st.slider(
+                        "Time Range (minutes)",
+                        min_value=0,
+                        max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
+                        value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
+                        step=2,
+                        key="time_range_well"
+                    )
+                    time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
+                    col_well1, col_well2 = st.columns(2)
+                    with col_well1:
+                        st.markdown("### Well-Being Index")
+                        filtered_scores = worker_wellbeing['scores'][time_indices[0]:time_indices[1]]
+                        filtered_triggers = {
+                            'threshold': [t for t in worker_wellbeing['triggers']['threshold'] if time_indices[0] <= t < time_indices[1]],
+                            'trend': [t for t in worker_wellbeing['triggers']['trend'] if time_indices[0] <= t < time_indices[1]],
+                            'work_area': {k: [t for t in v if time_indices[0] <= t < time_indices[1]] for k, v in worker_wellbeing['triggers']['work_area'].items()},
+                            'disruption': [t for t in worker_wellbeing['triggers']['disruption'] if time_indices[0] <= t < time_indices[1]]
+                        }
+                        wellbeing_fig = plot_worker_wellbeing(filtered_scores, filtered_triggers)
+                        st.plotly_chart(wellbeing_fig, use_container_width=True)
+                    with col_well2:
+                        st.markdown("### Psychological Safety")
+                        filtered_safety = psychological_safety[time_indices[0]:time_indices[1]]
+                        safety_fig = plot_psychological_safety(filtered_safety)
+                        st.plotly_chart(safety_fig, use_container_width=True)
+                    st.markdown("### Well-Being Triggers")
+                    st.write(f"**Threshold Alerts (< {DEFAULT_CONFIG['WELLBEING_THRESHOLD']*100}%):** {filtered_triggers['threshold']}")
+                    st.write(f"**Trend Alerts (Declining):** {filtered_triggers['trend']}")
+                    st.write("**Work Area Alerts:**")
+                    for zone, triggers in filtered_triggers['work_area'].items():
+                        st.write(f"{zone}: {triggers}")
+                    st.write(f"**Disruption Alerts:** {filtered_triggers['disruption']}")
+            else:
+                st.info("Run a simulation or load data to view insights.", icon="ℹ️")
+
+    # Downtime Tab
+    with tabs[3]:
+        with st.container():
+            st.header("Downtime Analysis", divider="grey")
+            st.markdown(
+                '<div class="tooltip">Downtime Trends<span class="tooltiptext">Downtime with alerts for high values.</span></div>',
+                unsafe_allow_html=True
+            )
+            if st.session_state.simulation_results:
+                time_range = st.slider(
+                    "Time Range (minutes)",
+                    min_value=0,
+                    max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
+                    value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
+                    step=2,
+                    key="time_range_down"
+                )
+                time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
+                filtered_downtime = downtime_minutes[time_indices[0]:time_indices[1]]
+                downtime_fig = plot_downtime_trend(filtered_downtime, DEFAULT_CONFIG['DOWNTIME_THRESHOLD'])
+                st.plotly_chart(downtime_fig, use_container_width=True)
+            else:
+                st.info("Run a simulation or load data to view analysis.", icon="ℹ️")
 
     # Glossary Tab
-    elif active_tab == 4:
-        with tabs[4]:
-            with st.container():
-                st.header("Glossary", divider="grey")
-                st.markdown("""
-                    ### Metric Definitions
-                    - **Task Compliance Score**: % of tasks completed correctly (0–100%).
-                    - **Collaboration Proximity Index**: % of workers within 5m of colleagues (0–100%).
-                    - **Operational Recovery Score**: Ability to maintain output post-disruption (0–100%).
-                    - **Worker Well-Being Index**: Fatigue, stress, and satisfaction (0–100%).
-                    - **Psychological Safety Score**: Comfort in reporting issues (0–100%).
-                    - **Uptime**: % of time equipment is operational (0–100%).
-                    - **Throughput**: % of max production rate (0–100%).
-                    - **Quality**: % of products meeting standards (0–100%).
-                    - **OEE**: Combined uptime, throughput, quality (0–100%).
-                    - **Productivity Loss**: % of output lost (0–100%).
-                    - **Downtime**: Minutes of unplanned stops.
-                    - **Task Completion Rate**: % of tasks completed per interval (0–100%).
-                    - **Feedback Impact**: Improvement from initiatives.
+    with tabs[4]:
+        with st.container():
+            st.header("Glossary", divider="grey")
+            st.markdown("""
+                ### Metric Definitions
+                - **Task Compliance Score**: % of tasks completed correctly (0–100%).
+                - **Collaboration Proximity Index**: % of workers within 5m of colleagues (0–100%).
+                - **Operational Recovery Score**: Ability to maintain output post-disruption (0–100%).
+                - **Worker Well-Being Index**: Fatigue, stress, and satisfaction (0–100%).
+                - **Psychological Safety Score**: Comfort in reporting issues (0–100%).
+                - **Uptime**: % of time equipment is operational (0–100%).
+                - **Throughput**: % of max production rate (0–100%).
+                - **Quality**: % of products meeting standards (0–100%).
+                - **OEE**: Combined uptime, throughput, quality (0–100%).
+                - **Productivity Loss**: % of output lost (0–100%).
+                - **Downtime**: Minutes of unplanned stops.
+                - **Task Completion Rate**: % of tasks completed per interval (0–100%).
+                - **Feedback Impact**: Improvement from initiatives.
 
-                    ### Terms
-                    - **Disruption**: Event causing performance drop.
-                    - **Team Initiative**: Strategies like breaks or recognition.
-                    - **Anomaly**: Significant deviation (z-score > 2.0).
-                """)
+                ### Terms
+                - **Disruption**: Event causing performance drop.
+                - **Team Initiative**: Strategies like breaks or recognition.
+                - **Anomaly**: Significant deviation (z-score > 2.0).
+            """)
 
 # High-contrast mode
 def apply_high_contrast_mode():
