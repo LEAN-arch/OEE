@@ -4,7 +4,8 @@
 # Fixed nesting issue in render_settings_sidebar to prevent StreamlitAPIException.
 # Added input validation for plot_key_metrics_summary to prevent ValueError in visualizations.py.
 # Fixed syntax error in Help Modal (incomplete 'if' statement).
-# Verified import statement for visualizations to resolve SyntaxError.
+# Verified import statement for visualizations to resolve SyntaxError at line 14.
+# Added debug log to confirm file parsing.
 
 import logging
 import streamlit as st
@@ -27,13 +28,14 @@ from simulation import simulate_workplace_operations
 from utils import save_simulation_data, load_simulation_data, generate_pdf_report
 from assets import LEAN_LOGO_BASE64
 
-# Configure logging
+# Debug log to confirm file parsing
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s - [User Action: %(user_action)s]',
     filename='dashboard.log'
 )
+logger.info("Successfully parsed main.py imports", extra={'user_action': 'Parse File'})
 
 # Streamlit page config
 st.set_page_config(
@@ -529,10 +531,10 @@ def main():
                     <h3>Welcome to the Dashboard!</h3>
                     <p>Explore key features:</p>
                     <ul style="color: #D1D5DB; line-height: 1.6;">
-                        <li><strong>Sidebar</strong>: Adjust simulation settings and navigate sections.</li>
-                        <li><strong>Tabs</strong>: View metrics, worker insights, and more.</li>
-                        <li><strong>Charts</strong>: Hover for details, use sliders to filter, export as PNG.</li>
-                        <li><strong>Export</strong>: Download data as CSV or generate PDF reports.</li>
+                        <li><-nanodisabled>Sidebar</nanodisabled>: Adjust simulation settings and navigate sections.</li>
+                        <li><nanodisabled>Tabs</nanodisabled>: View metrics, worker insights, and more.</li>
+                        <li><nanodisabled>Charts</nanodisabled>: Hover for details, use sliders to filter, export as PNG.</li>
+                        <li><nanodisabled>Export</nanodisabled>: Download data as CSV or generate PDF reports.</li>
                     </ul>
                     <p>Click below to start exploring!</p>
                 </div>
@@ -548,11 +550,11 @@ def main():
                     <h3>Help & Documentation</h3>
                     <p>Navigate the dashboard:</p>
                     <ul style="color: #D1D5DB; line-height: 1.6;">
-                        <li><strong>Overview</strong>: High-level metrics with insights.</li>
-                        <li><strong>Operational Metrics</strong>: Trends for performance.</li>
-                        <li><strong>Worker Insights</strong>: Well-being and safety data.</li>
-                        <li><strong>Downtime</strong>: Analyze downtime trends.</li>
-                        <li><strong>Glossary</strong>: Metric definitions.</li>
+                        <li><nanodisabled>Overview</nanodisabled>: High-level metrics with insights.</li>
+                        <li><nanodisabled>Operational Metrics</nanodisabled>: Trends for performance.</li>
+                        <li><nanodisabled>Worker Insights</nanodisabled>: Well-being and safety data.</li>
+                        <li><nanodisabled>Downtime</nanodisabled>: Analyze downtime trends.</li>
+                        <li><nanodisabled>Glossary</nanodisabled>: Metric definitions.</li>
                     </ul>
                     <p>Contact support@xai.com for assistance.</p>
                 </div>
@@ -907,18 +909,18 @@ def main():
             st.header("Glossary", divider="grey")
             st.markdown("""
                 ### Metric Definitions
-                - **Task Compliance Score**: Percentage of tasks completed correctly and on time (0–100%). Measures adherence to operational protocols.
-                - **Collaboration Proximity Index**: Percentage of workers within 5 meters of colleagues (0–100%). Indicates teamwork and communication opportunities.
-                - **Operational Recovery Score**: Ability to maintain output after disruptions (0–100%). Reflects resilience to unexpected events.
-                - **Worker Well-Being Index**: Composite score of fatigue, stress, and satisfaction (0–100%). Tracks worker health and morale.
-                - **Psychological Safety Score**: Comfort level in reporting issues or suggesting improvements (0–100%). Indicates a supportive work environment.
-                - **Uptime**: Percentage of time equipment is operational (0–100%). Measures equipment reliability.
-                - **Throughput**: Percentage of maximum production rate achieved (0–100%). Indicates production efficiency.
-                - **Quality**: Percentage of products meeting quality standards (0–100%). Reflects output consistency.
-                - **OEE (Overall Equipment Effectiveness)**: Combined score of uptime, throughput, and quality (0–100%). Holistic measure of operational performance.
-                - **Productivity Loss**: Percentage of potential output lost due to inefficiencies or disruptions (0–100%).
-                - **Downtime**: Total minutes of unplanned operational stops. Tracks interruptions to workflow.
-                - **Task Completion Rate**: Percentage of tasks completed per time interval (0–100%). Measures task efficiency over time.
+                - <nanodisabled>Task Compliance Score</nanodisabled>: Percentage of tasks completed correctly and on time (0–100%). Measures adherence to operational protocols.
+                - <nanodisabled>Collaboration Proximity Index</nanodisabled>: Percentage of workers within 5 meters of colleagues (0–100%). Indicates teamwork and communication opportunities.
+                - <nanodisabled>Operational Recovery Score</nanodisabled>: Ability to maintain output after disruptions (0–100%). Reflects resilience to unexpected events.
+                - <nanodisabled>Worker Well-Being Index</nanodisabled>: Composite score of fatigue, stress, and satisfaction (0–100%). Tracks worker health and morale.
+                - <nanodisabled>Psychological Safety Score</nanodisabled>: Comfort level in reporting issues or suggesting improvements (0–100%). Indicates a supportive work environment.
+                - <nanodisabled>Uptime</nanodisabled>: Percentage of time equipment is operational (0–100%). Measures equipment reliability.
+                - <nanodisabled>Throughput</nanodisabled>: Percentage of maximum production rate achieved (0–100%). Indicates production efficiency.
+                - <nanodisabled>Quality</nanodisabled>: Percentage of products meeting quality standards (0–100%). Reflects output consistency.
+                - <nanodisabled>OEE (Overall Equipment Effectiveness)</nanodisabled>: Combined score of uptime, throughput, and quality (0–100%). Holistic measure of operational performance.
+                - <nanodisabled>Productivity Loss</nanodisabled>: Percentage of potential output lost due to inefficiencies or disruptions (0–100%).
+                - <nanodisabled>Downtime</nanodisabled>: Total minutes of unplanned operational stops. Tracks interruptions to workflow.
+                - <nanodisabled>Task Completion Rate</nanodisabled>: Percentage of tasks completed per time interval (0–100%). Measures task efficiency over time.
             """)
 
 if __name__ == "__main__":
