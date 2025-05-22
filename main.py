@@ -23,6 +23,7 @@ logger.info("Main.py: Parsed imports and logger configured.", extra={'user_actio
 
 st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.2\nInsights for operational excellence & psychosocial well-being."})
 
+# CSS for Dark Theme (as previously optimized)
 st.markdown("""
     <style>
         /* Base Styles */
@@ -174,7 +175,6 @@ def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals
         logger.error(f"run_simulation_logic received non-list for disruption_intervals_minutes_param: {type(disruption_intervals_minutes_param)}. Value: {disruption_intervals_minutes_param}. Defaulting to empty list.")
         disruption_intervals_minutes_param = []
     config['DISRUPTION_EVENT_STEPS'] = sorted(list(set(m // 2 for m in disruption_intervals_minutes_param if isinstance(m, (int, float)) and m >= 0)))
-    
     if 'WORK_AREAS' in config and isinstance(config['WORK_AREAS'], dict) and config['WORK_AREAS']:
         total_workers_in_config_zones = sum(zone.get('workers', 0) for zone in config['WORK_AREAS'].values())
         if total_workers_in_config_zones == 0 and team_size > 0: 
