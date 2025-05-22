@@ -7,18 +7,14 @@ logger = logging.getLogger(__name__)
 DEFAULT_CONFIG = {
     'TEAM_SIZE': 30, 
     'SHIFT_DURATION_MINUTES': 480,
-    'DISRUPTION_TIMES_MINUTES': [120, 300], # This key is read by render_settings_sidebar
-                                           # simulation.py will use DISRUPTION_EVENT_STEPS derived in main.py
+    'DISRUPTION_TIMES_MINUTES': [120, 300], 
     
-    # --- TARGETS for Actionable Insights & Plotting ---
-    'TARGET_COMPLIANCE': 85.0,
-    'TARGET_COLLABORATION': 70.0,
-    'TARGET_WELLBEING': 75.0,
+    # --- TARGETS for Metrics & Insights ---
+    'TARGET_COMPLIANCE': 85.0, 'TARGET_COLLABORATION': 70.0, 'TARGET_WELLBEING': 75.0,
     'DOWNTIME_THRESHOLD_TOTAL_SHIFT_PERCENTAGE': 0.05, 
     'WELLBEING_CRITICAL_THRESHOLD_PERCENT_OF_TARGET': 0.85, 
-    'TARGET_PSYCH_SAFETY': 70.0, 
-    'TARGET_TEAM_COHESION': 70.0, 
-    'TARGET_PERCEIVED_WORKLOAD': 6.5, 
+    'TARGET_PSYCH_SAFETY': 70.0, 'TARGET_TEAM_COHESION': 70.0, 
+    'TARGET_PERCEIVED_WORKLOAD': 6.5, # Lower is better for this
 
     'FACILITY_SIZE': (100, 80),
     'WORK_AREAS': { 
@@ -31,22 +27,25 @@ DEFAULT_CONFIG = {
     },
     'ENTRY_EXIT_POINTS': [{'name': 'Main Entrance', 'coords': (0, 40), 'type': 'entry_exit'}, {'name': 'Loading Dock', 'coords': (100, 60), 'type': 'exit_only'}],
     
-    'PERCEIVED_WORKLOAD_THRESHOLD_HIGH': 7.5, 'PERCEIVED_WORKLOAD_THRESHOLD_VERY_HIGH': 8.5, # For insights
+    # --- Leadership & Psychosocial Simulation Parameters ---
+    'LEADERSHIP_SUPPORT_FACTOR': 0.75, # Scale 0-1, higher means more supportive leadership (influences psych safety, wellbeing)
+    'COMMUNICATION_EFFECTIVENESS_FACTOR': 0.7, # Scale 0-1 (influences task understanding, reduces errors)
+    'PERCEIVED_WORKLOAD_THRESHOLD_HIGH': 7.5, 'PERCEIVED_WORKLOAD_THRESHOLD_VERY_HIGH': 8.5,
     'STRESS_FROM_HIGH_WORKLOAD_FACTOR': 0.05, 'STRESS_FROM_LOW_CONTROL_FACTOR': 0.02,  
     'ISOLATION_IMPACT_ON_WELLBEING': 0.1,   'TEAM_COHESION_BASELINE': 0.7,        
     'TEAM_COHESION_IMPACT_ON_PSYCH_SAFETY': 0.15, 
     'UNCERTAINTY_DURING_DISRUPTION_IMPACT_PSYCH_SAFETY': 0.1, 
 
-    'WORKER_SPEED_MEAN': 1.2, 'WORKER_SPEED_STD': 0.2, 'COLLABORATION_RADIUS': 5, 'COMMUNICATION_SUCCESS_RATE': 0.85,
+    'WORKER_SPEED_MEAN': 1.2, 'WORKER_SPEED_STD': 0.2, 'COLLABORATION_RADIUS': 5,
     'BASE_TASK_COMPLETION_PROB': 0.95, 'FATIGUE_IMPACT_ON_COMPLIANCE': 0.15, 'COMPLEXITY_IMPACT_ON_COMPLIANCE': 0.2,
     'MIN_COMPLIANCE_DURING_DISRUPTION': 30.0, 
     'DISRUPTION_DURATION_MEAN_INTERVALS': 5, 'DISRUPTION_DURATION_STD_INTERVALS': 2,
     'DISRUPTION_COMPLIANCE_REDUCTION_FACTOR': 0.5, 'DISRUPTION_WELLBEING_DROP': 0.2, 
     'RECOVERY_HALFLIFE_INTERVALS': 10, 
     'WELLBEING_BASELINE': 0.80, 'WELLBEING_FATIGUE_RATE_PER_INTERVAL': 0.002, 
-    'WELLBEING_RECOVERY_AT_BREAK_ABS': 0.15, 'WELLBEING_ALERT_THRESHOLD': 60.0, # As percentage (0-100) for easier use
+    'WELLBEING_RECOVERY_AT_BREAK_ABS': 0.15, 'WELLBEING_ALERT_THRESHOLD': 60.0, 
     'PSYCH_SAFETY_BASELINE': 0.75, 'PSYCH_SAFETY_EROSION_RATE_PER_INTERVAL': 0.0005, 
-    'PSYCH_SAFETY_BOOST_FROM_RECOGNITION_ABS': 0.1, 'FEEDBACK_POSITIVE_IMPACT_ON_PSYCH_SAFETY': 0.05, 
+    'FEEDBACK_POSITIVE_IMPACT_ON_PSYCH_SAFETY': 0.05, 
     'THEORETICAL_MAX_THROUGHPUT_UNITS_PER_INTERVAL': 100, 'BASE_QUALITY_DEFECT_RATE': 0.02,
     'EQUIPMENT_FAILURE_PROB_PER_INTERVAL': 0.005, 'EQUIPMENT_DOWNTIME_IF_FAIL_INTERVALS': 3, 
     'DOWNTIME_FROM_EQUIPMENT_FAILURE_PROB': 0.7, 'DOWNTIME_FROM_DISRUPTION_EVENT_PROB': 0.5,
@@ -54,8 +53,7 @@ DEFAULT_CONFIG = {
     'DOWNTIME_PLOT_ALERT_THRESHOLD': 10, 
     'INITIATIVE_BREAKS_FATIGUE_REDUCTION_FACTOR': 0.3, 'INITIATIVE_BREAKS_WELLBEING_RECOVERY_BOOST_ABS': 0.05, 
     'INITIATIVE_RECOGNITION_WELLBEING_BOOST_ABS': 0.05, 'INITIATIVE_RECOGNITION_PSYCHSAFETY_BOOST_ABS': 0.08,
-    'INITIATIVE_AUTONOMY_PSYCHSAFETY_BOOST_ABS': 0.07, 
-    'INITIATIVE_AUTONOMY_WELLBEING_BOOST_ABS': 0.04,  
+    'INITIATIVE_AUTONOMY_PSYCHSAFETY_BOOST_ABS': 0.07, 'INITIATIVE_AUTONOMY_WELLBEING_BOOST_ABS': 0.04,  
 }
 DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS'] = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] // 2
 DEFAULT_CONFIG['DOWNTIME_THRESHOLD_TOTAL_SHIFT'] = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] * DEFAULT_CONFIG.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT_PERCENTAGE', 0.05)
@@ -72,6 +70,6 @@ def validate_config(config):
     total_workers_in_zones = sum(zone.get('workers', 0) for zone in config['WORK_AREAS'].values() if isinstance(zone, dict))
     if total_workers_in_zones != config['TEAM_SIZE'] and config['TEAM_SIZE'] > 0 and total_workers_in_zones == 0: logger.info(f"Config Validation: Initial workers in zones is 0. Sim logic will distribute TEAM_SIZE={config['TEAM_SIZE']}.")
     elif total_workers_in_zones != config['TEAM_SIZE']: logger.warning(f"Config Validation: Sum of workers in WORK_AREAS ({total_workers_in_zones}) != TEAM_SIZE ({config['TEAM_SIZE']}). Sim logic will reconcile.")
-    if not isinstance(config['DISRUPTION_TIMES_MINUTES'], list): logger.warning(f"Config Validation: DISRUPTION_TIMES_MINUTES is {type(config['DISRUPTION_TIMES_MINUTES'])}. Should be list.")
+    if not isinstance(config.get('DISRUPTION_TIMES_MINUTES', []), list): logger.warning(f"Config Validation: DISRUPTION_TIMES_MINUTES is {type(config.get('DISRUPTION_TIMES_MINUTES'))}. Should be list.")
     logger.info("Configuration structure partially validated.", extra={'user_action': 'System Check'})
     return True
