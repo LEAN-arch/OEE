@@ -1,9 +1,18 @@
 # visualizations.py
-# Enhanced Plotly visualizations for the Workplace Shift Monitoring Dashboard.
+# Enhanced Plotly visualizations for the Workplace Shift Monitoring Dashboard with error handling.
 
+import logging
 import plotly.graph_objects as go
 import numpy as np
 from plotly.colors import sequential
+
+# Configure logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s - [User Action: %(user_action)s]',
+    filename='dashboard.log'
+)
 
 def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score, downtime_minutes):
     """
@@ -96,7 +105,7 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
         hovertemplate='Time: %{x} min<br>Compliance: %{y:.1f}%<br>Z-Score: %{customdata:.2f}<extra></extra>',
         customdata=z_scores
     ))
-    if forecast:
+    if forecast is not None:
         fig.add_trace(go.Scatter(
             x=minutes,
             y=forecast,
@@ -122,7 +131,7 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
                 x=minutes[i],
                 y=score,
                 text=f"Anomaly: {score:.1f}%",
-                showarrow=True,
+               DaoFilePath: /mount/src/oee/visualizations.py showarrow=True,
                 arrowhead=1,
                 ax=20,
                 ay=-30,
@@ -161,7 +170,7 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
         marker=dict(size=6, line=dict(width=1, color='#F5F7FA')),
         hovertemplate='Time: %{x} min<br>Proximity: %{y:.1f}%<extra></extra>'
     ))
-    if forecast:
+    if forecast is not None:
         fig.add_trace(go.Scatter(
             x=minutes,
             y=forecast,
@@ -314,11 +323,12 @@ def plot_operational_efficiency(efficiency_df, selected_metrics):
 
 def plot_worker_distribution(df, facility_size, config, use_3d=False, selected_step=0, show_entry_exit=True, show_production_lines=True):
     """
-    Plot worker distribution in 2D or 3D.
+    Plot worker distribution in 2D or 3D with error handling for entry/exit points.
     """
     filtered_df = df[df['step'] == selected_step]
+    fig = go.Figure()
+
     if use_3d:
-        fig = go.Figure()
         fig.add_trace(go.Scatter3d(
             x=filtered_df['x'],
             y=filtered_df['y'],
@@ -335,31 +345,22 @@ def plot_worker_distribution(df, facility_size, config, use_3d=False, selected_s
             hovertemplate='Worker: %{text}<br>X: %{x:.1f}<br>Y: %{y:.1f}<br>Workload: %{marker.color:.2f}<extra></extra>'
         ))
         if show_entry_exit:
-            for point in config['ENTRY_EXIT_POINTS']:
-                fig.add_trace(go.Scatter3d(
-                    x=[point[0]], y=[point[1]], z=[0],
-                    mode='markers+text',
-                    marker=dict(size=8, color='#EF4444'),
-                    text=['Entry/Exit'],
-                    textposition='top center',
-                    hoverinfo='none'
-                ))
-        fig.update_layout(
-            scene=dict(
-                xaxis=dict(title='X (m)', range=[0, facility_size], backgroundcolor='#1E2A44', gridcolor='#4B5EAA'),
-                yaxis=dict(title='Y (m)', range=[0, facility_size], backgroundcolor='#1E2A44', gridcolor='#4B5EAA'),
-                zaxis=dict(title='Time (min)', backgroundcolor='#1E2A44', gridcolor='#4B5EAA')
-            ),
-            title=dict(text='Worker Distribution (3D)', x=0.5, font=dict(size=20, family='Inter')),
-            font=dict(color='#F5F7FA', size=12, family='Inter'),
-            template='plotly_dark',
-            plot_bgcolor='#1E2A44',
-            paper_bgcolor='#1E2A44',
-            margin=dict(l=40, r=40, t=80, b=40),
-            showlegend=False
-        )
+            for point in config.get('ENTRY_EXIT_POINTS', []):
+                try:
+                    if not isinstance(point, (list, tuple)) or len(point) < 2:
+                        logger.warning(f"Invalid entry/exit point: {point}", extra={'user_action': 'Plot Worker Distribution'})
+                        continue
+                    fig.add_trace(go.Scatter3d(
+                        x=[point[0]], y=[point[1]], z=[0],
+                        mode='markers+text',
+                        marker=dict(size=8, color='#EF4444'),
+                        text=['Entry/Exit'],
+                        textposition='top center',
+                        hoverinfo='none'
+                    ))
+                except (IndexError, TypeError) as e:
+                    logger.error(f"Failed to plot entry/exit point {point}: {str(e)}", extra={'user_action': 'Plot Worker Distribution'})
     else:
-        fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=filtered_df['x'],
             y=filtered_df['y'],
@@ -376,46 +377,65 @@ def plot_worker_distribution(df, facility_size, config, use_3d=False, selected_s
             hovertemplate='Worker: %{text}<br>X: %{x:.1f}<br>Y: %{y:.1f}<br>Workload: %{marker.color:.2f}<extra></extra>'
         ))
         if show_entry_exit:
-            for point in config['ENTRY_EXIT_POINTS']:
-                fig.add_trace(go.Scatter(
-                    x=[point[0]], y=[point[1]],
-                    mode='markers+text',
-                    marker=dict(size=12, color='#EF4444'),
-                    text=['Entry/Exit'],
-                    textposition='top center',
-                    hoverinfo='none'
-                ))
+            for point in config.get('ENTRY_EXIT_POINTS', []):
+                try:
+                    if not isinstance(point, (list, tuple)) or len(point) < 2:
+                        logger.warning(f"Invalid entry/exit point: {point}", extra={'user_action': 'Plot Worker Distribution'})
+                        continue
+                    fig.add_trace(go.Scatter(
+                        x=[point[0]], y=[point[1]],
+                        mode='markers+text',
+                        marker=dict(size=12, color='#EF4444'),
+                        text=['Entry/Exit'],
+                        textposition='top center',
+                        hoverinfo='none'
+                    ))
+                except (IndexError, TypeError) as e:
+                    logger.error(f"Failed to plot entry/exit point {point}: {str(e)}", extra={'user_action': 'Plot Worker Distribution'})
         if show_production_lines:
-            for zone, area in config['WORK_AREAS'].items():
-                fig.add_shape(
-                    type="rect",
-                    x0=area['center'][0] - 5, x1=area['center'][0] + 5,
-                    y0=area['center'][1] - 5, y1=area['center'][1] + 5,
-                    line=dict(color='#10B981', width=2, dash='dash'),
-                    fillcolor='rgba(16, 185, 129, 0.1)'
-                )
-                fig.add_annotation(
-                    x=area['center'][0], y=area['center'][1],
-                    text=zone,
-                    showarrow=False,
-                    font=dict(color='#10B981', size=10)
-                )
-        fig.update_layout(
-            title=dict(text=f'Worker Distribution at {selected_step * 2} min', x=0.5, font=dict(size=20, family='Inter')),
-            xaxis=dict(title='X (m)', range=[0, facility_size], gridcolor='#4B5EAA'),
-            yaxis=dict(title='Y (m)', range=[0, facility_size], gridcolor='#4B5EAA'),
-            font=dict(color='#F5F7FA', size=12, family='Inter'),
-            template='plotly_dark',
-            plot_bgcolor='#1E2A44',
-            paper_bgcolor='#1E2A44',
-            showlegend=False,
-            margin=dict(l=40, r=40, t=80, b=40)
-        )
+            for zone, area in config.get('WORK_AREAS', {}).items():
+                try:
+                    center = area['center']
+                    if not isinstance(center, (list, tuple)) or len(center) < 2:
+                        logger.warning(f"Invalid center for zone {zone}: {center}", extra={'user_action': 'Plot Worker Distribution'})
+                        continue
+                    fig.add_shape(
+                        type="rect",
+                        x0=center[0] - 5, x1=center[0] + 5,
+                        y0=center[1] - 5, y1=center[1] + 5,
+                        line=dict(color='#10B981', width=2, dash='dash'),
+                        fillcolor='rgba(16, 185, 129, 0.1)'
+                    )
+                    fig.add_annotation(
+                        x=center[0], y=center[1],
+                        text=zone,
+                        showarrow=False,
+                        font=dict(color='#10B981', size=10)
+                    )
+                except (KeyError, TypeError) as e:
+                    logger.error(f"Failed to plot production line for zone {zone}: {str(e)}", extra={'user_action': 'Plot Worker Distribution'})
+    
+    fig.update_layout(
+        title=dict(text=f'Worker Distribution at {selected_step * 2} min', x=0.5, font=dict(size=20, family='Inter')),
+        xaxis=dict(title='X (m)', range=[0, facility_size], gridcolor='#4B5EAA'),
+        yaxis=dict(title='Y (m)', range=[0, facility_size], gridcolor='#4B5EAA'),
+        font=dict(color='#F5F7FA', size=12, family='Inter'),
+        template='plotly_dark',
+        plot_bgcolor='#1E2A44',
+        paper_bgcolor='#1E2A44',
+        showlegend=False,
+        margin=dict(l=40, r=40, t=80, b=40),
+        scene=dict(
+            xaxis=dict(title='X (m)', range=[0, facility_size], backgroundcolor='#1E2A44', gridcolor='#4B5EAA'),
+            yaxis=dict(title='Y (m)', range=[0, facility_size], backgroundcolor='#1E2A44', gridcolor='#4B5EAA'),
+            zaxis=dict(title='Time (min)', backgroundcolor='#1E2A44', gridcolor='#4B5EAA')
+        ) if use_3d else None
+    )
     return fig
 
 def plot_worker_density_heatmap(df, facility_size, config, show_entry_exit=True, show_production_lines=True):
     """
-    Plot worker density heatmap.
+    Plot worker density heatmap with error handling.
     """
     x_bins = np.linspace(0, facility_size, 50)
     y_bins = np.linspace(0, facility_size, 50)
@@ -429,30 +449,43 @@ def plot_worker_density_heatmap(df, facility_size, config, show_entry_exit=True,
         colorbar=dict(title='Worker Count', tickfont=dict(color='#F5F7FA'))
     ))
     if show_entry_exit:
-        for point in config['ENTRY_EXIT_POINTS']:
-            fig.add_trace(go.Scatter(
-                x=[point[0]], y=[point[1]],
-                mode='markers+text',
-                marker=dict(size=12, color='#EF4444'),
-                text=['Entry/Exit'],
-                textposition='top center',
-                hoverinfo='none'
-            ))
+        for point in config.get('ENTRY_EXIT_POINTS', []):
+            try:
+                if not isinstance(point, (list, tuple)) or len(point) < 2:
+                    logger.warning(f"Invalid entry/exit point: {point}", extra={'user_action': 'Plot Worker Density Heatmap'})
+                    continue
+                fig.add_trace(go.Scatter(
+                    x=[point[0]], y=[point[1]],
+                    mode='markers+text',
+                    marker=dict(size=12, color='#EF4444'),
+                    text=['Entry/Exit'],
+                    textposition='top center',
+                    hoverinfo='none'
+                ))
+            except (IndexError, TypeError) as e:
+                logger.error(f"Failed to plot entry/exit point {point}: {str(e)}", extra={'user_action': 'Plot Worker Density Heatmap'})
     if show_production_lines:
-        for zone, area in config['WORK_AREAS'].items():
-            fig.add_shape(
-                type="rect",
-                x0=area['center'][0] - 5, x1=area['center'][0] + 5,
-                y0=area['center'][1] - 5, y1=area['center'][1] + 5,
-                line=dict(color='#10B981', width=2, dash='dash'),
-                fillcolor='rgba(16, 185, 129, 0.1)'
-            )
-            fig.add_annotation(
-                x=area['center'][0], y=area['center'][1],
-                text=zone,
-                showarrow=False,
-                font=dict(color='#10B981', size=10)
-            )
+        for zone, area in config.get('WORK_AREAS', {}).items():
+            try:
+                center = area['center']
+                if not isinstance(center, (list, tuple)) or len(center) < 2:
+                    logger.warning(f"Invalid center for zone {zone}: {center}", extra={'user_action': 'Plot Worker Density Heatmap'})
+                    continue
+                fig.add_shape(
+                    type="rect",
+                    x0=center[0] - 5, x1=center[0] + 5,
+                    y0=center[1] - 5, y1=center[1] + 5,
+                    line=dict(color='#10B981', width=2, dash='dash'),
+                    fillcolor='rgba(16, 185, 129, 0.1)'
+                )
+                fig.add_annotation(
+                    x=center[0], y=center[1],
+                    text=zone,
+                    showarrow=False,
+                    font=dict(color='#10B981', size=10)
+                )
+            except (KeyError, TypeError) as e:
+                logger.error(f"Failed to plot production line for zone {zone}: {str(e)}", extra={'user_action': 'Plot Worker Density Heatmap'})
     fig.update_layout(
         title=dict(text='Worker Density Heatmap', x=0.5, font=dict(size=20, family='Inter')),
         xaxis=dict(title='X (m)', range=[0, facility_size], gridcolor='#4B5EAA'),
