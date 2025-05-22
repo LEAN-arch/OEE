@@ -1,12 +1,3 @@
-# main.py
-# Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
-# Enhanced for professional visuals, seamless UX, accessibility, fixed tab rendering, debug mode, and error handling for plot_task_compliance_score.
-# Fixed nesting issue in render_settings_sidebar to prevent StreamlitAPIException.
-# Added input validation for plot_key_metrics_summary to prevent ValueError in visualizations.py.
-# Fixed syntax error in Help Modal (incomplete 'if' statement).
-# Verified import statement for visualizations to resolve SyntaxError at line 14.
-# Added debug log to confirm file parsing.
-
 import logging
 import streamlit as st
 import pandas as pd
@@ -26,7 +17,9 @@ from visualizations import (
 )
 from simulation import simulate_workplace_operations
 from utils import save_simulation_data, load_simulation_data, generate_pdf_report
-from assets import LEAN_LOGO_BASE64
+
+# Placeholder base64 logo (replace with actual base64 string in production)
+LEAN_LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgG6NcxuAAAAAElFTkSuQmCC"
 
 # Debug log to confirm file parsing
 logger = logging.getLogger(__name__)
@@ -190,7 +183,6 @@ st.markdown("""
             padding: 16px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
-        /* Enhanced Summary Cards */
         .summary-card {
             background-color: #2D3B55;
             border-radius: 8px;
@@ -217,7 +209,6 @@ st.markdown("""
             color: #FBBF24;
             margin: 0;
         }
-        /* Plot Container */
         .plot-container {
             background-color: #2D3B55;
             border-radius: 8px;
@@ -225,14 +216,12 @@ st.markdown("""
             margin: 16px 0;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
-        /* Data Table */
         .stDataFrame {
             background-color: #2D3B55;
             border-radius: 8px;
             padding: 16px;
             font-size: 0.875rem;
         }
-        /* Responsive Design */
         @media (max-width: 768px) {
             .main { padding: 16px; }
             h1 { font-size: 2rem; }
@@ -255,7 +244,6 @@ st.markdown("""
                 font-size: 0.875rem;
             }
         }
-        /* Loading Spinner */
         .spinner {
             display: flex;
             justify-content: center;
@@ -275,7 +263,6 @@ st.markdown("""
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        /* Onboarding Modal */
         .onboarding-modal {
             background-color: #2D3B55;
             border-radius: 8px;
@@ -301,7 +288,7 @@ def display_loading(message):
     with st.container():
         st.markdown(f'<div class="spinner"></div><p style="text-align: center; color: #F5F7FA;">{message}</p>', unsafe_allow_html=True)
 
-# Sidebar for settings with fixed nesting issue
+# Sidebar for settings
 def render_settings_sidebar():
     with st.sidebar:
         st.markdown(
@@ -394,7 +381,7 @@ def render_settings_sidebar():
                     logger.error(f"Failed to generate report: {str(e)}", extra={'user_action': 'Download PDF Report'})
                     st.error(f"Failed to generate report: {str(e)}.")
 
-        # Export Options (moved out of nested expander)
+        # Export Options
         with st.expander("📊 Export Options"):
             if 'simulation_results' in st.session_state:
                 if st.button("Export Plots as PNG", key="export_png"):
@@ -531,10 +518,10 @@ def main():
                     <h3>Welcome to the Dashboard!</h3>
                     <p>Explore key features:</p>
                     <ul style="color: #D1D5DB; line-height: 1.6;">
-                        <li><-nanodisabled>Sidebar</nanodisabled>: Adjust simulation settings and navigate sections.</li>
-                        <li><nanodisabled>Tabs</nanodisabled>: View metrics, worker insights, and more.</li>
-                        <li><nanodisabled>Charts</nanodisabled>: Hover for details, use sliders to filter, export as PNG.</li>
-                        <li><nanodisabled>Export</nanodisabled>: Download data as CSV or generate PDF reports.</li>
+                        <li><b>Sidebar</b>: Adjust simulation settings and navigate sections.</li>
+                        <li><b>Tabs</b>: View metrics, worker insights, and more.</li>
+                        <li><b>Charts</b>: Hover for details, use sliders to filter, export as PNG.</li>
+                        <li><b>Export</b>: Download data as CSV or generate PDF reports.</li>
                     </ul>
                     <p>Click below to start exploring!</p>
                 </div>
@@ -550,11 +537,11 @@ def main():
                     <h3>Help & Documentation</h3>
                     <p>Navigate the dashboard:</p>
                     <ul style="color: #D1D5DB; line-height: 1.6;">
-                        <li><nanodisabled>Overview</nanodisabled>: High-level metrics with insights.</li>
-                        <li><nanodisabled>Operational Metrics</nanodisabled>: Trends for performance.</li>
-                        <li><nanodisabled>Worker Insights</nanodisabled>: Well-being and safety data.</li>
-                        <li><nanodisabled>Downtime</nanodisabled>: Analyze downtime trends.</li>
-                        <li><nanodisabled>Glossary</nanodisabled>: Metric definitions.</li>
+                        <li><b>Overview</b>: High-level metrics with insights.</li>
+                        <li><b>Operational Metrics</b>: Trends for performance.</li>
+                        <li><b>Worker Insights</b>: Well-being and safety data.</li>
+                        <li><b>Downtime</b>: Analyze downtime trends.</li>
+                        <li><b>Glossary</b>: Metric definitions.</li>
                     </ul>
                     <p>Contact support@xai.com for assistance.</p>
                 </div>
@@ -611,8 +598,13 @@ def main():
                 total_downtime = inputs["total_downtime"]
 
                 # Call plot_key_metrics_summary
-                summary_figs = plot_key_metrics_summary(compliance_mean, proximity_mean, wellbeing_mean, total_downtime)
-                
+                try:
+                    summary_figs = plot_key_metrics_summary(compliance_mean, proximity_mean, wellbeing_mean, total_downtime)
+                except Exception as e:
+                    logger.error(f"Failed to plot key metrics: {str(e)}", extra={'user_action': 'Render Overview Metrics'})
+                    st.error(f"Error rendering key metrics: {str(e)}.")
+                    summary_figs = []
+
                 # Enhanced Metrics Display
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
@@ -909,18 +901,18 @@ def main():
             st.header("Glossary", divider="grey")
             st.markdown("""
                 ### Metric Definitions
-                - <nanodisabled>Task Compliance Score</nanodisabled>: Percentage of tasks completed correctly and on time (0–100%). Measures adherence to operational protocols.
-                - <nanodisabled>Collaboration Proximity Index</nanodisabled>: Percentage of workers within 5 meters of colleagues (0–100%). Indicates teamwork and communication opportunities.
-                - <nanodisabled>Operational Recovery Score</nanodisabled>: Ability to maintain output after disruptions (0–100%). Reflects resilience to unexpected events.
-                - <nanodisabled>Worker Well-Being Index</nanodisabled>: Composite score of fatigue, stress, and satisfaction (0–100%). Tracks worker health and morale.
-                - <nanodisabled>Psychological Safety Score</nanodisabled>: Comfort level in reporting issues or suggesting improvements (0–100%). Indicates a supportive work environment.
-                - <nanodisabled>Uptime</nanodisabled>: Percentage of time equipment is operational (0–100%). Measures equipment reliability.
-                - <nanodisabled>Throughput</nanodisabled>: Percentage of maximum production rate achieved (0–100%). Indicates production efficiency.
-                - <nanodisabled>Quality</nanodisabled>: Percentage of products meeting quality standards (0–100%). Reflects output consistency.
-                - <nanodisabled>OEE (Overall Equipment Effectiveness)</nanodisabled>: Combined score of uptime, throughput, and quality (0–100%). Holistic measure of operational performance.
-                - <nanodisabled>Productivity Loss</nanodisabled>: Percentage of potential output lost due to inefficiencies or disruptions (0–100%).
-                - <nanodisabled>Downtime</nanodisabled>: Total minutes of unplanned operational stops. Tracks interruptions to workflow.
-                - <nanodisabled>Task Completion Rate</nanodisabled>: Percentage of tasks completed per time interval (0–100%). Measures task efficiency over time.
+                - <b>Task Compliance Score</b>: Percentage of tasks completed correctly and on time (0–100%). Measures adherence to operational protocols.
+                - <b>Collaboration Proximity Index</b>: Percentage of workers within 5 meters of colleagues (0–100%). Indicates teamwork and communication opportunities.
+                - <b>Operational Recovery Score</b>: Ability to maintain output after disruptions (0–100%). Reflects resilience to unexpected events.
+                - <b>Worker Well-Being Index</b>: Composite score of fatigue, stress, and satisfaction (0–100%). Tracks worker health and morale.
+                - <b>Psychological Safety Score</b>: Comfort level in reporting issues or suggesting improvements (0–100%). Indicates a supportive work environment.
+                - <b>Uptime</b>: Percentage of time equipment is operational (0–100%). Measures equipment reliability.
+                - <b>Throughput</b>: Percentage of maximum production rate achieved (0–100%). Indicates production efficiency.
+                - <b>Quality</b>: Percentage of products meeting quality standards (0–100%). Reflects output consistency.
+                - <b>OEE (Overall Equipment Effectiveness)</b>: Combined score of uptime, throughput, and quality (0–100%). Holistic measure of operational performance.
+                - <b>Productivity Loss</b>: Percentage of potential output lost due to inefficiencies or disruptions (0–100%).
+                - <b>Downtime</b>: Total minutes of unplanned operational stops. Tracks interruptions to workflow.
+                - <b>Task Completion Rate</b>: Percentage of tasks completed per time interval (0–100%). Measures task efficiency over time.
             """)
 
 if __name__ == "__main__":
