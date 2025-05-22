@@ -1,12 +1,7 @@
 # visualizations.py
-# ... (Assumed to be the same as the last fully optimized version provided,
-#      which already includes plot_team_cohesion, plot_perceived_workload,
-#      and an updated plot_downtime_trend that accepts a list of dicts for downtime events)
-#      Make sure _get_colors and _apply_common_layout_settings are robust.
-#      Ensure plot_downtime_causes_pie is present.
 import plotly.graph_objects as go
 import plotly.express as px
-from plotly.subplots import make_subplots
+from plotly.subplots import make_subplots # Keep for potential future use
 import numpy as np
 import pandas as pd
 
@@ -52,7 +47,7 @@ def plot_task_compliance_score(data, disruption_points, forecast_data=None, z_sc
     if forecast_data and len(forecast_data)==len(data): fig.add_trace(go.Scatter(x=x_vals, y=forecast_data, mode='lines', name='Forecast', line=dict(color=h_c, dash='dashdot', width=1.5), hovertemplate='Forecast: %{y:.1f}%<extra></extra>'))
     for dp_step in disruption_points: 
         if 0 <= dp_step < len(data): fig.add_vline(x=dp_step, line=dict(color=a_c, width=1.5, dash="longdash"), annotation_text="D", annotation_position="top left", annotation=dict(font_size=10, bgcolor="rgba(250,204,21,0.7)", borderpad=2, textangle=0)) 
-    _apply_common_layout_settings(fig, "Task Compliance Score Trend", high_contrast, yaxis_title="Score (%)", yaxis_range=[max(0, min(data)-15 if data else 0), min(105, max(data)+15 if data else 100)]); return fig
+    _apply_common_layout_settings(fig, "Task Compliance Score Trend", high_contrast, yaxis_title="Score (%)", yaxis_range=[max(0, (min(data) if data else 0)-15), min(105, (max(data) if data else 100)+15)]); return fig # Dynamic yaxis range
 
 def plot_collaboration_proximity_index(data, disruption_points, forecast_data=None, high_contrast=False):
     p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast); fig = go.Figure(); x_vals = list(range(len(data)))
@@ -60,7 +55,7 @@ def plot_collaboration_proximity_index(data, disruption_points, forecast_data=No
     if forecast_data and len(forecast_data)==len(data): fig.add_trace(go.Scatter(x=x_vals, y=forecast_data, mode='lines', name='Forecast', line=dict(color=h_c, dash='dashdot', width=1.5), hovertemplate='Forecast: %{y:.1f}%<extra></extra>'))
     for dp_step in disruption_points:
         if 0 <= dp_step < len(data): fig.add_vline(x=dp_step, line=dict(color=a_c, width=1.5, dash="longdash"), annotation_text="D", annotation_position="bottom right", annotation=dict(font_size=10, bgcolor="rgba(250,204,21,0.7)", borderpad=2))
-    _apply_common_layout_settings(fig, "Collaboration Proximity Index Trend", high_contrast, yaxis_title="Index (%)", yaxis_range=[max(0, min(data)-15 if data else 0), min(105, max(data)+15 if data else 100)]); return fig
+    _apply_common_layout_settings(fig, "Collaboration Proximity Index Trend", high_contrast, yaxis_title="Index (%)", yaxis_range=[max(0, (min(data) if data else 0)-15), min(105, (max(data) if data else 100)+15)]); return fig
 
 def plot_operational_recovery(recovery_data, productivity_loss_data, high_contrast=False):
     p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast); fig = go.Figure(); x_vals = list(range(len(recovery_data)))
@@ -119,8 +114,8 @@ def plot_worker_wellbeing(scores, triggers, high_contrast=False):
     for trigger_type, points in triggers.items():
         flat_points = []; processed_trigger_type = trigger_type
         if isinstance(points, list): flat_points = points
-        elif isinstance(points, dict) and trigger_type == 'work_area': all_wa_points = set(); [all_wa_points.update(p_list) for p_list in points.values() if p_list]; flat_points = list(all_wa_points); processed_trigger_type = 'work_area_general'
-        valid_points = sorted(list(set(p for p in flat_points if 0 <= p < len(scores))))
+        elif isinstance(points, dict) and trigger_type == 'work_area': all_wa_points = set(); [all_wa_points.update(p_list) for p_list in points.values() if isinstance(p_list, list)]; flat_points = list(all_wa_points); processed_trigger_type = 'work_area_general'
+        valid_points = sorted(list(set(p for p in flat_points if isinstance(p, (int, float)) and 0 <= p < len(scores)))) # Check type of p
         if valid_points: fig.add_trace(go.Scatter(x=valid_points, y=[scores[p] for p in valid_points], mode='markers', name=f'{processed_trigger_type.replace("_", " ").title()} Alert', marker=dict(color=trigger_colors.get(processed_trigger_type, n_c), size=10, symbol=trigger_symbols.get(processed_trigger_type, 'circle-open'), line=dict(width=1, color=p_c if high_contrast else "#FFFFFF" )), hovertemplate=f'{processed_trigger_type.replace("_", " ").title()}: %{{y:.1f}}% at Step %{{x}}<extra></extra>'))
     _apply_common_layout_settings(fig, "Worker Well-Being Index Trend", high_contrast, yaxis_title="Index (%)", yaxis_range=[0, 105]); return fig
 
@@ -149,7 +144,26 @@ def plot_team_cohesion(data, high_contrast=False):
 
 def plot_perceived_workload(data, high_workload_threshold, very_high_workload_threshold, high_contrast=False):
     p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast); fig = go.Figure(); x_vals = list(range(len(data)))
-    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines+markers', name='Perceived Workload', line=dict(color=p_c, width=1.5), marker=dict(size=5, color=[cr_c if val >= very_high_workload_threshold else a_c if val >= high_workload_threshold else p_c for val in data]), hovertemplate='Workload: %{y:.1f}/10<extra></extra>'))
+    marker_colors = [cr_c if val >= very_high_workload_threshold else a_c if val >= high_workload_threshold else p_c for val in data]
+    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines+markers', name='Perceived Workload', line=dict(color=p_c, width=1.5), marker=dict(size=5, color=marker_colors), hovertemplate='Workload: %{y:.1f}/10<extra></extra>')) # Removed line=dict from marker
     fig.add_hline(y=high_workload_threshold, line=dict(color=a_c, width=1.5, dash="dash"), annotation_text=f"High Load ({high_workload_threshold})", annotation_position="bottom right", annotation_font=dict(color=a_c, size=10))
     fig.add_hline(y=very_high_workload_threshold, line=dict(color=cr_c, width=1.5, dash="dash"), annotation_text=f"Very High ({very_high_workload_threshold})", annotation_position="top right", annotation_font=dict(color=cr_c, size=10))
     _apply_common_layout_settings(fig, "Perceived Workload Index (0-10 Scale)", high_contrast, yaxis_title="Workload Index", yaxis_range=[0, 10.5]); return fig
+
+def plot_downtime_causes_pie(downtime_events_list, high_contrast=False):
+    p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast)
+    causes_summary = {}; total_downtime_duration_for_pie = 0 
+    for event in downtime_events_list:
+        duration = event.get('duration', 0); cause = event.get('cause', 'Unknown')
+        if duration > 0 and cause != "None" and cause != "Unknown": 
+            causes_summary[cause] = causes_summary.get(cause, 0) + duration
+            total_downtime_duration_for_pie += duration
+    if not causes_summary:
+        fig = go.Figure(); _apply_common_layout_settings(fig, "Downtime by Cause (No Downtime Events)", high_contrast, show_legend=False)
+        fig.add_annotation(text="No categorized downtime events in selected period.", showarrow=False, font_size=12); return fig
+    labels = list(causes_summary.keys()); values = list(causes_summary.values()); num_causes = len(labels)
+    color_sequence = px.colors.qualitative.Pastel if not high_contrast else px.colors.qualitative.Vivid # Softer for standard, vivid for HC
+    pie_colors = [color_sequence[i % len(color_sequence)] for i in range(num_causes)]
+    fig = go.Figure(data=[go.Pie(labels=labels, values=values, hole=.4, pull=[0.02]*num_causes, marker_colors=pie_colors, textinfo='label+percent', insidetextorientation='horizontal', hovertemplate="<b>Cause:</b> %{label}<br><b>Duration:</b> %{value:.1f} min<br><b>Share:</b> %{percent}<extra></extra>", sort=False)])
+    _apply_common_layout_settings(fig, f"Downtime Distribution by Cause (Total: {total_downtime_duration_for_pie:.0f} min)", high_contrast, show_legend=True)
+    fig.update_layout(legend_title_text="Causes", legend_tracegroupgap=10, legend_itemclick="toggleothers"); return fig
