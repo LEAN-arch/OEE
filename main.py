@@ -1,6 +1,6 @@
 # main.py
 # Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
-# Enhanced for professional visuals, seamless UX, accessibility, and fixed tab rendering.
+# Enhanced for professional visuals, seamless UX, accessibility, fixed tab rendering, and debug mode.
 
 import logging
 import streamlit as st
@@ -267,7 +267,7 @@ def display_loading(message):
     with st.container():
         st.markdown(f'<div class="spinner"></div><p style="text-align: center; color: #F5F7FA;">{message}</p>', unsafe_allow_html=True)
 
-# Sidebar for settings with improved UX
+# Sidebar for settings with improved UX and debug mode
 def render_settings_sidebar():
     with st.sidebar:
         st.markdown(
@@ -323,6 +323,11 @@ def render_settings_sidebar():
                 help="Use 3D scatter plot for team distribution.",
                 key="use_3d_distribution"
             )
+            debug_mode = st.checkbox(
+                "Debug Mode", 
+                help="Show configuration data for debugging.",
+                key="debug_mode"
+            )
 
         # Data Management
         with st.expander("💾 Data"):
@@ -355,6 +360,14 @@ def render_settings_sidebar():
                     logger.error(f"Failed to generate report: {str(e)}", extra={'user_action': 'Download PDF Report'})
                     st.error(f"Failed to generate report: {str(e)}.")
 
+        # Debug Information
+        if debug_mode:
+            with st.expander("🛠️ Debug Info"):
+                st.write("**Entry/Exit Points:**")
+                st.write(DEFAULT_CONFIG.get('ENTRY_EXIT_POINTS', "Not defined"))
+                st.write("**Work Areas:**")
+                st.write(DEFAULT_CONFIG.get('WORK_AREAS', "Not defined"))
+
         # Navigation and Help
         st.header("📋 Navigation", divider="grey")
         tab_names = ["Overview", "Operational Metrics", "Worker Insights", "Downtime", "Glossary"]
@@ -368,7 +381,7 @@ def render_settings_sidebar():
         if st.button("🚀 Take a Tour", key="tour_button"):
             st.session_state.show_tour = True
 
-    return team_size, shift_duration, disruption_intervals, team_initiative, run_simulation, load_data, high_contrast, use_3d_distribution
+    return team_size, shift_duration, disruption_intervals, team_initiative, run_simulation, load_data, high_contrast, use_3d_distribution, debug_mode
 
 # Simulation logic with caching
 @st.cache_data
@@ -419,7 +432,7 @@ def main():
         st.session_state.show_help = False
 
     # Sidebar settings
-    team_size, shift_duration, disruption_intervals, team_initiative, run_simulation, load_data, high_contrast, use_3d_distribution = render_settings_sidebar()
+    team_size, shift_duration, disruption_intervals, team_initiative, run_simulation, load_data, high_contrast, use_3d_distribution, debug_mode = render_settings_sidebar()
 
     # Precompute minutes
     if st.session_state.simulation_results:
@@ -628,18 +641,26 @@ def main():
                             value=int(time_indices[0]),
                             key="team_distribution_step"
                         )
-                        distribution_fig = plot_worker_distribution(
-                            filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=use_3d_distribution,
-                            selected_step=selected_step, show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
-                        )
-                        st.plotly_chart(distribution_fig, use_container_width=True)
+                        try:
+                            distribution_fig = plot_worker_distribution(
+                                filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=use_3d_distribution,
+                                selected_step=selected_step, show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
+                            )
+                            st.plotly_chart(distribution_fig, use_container_width=True)
+                        except Exception as e:
+                            logger.error(f"Failed to plot worker distribution: {str(e)}", extra={'user_action': 'Render Worker Insights'})
+                            st.error(f"Error rendering worker distribution: {str(e)}. Check debug mode for details.")
                     with col_dist2:
                         st.markdown("### Density Heatmap")
-                        heatmap_fig = plot_worker_density_heatmap(
-                            filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG,
-                            show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
-                        )
-                        st.plotly_chart(heatmap_fig, use_container_width=True)
+                        try:
+                            heatmap_fig = plot_worker_density_heatmap(
+                                filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG,
+                                show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
+                            )
+                            st.plotly_chart(heatmap_fig, use_container_width=True)
+                        except Exception as e:
+                            logger.error(f"Failed to plot density heatmap: {str(e)}", extra={'user_action': 'Render Worker Insights'})
+                            st.error(f"Error rendering density heatmap: {str(e)}. Check debug mode for details.")
 
                 with st.expander("Worker Well-Being & Safety"):
                     time_range = st.slider(
