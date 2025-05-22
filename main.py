@@ -106,7 +106,7 @@ def render_settings_sidebar():
             shift_duration = st.slider("Shift Duration (min)", 200, 2000, shift_duration_val, step=2, key="sb_shift_duration_slider", help="Set the total length of the simulated work shift.")
             max_disrupt_time = shift_duration - 2 
             disruption_options = [i * 2 for i in range(max_disrupt_time // 2)] if max_disrupt_time > 0 else []
-            default_disrupt_mins_raw = [i * 2 for i in DEFAULT_CONFIG.get('DISRUPTION_TIMES_MINUTES', [])] # Use new key from config
+            default_disrupt_mins_raw = [i * 2 for i in DEFAULT_CONFIG.get('DISRUPTION_TIMES_MINUTES', [])]
             valid_default_disrupt_mins = [m for m in default_disrupt_mins_raw if m in disruption_options]
             
             session_value_for_disruptions = st.session_state.get('sb_disruption_intervals_multiselect')
@@ -289,21 +289,52 @@ def main():
 
     if sb_run_sim_btn:
         with st.spinner("🚀 Simulating workplace operations..."):
-            try: st.session_state.simulation_results = run_simulation_logic(sb_team_size, sb_shift_duration, sb_disrupt_mins, sb_team_initiative); st.success("✅ Simulation completed!"); logger.info("Simulation run successful.", extra={'user_action': 'Run Simulation - Success'}); st.rerun() 
-            except Exception as e: logger.error(f"Simulation Run Error: {e}", exc_info=True, extra={'user_action': 'Run Simulation - Error'}); st.error(f"❌ Simulation failed: {e}"); st.session_state.simulation_results = None 
+            try: 
+                # Ensure sb_disrupt_mins is a list before passing
+                disrupt_mins_for_sim = sb_disrupt_mins
+                if not isinstance(disrupt_mins_for_sim, list):
+                    logger.error(f"Critical type issue: sb_disrupt_mins was {type(sb_disrupt_mins)} with value {sb_disrupt_mins}. Expected a list. Resetting to empty list for simulation run.")
+                    disrupt_mins_for_sim = [] 
+                
+                st.session_state.simulation_results = run_simulation_logic(
+                    sb_team_size, sb_shift_duration, disrupt_mins_for_sim, sb_team_initiative
+                )
+                st.success("✅ Simulation completed!"); 
+                logger.info("Simulation run successful.", extra={'user_action': 'Run Simulation - Success'}); 
+                st.rerun() 
+            except Exception as e: 
+                logger.error(f"Simulation Run Error: {e}", exc_info=True, extra={'user_action': 'Run Simulation - Error'})
+                st.error(f"❌ Simulation failed: {e}"); 
+                st.session_state.simulation_results = None 
+    
     if sb_load_data_btn:
         with st.spinner("🔄 Loading saved data..."):
             try:
                 loaded_data = load_simulation_data() 
                 if loaded_data and isinstance(loaded_data, dict):
-                    st.session_state.simulation_results = loaded_data; cfg = loaded_data.get('config_params', {})
+                    st.session_state.simulation_results = loaded_data; 
+                    cfg = loaded_data.get('config_params', {})
+                    
+                    loaded_disrupt_mins = cfg.get('DISRUPTION_INTERVALS_MINUTES', []) 
+                    if not isinstance(loaded_disrupt_mins, list):
+                        logger.warning(f"Loaded disruption_intervals_minutes was not a list. Defaulting to empty. Value: {loaded_disrupt_mins}")
+                        loaded_disrupt_mins = []
+
                     st.session_state.sb_team_size_slider = cfg.get('TEAM_SIZE', st.session_state.get('sb_team_size_slider'))
                     st.session_state.sb_shift_duration_slider = cfg.get('SHIFT_DURATION_MINUTES', st.session_state.get('sb_shift_duration_slider'))
                     st.session_state.sb_team_initiative_selectbox = cfg.get('TEAM_INITIATIVE', st.session_state.get('sb_team_initiative_selectbox'))
-                    st.session_state.sb_disruption_intervals_multiselect = cfg.get('DISRUPTION_INTERVALS_MINUTES', st.session_state.get('sb_disruption_intervals_multiselect'))
-                    st.success("✅ Data loaded successfully!"); logger.info("Saved data loaded successfully.", extra={'user_action': 'Load Data - Success'}); st.rerun() 
-                else: st.error("❌ Failed to load data or data is not in the expected dictionary format."); logger.warning("Load data failed or invalid format.", extra={'user_action': 'Load Data - Fail/Invalid'})
-            except Exception as e: logger.error(f"Load Data Error: {e}", exc_info=True, extra={'user_action': 'Load Data - Error'}); st.error(f"❌ Failed to load data: {e}"); st.session_state.simulation_results = None
+                    st.session_state.sb_disruption_intervals_multiselect = loaded_disrupt_mins
+                    
+                    st.success("✅ Data loaded successfully!"); 
+                    logger.info("Saved data loaded successfully.", extra={'user_action': 'Load Data - Success'}); 
+                    st.rerun() 
+                else: 
+                    st.error("❌ Failed to load data or data is not in the expected dictionary format.")
+                    logger.warning("Load data failed or invalid format.", extra={'user_action': 'Load Data - Fail/Invalid'})
+            except Exception as e: 
+                logger.error(f"Load Data Error: {e}", exc_info=True, extra={'user_action': 'Load Data - Error'})
+                st.error(f"❌ Failed to load data: {e}"); 
+                st.session_state.simulation_results = None
     
     if st.session_state.get('show_tour'): 
         with st.container(): st.markdown("""<div class="onboarding-modal"><h3>🚀 Quick Dashboard Tour</h3><p>Welcome! This dashboard helps you monitor and analyze workplace shift operations...</p><ul><li><b>Sidebar Controls:</b> Adjust simulation parameters...</li><li><b>Main Tabs:</b> Navigate through different views...</li><li><b>Interactive Charts:</b> Hover for details...</li></ul><p>Start by running a new simulation or loading previous data!</p></div>""", unsafe_allow_html=True) 
@@ -315,7 +346,7 @@ def main():
     tabs_main_names = ["📊 Overview & Insights", "📈 Operational Metrics", "👥 Worker Insights", "⏱️ Downtime Analysis", "📖 Glossary"]
     tabs = st.tabs(tabs_main_names)
     plot_config_interactive = {'displaylogo': False, 'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'resetScale2d', 'zoomIn2d', 'zoomOut2d', 'pan2d'], 'toImageButtonOptions': {'format': 'png', 'filename': 'plot_export', 'scale': 2}}; plot_config_minimal = {'displayModeBar': False}
-    current_high_contrast = st.session_state.get('sb_high_contrast_checkbox', False)
+    current_high_contrast = st.session_state.get('sb_high_contrast_checkbox', False) # Use widget key directly
 
     with tabs[0]: 
         st.header("📊 Key Performance Indicators & Actionable Insights", divider="blue")
