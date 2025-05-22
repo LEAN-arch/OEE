@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 main.py
 Streamlit dashboard for the Industrial Workplace Shift Monitoring Dashboard.
@@ -7,19 +8,41 @@ Provides an interactive UI with advanced visualizations and controls.
 import logging
 import streamlit as st
 import pandas as pd
-from simulation import simulate_workplace_operations
-from visualizations import (
-    plot_task_compliance_trend,
-    plot_worker_collaboration_trend,
-    plot_operational_resilience,
-    plot_operational_efficiency,
-    plot_oee_gauge,
-    plot_worker_distribution,
-    plot_worker_density_heatmap,
-    plot_worker_wellbeing,
-    plot_psychological_safety
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    filename='dashboard.log'
 )
-from utils import save_simulation_data, logger
+logger = logging.getLogger(__name__)
+
+# Import visualizations with error handling
+try:
+    logger.info("Attempting to import visualizations module")
+    from visualizations import (
+        plot_task_compliance_trend,
+        plot_worker_collaboration_trend,
+        plot_operational_resilience,
+        plot_operational_efficiency,
+        plot_oee_gauge,
+        plot_worker_distribution,
+        plot_worker_density_heatmap,
+        plot_worker_wellbeing,
+        plot_psychological_safety
+    )
+    logger.info("Visualizations imported successfully")
+except SyntaxError as se:
+    logger.error(f"SyntaxError during visualizations import: {str(se)}")
+    st.error(f"Failed to load visualizations: SyntaxError - {str(se)}. Check dashboard.log.")
+    raise
+except ImportError as ie:
+    logger.error(f"ImportError during visualizations import: {str(ie)}")
+    st.error(f"Failed to load visualizations: ImportError - {str(ie)}. Check dashboard.log.")
+    raise
+
+from simulation import simulate_workplace_operations
+from utils import save_simulation_data
 from config import DEFAULT_CONFIG
 
 # Streamlit page config
