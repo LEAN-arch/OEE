@@ -5,7 +5,7 @@ import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
-SAVE_FILE_PATH = "simulation_data_cache.pkl"
+SAVE_FILE_PATH = "simulation_data_cache.pkl" # Consistent naming
 
 def save_simulation_data(simulation_results_dict: dict):
     try:
