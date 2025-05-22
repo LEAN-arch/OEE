@@ -23,7 +23,6 @@ logger.info("Main.py: Parsed imports and logger configured.", extra={'user_actio
 
 st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.2\nInsights for operational excellence & psychosocial well-being."})
 
-# CSS for Dark Theme (as previously optimized)
 st.markdown("""
     <style>
         /* Base Styles */
@@ -368,7 +367,6 @@ def main():
     plot_config_interactive = {'displaylogo': False, 'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'resetScale2d', 'zoomIn2d', 'zoomOut2d', 'pan2d'], 'toImageButtonOptions': {'format': 'png', 'filename': 'plot_export', 'scale': 2}}; plot_config_minimal = {'displayModeBar': False}
     current_high_contrast_setting = st.session_state.get('sb_high_contrast_checkbox', False)
 
-    # --- TAB 0: OVERVIEW & INSIGHTS ---
     with tabs[0]: 
         st.header("📊 Key Performance Indicators & Actionable Insights", divider="blue")
         if st.session_state.simulation_results:
@@ -389,12 +387,14 @@ def main():
                         with cols_gauges[i % len(cols_gauges)]: st.plotly_chart(fig_gauge, use_container_width=True, config=plot_config_minimal)
                 else: st.caption("Gauge charts could not be generated.")
             except Exception as e: logger.error(f"Overview Gauges Plotting Error: {e}", exc_info=True); st.error("⚠️ Error rendering overview gauges.")
+            
             st.markdown("---"); st.subheader("💡 Key Insights & Leadership Actions")
             actionable_insights = get_actionable_insights(sim_data, effective_config) 
             if actionable_insights:
                 for insight in actionable_insights:
                     alert_class = f"alert-{insight['type']}"; st.markdown(f'<div class="{alert_class}"><p class="insight-title">{insight["title"]}</p><p class="insight-text">{insight["text"]}</p></div>', unsafe_allow_html=True)
             else: st.info("✅ No critical alerts or specific insights identified. Performance appears stable against defined thresholds.", icon="👍")
+            
             with st.expander("View Detailed Overview Data Table", expanded=False):
                 downtime_durations_for_table = [event.get('duration', np.nan) for event in safe_get(sim_data, 'downtime_minutes', [])]
                 num_s = len(downtime_durations_for_table)
@@ -404,7 +404,6 @@ def main():
                 else: st.caption("No detailed overview data.")
         else: st.info("ℹ️ Run a simulation or load data to view the Overview & Insights.", icon="📊")
 
-    # --- TAB 1: OPERATIONAL METRICS ---
     with tabs[1]: 
         st.header("📈 Operational Performance Trends", divider="blue")
         if st.session_state.simulation_results:
@@ -462,7 +461,6 @@ def main():
             st.markdown("""<div class='alert-info insight-text' style='margin-top:1rem;'><p class="insight-title">Review Operational Bottlenecks:</p><ul><li><b>Low Compliance/OEE:</b> If Task Compliance or OEE components (Uptime, Throughput, Quality) are consistently low or dip significantly, investigate the root causes. Are these correlated with disruptions, high workload periods, or specific zones?</li><li><b>Recovery Performance:</b> Evaluate how quickly Operational Recovery returns to target after disruptions. Slow recovery indicates a need for improved contingency plans or resource flexibility.</li><li><b>Collaboration Impact:</b> If Collaboration Index is low and operational metrics suffer, it may indicate communication breakdowns or poor team synergy affecting task handoffs. Consider targeted team interventions or process clarifications.</li></ul><p class="insight-title">Strategic Considerations:</p><p>Use the "Operational Initiative" setting in the sidebar to simulate changes (e.g., new break policies, recognition programs). Compare these scenarios against a "Standard Operations" baseline to quantify the ROI and impact of leadership decisions on operational KPIs and worker well-being.</p></div>""", unsafe_allow_html=True)
         else: st.info("ℹ️ Run a simulation or load data to view Operational Metrics.", icon="📈")
 
-    # --- TAB 2: WORKER WELL-BEING ---
     with tabs[2]: 
         st.header("👥 Worker Well-being & Psychosocial Factors", divider="blue")
         if st.session_state.simulation_results:
@@ -514,8 +512,8 @@ def main():
                 filt_team_pos_df_exp = team_pos_df_all
                 if not filt_team_pos_df_exp.empty: filt_team_pos_df_exp = filt_team_pos_df_exp[(filt_team_pos_df_exp['step'] >= shared_start_idx) & (filt_team_pos_df_exp['step'] < shared_end_idx)]; 
                 if zone_sel_dist != "All" and not filt_team_pos_df_exp.empty : filt_team_pos_df_exp = filt_team_pos_df_exp[filt_team_pos_df_exp['zone'] == zone_sel_dist]
-                show_ee_exp = st.checkbox("Show E/E Points (Spatial Plots)", value=st.session_state.get('worker_show_ee_checkbox_dist_tab_mainplots_unique',True), key="worker_show_ee_checkbox_dist_tab_mainplots_unique") 
-                show_pl_exp = st.checkbox("Show Area Outlines (Spatial Plots)", value=st.session_state.get('worker_show_pl_checkbox_dist_tab_mainplots_unique',True), key="worker_show_pl_checkbox_dist_tab_mainplots_unique")
+                show_ee_exp = st.checkbox("Show E/E Points (Spatial Plots)", value=st.session_state.get('worker_show_ee_checkbox_dist_tab_mainplots',True), key="worker_show_ee_checkbox_dist_tab_mainplots_unique") 
+                show_pl_exp = st.checkbox("Show Area Outlines (Spatial Plots)", value=st.session_state.get('worker_show_pl_checkbox_dist_tab_mainplots',True), key="worker_show_pl_checkbox_dist_tab_mainplots_unique")
                 cols_dist_exp = st.columns(2)
                 with cols_dist_exp[0]:
                     st.markdown("<h5>Worker Positions (Snapshot)</h5>", unsafe_allow_html=True)
@@ -620,10 +618,6 @@ def main():
             <details><summary><strong>Downtime (per interval)</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">The total duration (in minutes) of unplanned operational stops or non-productive time within each measured time interval. Tracks interruptions to workflow. <em>Lower is better.</em></p></details>
             <details><summary><strong>Task Completion Rate</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">The percentage of assigned tasks that are successfully completed within a given time interval. Measures task throughput and efficiency over time. <em>Range: 0-100%. Higher is better.</em></p></details>
             </div>
-        """, unsafe_allow_html=True)
-
-if __name__ == "__main__":
-    main()
         """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
