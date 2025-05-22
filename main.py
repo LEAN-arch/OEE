@@ -301,27 +301,33 @@ def render_settings_sidebar():
         with st.expander("🧪 Simulation", expanded=True):
             team_size = st.slider(
                 "Team Size",
-                min_value=10, max_value=100, value=DEFAULT_CONFIG['TEAM_SIZE'],
+                min_value=10, max_value=100, value=st.session_state.get('team_size', DEFAULT_CONFIG['TEAM_SIZE']),
                 help="Number of workers in the simulation.",
                 key="team_size"
             )
             shift_duration = st.slider(
                 "Shift Duration (minutes)",
-                min_value=200, max_value=2000, value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'], step=2,
+                min_value=200, max_value=2000, value=st.session_state.get('shift_duration', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']), step=2,
                 help="Shift duration in minutes (2-minute intervals).",
                 key="shift_duration"
             )
+            
+            # Ensure default disruption intervals are valid for the current shift_duration
+            max_step_for_disruption = shift_duration // 2
+            valid_default_disruption_steps = [s for s in DEFAULT_CONFIG['DISRUPTION_INTERVALS'] if s < max_step_for_disruption]
+            default_disruption_minutes = [i * 2 for i in valid_default_disruption_steps]
+
             disruption_intervals = st.multiselect(
                 "Disruption Times (minutes)",
-                options=[i * 2 for i in range(shift_duration // 2)],
-                default=[i * 2 for i in DEFAULT_CONFIG['DISRUPTION_INTERVALS']],
+                options=[i * 2 for i in range(max_step_for_disruption)],
+                default=st.session_state.get('disruption_intervals_minutes', default_disruption_minutes),
                 help="Times when disruptions occur.",
-                key="disruption_intervals"
+                key="disruption_intervals_minutes" # Changed key to avoid conflict if 'disruption_intervals' is used for steps
             )
             team_initiative = st.selectbox(
                 "Team Initiative",
                 options=["More frequent breaks", "Team recognition"],
-                index=0,
+                index=0, # Consider storing index in session_state if needed
                 help="Strategy to improve well-being and safety.",
                 key="team_initiative"
             )
@@ -357,71 +363,89 @@ def render_settings_sidebar():
                 key="load_data", 
                 help="Load previously saved simulation data."
             )
-            if st.button(
-                "Download PDF Report", 
-                key="download_report", 
-                help="Generate a PDF report."
-            ) and 'simulation_results' in st.session_state:
-                try:
-                    summary_df = pd.DataFrame({
-                        'step': range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS']),
-                        'time_minutes': [i * 2 for i in range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS'])],
-                        'task_compliance': st.session_state.simulation_results[1]['data'],
-                        'collaboration_proximity': st.session_state.simulation_results[2]['data'],
-                        'operational_recovery': st.session_state.simulation_results[3],
-                        'worker_wellbeing': st.session_state.simulation_results[6]['scores'],
-                        'psychological_safety': st.session_state.simulation_results[7],
-                        'productivity_loss': st.session_state.simulation_results[5],
-                        'downtime_minutes': st.session_state.simulation_results[9],
-                        'task_completion_rate': st.session_state.simulation_results[10]
-                    })
-                    generate_pdf_report(summary_df)
-                    st.success("PDF report generated as 'workplace_report.tex'. Compile with LaTeX to view.")
-                except Exception as e:
-                    logger.error(f"Failed to generate report: {str(e)}", extra={'user_action': 'Download PDF Report'})
-                    st.error(f"Failed to generate report: {str(e)}.")
+            
+            can_generate_report = 'simulation_results' in st.session_state and st.session_state.simulation_results is not None
+            if st.button("Download PDF Report", key="download_report", help="Generate a PDF report.", disabled=not can_generate_report):
+                if can_generate_report: # Double check, though disabled should prevent click
+                    try:
+                        sim_results = st.session_state.simulation_results
+                        num_sim_steps = len(sim_results['downtime_minutes']) # Use actual data length
+                        summary_df = pd.DataFrame({
+                            'step': range(num_sim_steps),
+                            'time_minutes': [i * 2 for i in range(num_sim_steps)],
+                            'task_compliance': sim_results['task_compliance']['data'],
+                            'collaboration_proximity': sim_results['collaboration_proximity']['data'],
+                            'operational_recovery': sim_results['operational_recovery'],
+                            'worker_wellbeing': sim_results['worker_wellbeing']['scores'],
+                            'psychological_safety': sim_results['psychological_safety'],
+                            'productivity_loss': sim_results['productivity_loss'],
+                            'downtime_minutes': sim_results['downtime_minutes'],
+                            'task_completion_rate': sim_results['task_completion_rate']
+                        })
+                        generate_pdf_report(summary_df) # Assumes generate_pdf_report is adapted for this df structure
+                        st.success("PDF report generated as 'workplace_report.tex'. Compile with LaTeX to view.")
+                    except Exception as e:
+                        logger.error(f"Failed to generate report: {str(e)}", extra={'user_action': 'Download PDF Report'})
+                        st.error(f"Failed to generate report: {str(e)}.")
+                else:
+                     st.info("Run a simulation or load data to enable PDF report generation.", icon="ℹ️")
+
 
         # Export Options
         with st.expander("📊 Export Options"):
-            if 'simulation_results' in st.session_state:
+            if 'simulation_results' in st.session_state and st.session_state.simulation_results:
                 if st.button("Export Plots as PNG", key="export_png"):
-                    st.info("Exporting plots as PNG is handled within each plot.")
-                if st.button("Export Data as CSV", key="export_csv"):
-                    summary_df = pd.DataFrame({
-                        'step': range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS']),
-                        'time_minutes': [i * 2 for i in range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS'])],
-                        'task_compliance': st.session_state.simulation_results[1]['data'],
-                        'collaboration_proximity': st.session_state.simulation_results[2]['data'],
-                        'operational_recovery': st.session_state.simulation_results[3],
-                        'worker_wellbeing': st.session_state.simulation_results[6]['scores'],
-                        'psychological_safety': st.session_state.simulation_results[7],
-                        'productivity_loss': st.session_state.simulation_results[5],
-                        'downtime_minutes': st.session_state.simulation_results[9],
-                        'task_completion_rate': st.session_state.simulation_results[10]
-                    })
-                    st.download_button(
-                        label="Download Summary CSV",
-                        data=summary_df.to_csv(index=False),
-                        file_name="workplace_summary.csv",
-                        mime="text/csv"
-                    )
+                    st.info("Exporting plots as PNG is handled within each plot's display options (camera icon).")
+                
+                sim_results = st.session_state.simulation_results
+                num_sim_steps_csv = len(sim_results['downtime_minutes']) # Use actual data length
+                summary_df_csv = pd.DataFrame({
+                    'step': range(num_sim_steps_csv),
+                    'time_minutes': [i * 2 for i in range(num_sim_steps_csv)],
+                    'task_compliance': sim_results['task_compliance']['data'],
+                    'collaboration_proximity': sim_results['collaboration_proximity']['data'],
+                    'operational_recovery': sim_results['operational_recovery'],
+                    'worker_wellbeing': sim_results['worker_wellbeing']['scores'],
+                    'psychological_safety': sim_results['psychological_safety'],
+                    'productivity_loss': sim_results['productivity_loss'],
+                    'downtime_minutes': sim_results['downtime_minutes'],
+                    'task_completion_rate': sim_results['task_completion_rate']
+                })
+                st.download_button(
+                    label="Download Summary CSV",
+                    data=summary_df_csv.to_csv(index=False).encode('utf-8'),
+                    file_name="workplace_summary.csv",
+                    mime="text/csv",
+                    key="download_csv"
+                )
             else:
                 st.info("Run a simulation to enable export options.", icon="ℹ️")
 
         # Debug Information
-        if debug_mode:
+        if debug_mode: # This uses st.session_state.debug_mode implicitly
             with st.expander("🛠️ Debug Info"):
                 st.write("**Entry/Exit Points:**")
                 st.write(DEFAULT_CONFIG.get('ENTRY_EXIT_POINTS', "Not defined"))
                 st.write("**Work Areas:**")
                 st.write(DEFAULT_CONFIG.get('WORK_AREAS', "Not defined"))
+                if 'simulation_results' in st.session_state and st.session_state.simulation_results:
+                    st.write("**Current Simulation Config (partial):**")
+                    st.json({
+                        'TEAM_SIZE': st.session_state.simulation_results.get('config_params', {}).get('TEAM_SIZE'),
+                        'SHIFT_DURATION_MINUTES': st.session_state.simulation_results.get('config_params', {}).get('SHIFT_DURATION_MINUTES'),
+                        'DISRUPTION_INTERVALS_STEPS': st.session_state.simulation_results.get('config_params', {}).get('DISRUPTION_INTERVALS')
+                    })
+
 
         # Navigation and Help
         st.header("📋 Navigation", divider="grey")
         tab_names = ["Overview", "Operational Metrics", "Worker Insights", "Downtime", "Glossary"]
-        for i, tab in enumerate(tab_names):
-            if st.button(tab, key=f"nav_{tab.lower().replace(' ', '_')}", help=f"Go to {tab}"):
-                st.session_state.active_tab = i
+        # Note: st.tabs doesn't have a programmatic way to set active tab after initialization via session_state easily.
+        # These buttons will set session_state, but won't directly switch the st.tabs view unless content inside tabs is conditional.
+        # For now, they serve as quick "bookmarks" if the user wants to manually click the tab after.
+        for i, tab_name in enumerate(tab_names):
+            if st.button(tab_name, key=f"nav_{tab_name.lower().replace(' ', '_')}", help=f"Go to {tab_name}"):
+                st.session_state.active_tab_index = i # Store index for potential future use
 
         if st.button("ℹ️ Help", key="help_button"):
             st.session_state.show_help = True
@@ -433,37 +457,75 @@ def render_settings_sidebar():
 
 # Simulation logic with caching
 @st.cache_data
-def run_simulation_logic(team_size, shift_duration, disruption_intervals, team_initiative):
+def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals_minutes, team_initiative_selected):
     config = DEFAULT_CONFIG.copy()
     config['TEAM_SIZE'] = team_size
-    config['SHIFT_DURATION_MINUTES'] = shift_duration
-    config['SHIFT_DURATION_INTERVALS'] = shift_duration // 2
-    config['DISRUPTION_INTERVALS'] = [t // 2 for t in disruption_intervals]
+    config['SHIFT_DURATION_MINUTES'] = shift_duration_minutes
+    config['SHIFT_DURATION_INTERVALS'] = shift_duration_minutes // 2
+    # Convert disruption intervals from minutes to steps (assuming 2 min per step)
+    config['DISRUPTION_INTERVALS'] = [t // 2 for t in disruption_intervals_minutes]
     
-    total_current_workers = sum(zone['workers'] for zone in config['WORK_AREAS'].values())
-    if total_current_workers != team_size:
-        ratio = team_size / total_current_workers
-        for zone in config['WORK_AREAS'].values():
-            zone['workers'] = int(zone['workers'] * ratio)
-        current_sum = sum(zone['workers'] for zone in config['WORK_AREAS'].values())
-        if current_sum != team_size:
-            diff = team_size - current_sum
-            config['WORK_AREAS']['Assembly Line']['workers'] += diff
-    
-    validate_config(config)
+    # Adjust worker distribution in WORK_AREAS based on team_size
+    if 'WORK_AREAS' in config and isinstance(config['WORK_AREAS'], dict):
+        total_current_workers = sum(zone.get('workers', 0) for zone in config['WORK_AREAS'].values())
+
+        if total_current_workers == 0 and team_size > 0:
+            # Distribute team_size workers if current distribution is zero
+            # Fallback: assign all to 'Assembly Line' or the first available zone
+            assigned = False
+            if 'Assembly Line' in config['WORK_AREAS']:
+                config['WORK_AREAS']['Assembly Line']['workers'] = team_size
+                assigned = True
+            elif config['WORK_AREAS']: # If any work areas exist
+                first_zone_key = next(iter(config['WORK_AREAS']))
+                config['WORK_AREAS'][first_zone_key]['workers'] = team_size
+                assigned = True
+            if assigned:
+                 total_current_workers = sum(zone.get('workers', 0) for zone in config['WORK_AREAS'].values())
+
+        if total_current_workers > 0 and total_current_workers != team_size:
+            ratio = team_size / total_current_workers
+            for zone_key in config['WORK_AREAS']:
+                config['WORK_AREAS'][zone_key]['workers'] = int(config['WORK_AREAS'][zone_key].get('workers', 0) * ratio)
+            
+            current_sum_after_ratio = sum(zone.get('workers', 0) for zone in config['WORK_AREAS'].values())
+            if current_sum_after_ratio != team_size:
+                diff = team_size - current_sum_after_ratio
+                # Distribute difference, trying 'Assembly Line' first, then any other zone
+                if 'Assembly Line' in config['WORK_AREAS']:
+                    config['WORK_AREAS']['Assembly Line']['workers'] = config['WORK_AREAS']['Assembly Line'].get('workers', 0) + diff
+                elif config['WORK_AREAS']: # If 'Assembly Line' not there, add to the first zone
+                    first_zone_key = next(iter(config['WORK_AREAS']))
+                    config['WORK_AREAS'][first_zone_key]['workers'] = config['WORK_AREAS'][first_zone_key].get('workers', 0) + diff
+        elif team_size == 0: # If target team size is 0, set all zone workers to 0
+            for zone_key in config['WORK_AREAS']:
+                config['WORK_AREAS'][zone_key]['workers'] = 0
+
+    validate_config(config) # Ensure validate_config can handle the structure of config
     logger.info(
-        f"Running simulation with team_size={team_size}, shift_duration={shift_duration} min",
+        f"Running simulation with team_size={team_size}, shift_duration={shift_duration_minutes} min, disruptions (minutes): {disruption_intervals_minutes}",
         extra={'user_action': 'Run Simulation'}
     )
-    simulation_results = simulate_workplace_operations(
+    
+    # This function is expected to return a dictionary of results
+    # The save_simulation_data function will also need to handle this dictionary
+    simulation_results_dict = simulate_workplace_operations(
         num_team_members=team_size,
-        num_steps=shift_duration // 2,
-        disruption_intervals=[t // 2 for t in disruption_intervals],
-        team_initiative=team_initiative,
+        num_steps=config['SHIFT_DURATION_INTERVALS'],
+        disruption_intervals=config['DISRUPTION_INTERVALS'], # these are steps
+        team_initiative=team_initiative_selected,
         config=config
     )
-    save_simulation_data(*simulation_results)
-    return simulation_results
+    # Store key config params with results for reference
+    simulation_results_dict['config_params'] = {
+        'TEAM_SIZE': team_size,
+        'SHIFT_DURATION_MINUTES': shift_duration_minutes,
+        'DISRUPTION_INTERVALS_MINUTES': disruption_intervals_minutes, # Storing original minutes
+        'DISRUPTION_INTERVALS_STEPS': config['DISRUPTION_INTERVALS'] # And steps used in sim
+    }
+
+    save_simulation_data(simulation_results_dict) # Assumes save_simulation_data saves a dictionary
+    return simulation_results_dict
 
 # Main content
 def main():
@@ -472,43 +534,77 @@ def main():
     # Initialize session state
     if 'simulation_results' not in st.session_state:
         st.session_state.simulation_results = None
-    if 'active_tab' not in st.session_state:
-        st.session_state.active_tab = 0
+    if 'active_tab_index' not in st.session_state: # For sidebar navigation attempt
+        st.session_state.active_tab_index = 0
     if 'show_tour' not in st.session_state:
         st.session_state.show_tour = False
-    if 'show_help' not in st.session_state:
+    if 'show_help' not st.session_state:
         st.session_state.show_help = False
 
     # Sidebar settings
-    team_size, shift_duration, disruption_intervals, team_initiative, run_simulation, load_data, high_contrast, use_3d_distribution, debug_mode = render_settings_sidebar()
-
-    # Precompute minutes
+    # Note: disruption_intervals_from_sidebar is in minutes
+    team_size, shift_duration, disruption_intervals_from_sidebar, team_initiative, run_simulation, \
+    load_data, high_contrast, use_3d_distribution, debug_mode = render_settings_sidebar()
+    
+    # Determine current simulation duration for sliders, defaulting to sidebar setting or DEFAULT_CONFIG
     if st.session_state.simulation_results:
-        num_steps = len(st.session_state.simulation_results[0]['step'].unique())
-        minutes = [i * 2 for i in range(num_steps)]
+        # If results exist, base duration on them
+        # Assuming 'downtime_minutes' or similar list represents steps
+        num_steps_current_sim = len(st.session_state.simulation_results['downtime_minutes'])
+        current_max_minutes_for_sliders = (num_steps_current_sim - 1) * 2 if num_steps_current_sim > 0 else 0
+        # Also get disruption intervals used in the loaded/last sim (in steps)
+        disruption_steps_for_plots = st.session_state.simulation_results.get('config_params', {}).get('DISRUPTION_INTERVALS_STEPS', [])
     else:
-        minutes = [i * 2 for i in range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS'])]
+        # If no results, base on current sidebar shift_duration slider
+        current_max_minutes_for_sliders = st.session_state.get('shift_duration', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']) -2
+        # Convert sidebar disruption minutes to steps for potential default plotting
+        disruption_steps_for_plots = [t // 2 for t in st.session_state.get('disruption_intervals_minutes', [])]
+
 
     # Handle simulation and data loading
     if run_simulation:
         with st.spinner("Running simulation..."):
             try:
+                # Pass disruption_intervals_from_sidebar (which are in minutes)
                 st.session_state.simulation_results = run_simulation_logic(
-                    team_size, shift_duration, disruption_intervals, team_initiative
+                    team_size, shift_duration, disruption_intervals_from_sidebar, team_initiative
                 )
+                # Update current_max_minutes_for_sliders based on new simulation
+                num_steps_new_sim = len(st.session_state.simulation_results['downtime_minutes'])
+                current_max_minutes_for_sliders = (num_steps_new_sim - 1) * 2 if num_steps_new_sim > 0 else 0
+                disruption_steps_for_plots = st.session_state.simulation_results.get('config_params', {}).get('DISRUPTION_INTERVALS_STEPS', [])
                 st.success("Simulation completed!", icon="✅")
             except Exception as e:
                 logger.error(f"Simulation failed: {str(e)}", extra={'user_action': 'Run Simulation'})
                 st.error(f"Simulation failed: {str(e)}.")
+                st.session_state.simulation_results = None # Clear results on failure
 
     if load_data:
         with st.spinner("Loading saved data..."):
             try:
+                # load_simulation_data is expected to return a dictionary
                 st.session_state.simulation_results = load_simulation_data()
-                st.success("Data loaded!", icon="✅")
+                if st.session_state.simulation_results:
+                     # Update current_max_minutes_for_sliders based on loaded simulation
+                    num_steps_loaded_sim = len(st.session_state.simulation_results['downtime_minutes'])
+                    current_max_minutes_for_sliders = (num_steps_loaded_sim - 1) * 2 if num_steps_loaded_sim > 0 else 0
+                    disruption_steps_for_plots = st.session_state.simulation_results.get('config_params', {}).get('DISRUPTION_INTERVALS_STEPS', [])
+                    
+                    # Update sidebar controls to reflect loaded data if params are stored
+                    loaded_config = st.session_state.simulation_results.get('config_params', {})
+                    if loaded_config:
+                        st.session_state.team_size = loaded_config.get('TEAM_SIZE', team_size)
+                        st.session_state.shift_duration = loaded_config.get('SHIFT_DURATION_MINUTES', shift_duration)
+                        st.session_state.disruption_intervals_minutes = loaded_config.get('DISRUPTION_INTERVALS_MINUTES', disruption_intervals_from_sidebar)
+                        # team_initiative might not be stored or easy to map back to index, handle carefully
+                    st.success("Data loaded!", icon="✅")
+                else:
+                    st.error("Failed to load data or data is empty.")
             except Exception as e:
                 logger.error(f"Failed to load data: {str(e)}", extra={'user_action': 'Load Data'})
                 st.error(f"Failed to load data: {str(e)}.")
+                st.session_state.simulation_results = None # Clear results on failure
+
 
     # Onboarding Modal
     if st.session_state.show_tour:
@@ -543,7 +639,7 @@ def main():
                         <li><b>Downtime</b>: Analyze downtime trends.</li>
                         <li><b>Glossary</b>: Metric definitions.</li>
                     </ul>
-                    <p>Contact support@xai.com for assistance.</p>
+                    <p>Contact support@example.com for assistance.</p>
                 </div>
             """, unsafe_allow_html=True)
             if st.button("Close Help", key="close_help"):
@@ -552,17 +648,6 @@ def main():
     # Tabs
     tab_names = ["Overview", "Operational Metrics", "Worker Insights", "Downtime", "Glossary"]
     tabs = st.tabs(tab_names)
-
-    # Hidden selectbox to synchronize tab selection
-    tab_index = st.selectbox(
-        "Select Tab",
-        options=range(len(tab_names)),
-        format_func=lambda x: tab_names[x],
-        key="tab_selector",
-        label_visibility="collapsed"
-    )
-    if tab_index != st.session_state.active_tab:
-        st.session_state.active_tab = tab_index
 
     # Overview Tab
     with tabs[0]:
@@ -573,31 +658,30 @@ def main():
                 unsafe_allow_html=True
             )
             if st.session_state.simulation_results:
-                (team_positions_df, task_compliance, collaboration_proximity, operational_recovery,
-                 efficiency_metrics_df, productivity_loss, worker_wellbeing, psychological_safety,
-                 feedback_impact, downtime_minutes, task_completion_rate) = st.session_state.simulation_results
+                sim_data = st.session_state.simulation_results
                 
                 # Validate and compute means with fallbacks
-                inputs = {
-                    "compliance_mean": np.mean(task_compliance['data']) if task_compliance['data'] and not np.all(np.isnan(task_compliance['data'])) else 0.0,
-                    "proximity_mean": np.mean(collaboration_proximity['data']) if collaboration_proximity['data'] and not np.all(np.isnan(collaboration_proximity['data'])) else 0.0,
-                    "wellbeing_mean": np.mean(worker_wellbeing['scores']) if worker_wellbeing['scores'] and not np.all(np.isnan(worker_wellbeing['scores'])) else 0.0,
-                    "total_downtime": np.sum(downtime_minutes) if downtime_minutes and not np.all(np.isnan(downtime_minutes)) else 0.0
-                }
+                # Ensure data exists and is not all NaN before computing mean
+                def safe_mean(data_list):
+                    if data_list and isinstance(data_list, (list, np.ndarray)) and len(data_list) > 0:
+                        if not np.all(np.isnan(data_list)):
+                            return np.mean(data_list)
+                    return 0.0
 
-                # Log inputs and validate
-                for name, value in inputs.items():
-                    if not isinstance(value, (int, float)) or np.isnan(value):
-                        logger.error(f"Invalid input in main.py: {name}={value}, type={type(value)}", extra={'user_action': 'Render Overview Metrics'})
-                        inputs[name] = 0.0  # Fallback to 0.0
-                    logger.info(f"Input in main.py: {name}={value}, type={type(value)}", extra={'user_action': 'Render Overview Metrics'})
+                compliance_mean = safe_mean(sim_data['task_compliance']['data'])
+                proximity_mean = safe_mean(sim_data['collaboration_proximity']['data'])
+                wellbeing_mean = safe_mean(sim_data['worker_wellbeing']['scores'])
+                
+                total_downtime = 0.0
+                if sim_data['downtime_minutes'] and isinstance(sim_data['downtime_minutes'], (list, np.ndarray)) and len(sim_data['downtime_minutes']) > 0:
+                    if not np.all(np.isnan(sim_data['downtime_minutes'])):
+                        total_downtime = np.sum(sim_data['downtime_minutes'])
 
-                compliance_mean = inputs["compliance_mean"]
-                proximity_mean = inputs["proximity_mean"]
-                wellbeing_mean = inputs["wellbeing_mean"]
-                total_downtime = inputs["total_downtime"]
+                logger.info(
+                    f"Overview Metrics: Compliance={compliance_mean}, Proximity={proximity_mean}, Wellbeing={wellbeing_mean}, Downtime={total_downtime}",
+                    extra={'user_action': 'Render Overview Metrics'}
+                )
 
-                # Call plot_key_metrics_summary
                 try:
                     summary_figs = plot_key_metrics_summary(compliance_mean, proximity_mean, wellbeing_mean, total_downtime)
                 except Exception as e:
@@ -608,32 +692,37 @@ def main():
                 # Enhanced Metrics Display
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("Task Compliance", f"{compliance_mean:.1f}%", delta=f"{compliance_mean - 75:.1f}%", delta_color="normal")
+                    st.metric("Task Compliance", f"{compliance_mean:.1f}%", delta=f"{compliance_mean - 75:.1f}%" if compliance_mean is not None else None, delta_color="normal")
                 with col2:
-                    st.metric("Collaboration", f"{proximity_mean:.1f}%", delta=f"{proximity_mean - 60:.1f}%", delta_color="normal")
+                    st.metric("Collaboration", f"{proximity_mean:.1f}%", delta=f"{proximity_mean - 60:.1f}%" if proximity_mean is not None else None, delta_color="normal")
                 with col3:
-                    st.metric("Well-Being", f"{wellbeing_mean:.1f}%", delta=f"{wellbeing_mean - 70:.1f}%", delta_color="normal")
+                    st.metric("Well-Being", f"{wellbeing_mean:.1f}%", delta=f"{wellbeing_mean - 70:.1f}%" if wellbeing_mean is not None else None, delta_color="normal")
                 with col4:
-                    st.metric("Downtime", f"{total_downtime:.1f} min", delta=f"{total_downtime - 30:.1f} min", delta_color="inverse")
+                    st.metric("Downtime", f"{total_downtime:.1f} min", delta=f"{total_downtime - 30:.1f} min" if total_downtime is not None else None, delta_color="inverse")
                 
                 # Data Table
                 with st.expander("View Detailed Data", expanded=False):
-                    summary_df = pd.DataFrame({
-                        'Time (min)': [i * 2 for i in range(len(task_compliance['data']))],
-                        'Task Compliance (%)': task_compliance['data'],
-                        'Collaboration (%)': collaboration_proximity['data'],
-                        'Well-Being (%)': worker_wellbeing['scores'],
-                        'Downtime (min)': downtime_minutes
+                    num_overview_steps = len(sim_data['task_compliance']['data'])
+                    overview_df = pd.DataFrame({
+                        'Time (min)': [i * 2 for i in range(num_overview_steps)],
+                        'Task Compliance (%)': sim_data['task_compliance']['data'],
+                        'Collaboration (%)': sim_data['collaboration_proximity']['data'],
+                        'Well-Being (%)': sim_data['worker_wellbeing']['scores'],
+                        'Downtime (min)': sim_data['downtime_minutes']
                     })
-                    st.dataframe(summary_df, use_container_width=True, height=300)
+                    st.dataframe(overview_df, use_container_width=True, height=300)
                 
                 # Gauge Charts
-                col1, col2 = st.columns(2)
-                for i, fig in enumerate(summary_figs):
-                    with st.container(border=True):
-                        st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
-                        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
-                        st.markdown('</div>', unsafe_allow_html=True)
+                # Assuming summary_figs is a list of figures, display them.
+                # If specific layout needed, adjust columns. For example, 2x2 grid:
+                if summary_figs:
+                    cols = st.columns(2) 
+                    for i, fig in enumerate(summary_figs):
+                        with cols[i % 2]: # Distribute into 2 columns
+                             with st.container(border=True):
+                                st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                                st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                                st.markdown('</div>', unsafe_allow_html=True)
             else:
                 st.info("Run a simulation or load data to view metrics.", icon="ℹ️")
 
@@ -646,90 +735,71 @@ def main():
                 unsafe_allow_html=True
             )
             if st.session_state.simulation_results:
-                time_range = st.slider(
+                sim_data = st.session_state.simulation_results
+                time_range_op = st.slider(
                     "Time Range (minutes)",
                     min_value=0,
-                    max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
-                    value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
+                    max_value=max(0, current_max_minutes_for_sliders), # Ensure max_value is not negative
+                    value=(0, max(0, current_max_minutes_for_sliders)),
                     step=2,
                     key="time_range_op"
                 )
-                time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
+                time_indices = (time_range_op[0] // 2, time_range_op[1] // 2 + 1) # +1 for slicing upper bound
+
+                # Filter disruption steps for the selected time range (disruptions are in steps)
+                filtered_disruption_steps = [s for s in disruption_steps_for_plots if time_indices[0] <= s < time_indices[1]]
+                
                 try:
-                    filtered_compliance = task_compliance['data'][time_indices[0]:time_indices[1]]
-                    filtered_z_scores = task_compliance['z_scores'][time_indices[0]:time_indices[1]]
-                    filtered_forecast = task_compliance['forecast'][time_indices[0]:time_indices[1]] if task_compliance['forecast'] is not None else None
-                    filtered_disruptions = [t for t in DEFAULT_CONFIG['DISRUPTION_INTERVALS'] if time_indices[0] <= t < time_indices[1]]
+                    tc_data = sim_data['task_compliance']
+                    filtered_compliance = tc_data['data'][time_indices[0]:time_indices[1]]
+                    filtered_z_scores = tc_data['z_scores'][time_indices[0]:time_indices[1]]
+                    filtered_forecast_tc = tc_data['forecast'][time_indices[0]:time_indices[1]] if tc_data.get('forecast') is not None else None
                     
-                    if not filtered_compliance or not filtered_z_scores:
-                        logger.error(
-                            f"Empty input data: compliance={len(filtered_compliance)}, z_scores={len(filtered_z_scores)}",
-                            extra={'user_action': 'Render Operational Metrics'}
-                        )
-                        st.error("No data available for the selected time range.")
-                    elif len(filtered_compliance) != len(filtered_z_scores) or (filtered_forecast is not None and len(filtered_forecast) != len(filtered_compliance)):
-                        logger.error(
-                            f"Input length mismatch: compliance={len(filtered_compliance)}, "
-                            f"z_scores={len(filtered_z_scores)}, forecast={'None' if filtered_forecast is None else len(filtered_forecast)}",
-                            extra={'user_action': 'Render Operational Metrics'}
-                        )
-                        st.error("Input data lengths do not match.")
+                    if not filtered_compliance: # Check if list is empty
+                        logger.warning("Empty task compliance data for selected range.", extra={'user_action': 'Render Operational Metrics'})
+                        st.warning("No task compliance data available for the selected time range.")
                     else:
                         with st.container(border=True):
                             st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
-                            compliance_fig = plot_task_compliance_score(filtered_compliance, filtered_disruptions, filtered_forecast, filtered_z_scores)
+                            compliance_fig = plot_task_compliance_score(filtered_compliance, filtered_disruption_steps, filtered_forecast_tc, filtered_z_scores)
                             st.plotly_chart(compliance_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
                             st.markdown('</div>', unsafe_allow_html=True)
                 except Exception as e:
-                    logger.error(
-                        f"Failed to render task compliance chart: {str(e)}",
-                        extra={'user_action': 'Render Operational Metrics'}
-                    )
+                    logger.error(f"Failed to render task compliance chart: {str(e)}", extra={'user_action': 'Render Operational Metrics'})
                     st.error(f"Error rendering task compliance chart: {str(e)}.")
                 
                 try:
-                    filtered_collab = collaboration_proximity['data'][time_indices[0]:time_indices[1]]
-                    filtered_forecast = collaboration_proximity['forecast'][time_indices[0]:time_indices[1]] if collaboration_proximity['forecast'] is not None else None
+                    collab_data = sim_data['collaboration_proximity']
+                    filtered_collab = collab_data['data'][time_indices[0]:time_indices[1]]
+                    filtered_forecast_collab = collab_data['forecast'][time_indices[0]:time_indices[1]] if collab_data.get('forecast') is not None else None
                     if not filtered_collab:
-                        logger.error(
-                            f"Empty collaboration data: length={len(filtered_collab)}",
-                            extra={'user_action': 'Render Operational Metrics'}
-                        )
-                        st.error("No collaboration data available for the selected time range.")
+                         logger.warning("Empty collaboration data for selected range.", extra={'user_action': 'Render Operational Metrics'})
+                         st.warning("No collaboration data available for the selected time range.")
                     else:
                         with st.container(border=True):
                             st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
-                            collaboration_fig = plot_collaboration_proximity_index(filtered_collab, filtered_disruptions, filtered_forecast)
+                            collaboration_fig = plot_collaboration_proximity_index(filtered_collab, filtered_disruption_steps, filtered_forecast_collab)
                             st.plotly_chart(collaboration_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
                             st.markdown('</div>', unsafe_allow_html=True)
                 except Exception as e:
-                    logger.error(
-                        f"Failed to render collaboration chart: {str(e)}",
-                        extra={'user_action': 'Render Operational Metrics'}
-                    )
+                    logger.error(f"Failed to render collaboration chart: {str(e)}", extra={'user_action': 'Render Operational Metrics'})
                     st.error(f"Error rendering collaboration chart: {str(e)}.")
                 
                 with st.expander("Additional Metrics"):
                     try:
-                        filtered_recovery = operational_recovery[time_indices[0]:time_indices[1]]
-                        filtered_loss = productivity_loss[time_indices[0]:time_indices[1]]
-                        if not filtered_recovery or not filtered_loss:
-                            logger.error(
-                                f"Empty additional metrics: recovery={len(filtered_recovery)}, loss={len(filtered_loss)}",
-                                extra={'user_action': 'Render Operational Metrics'}
-                            )
-                            st.error("No data available for additional metrics.")
+                        filtered_recovery = sim_data['operational_recovery'][time_indices[0]:time_indices[1]]
+                        filtered_loss = sim_data['productivity_loss'][time_indices[0]:time_indices[1]]
+                        if not filtered_recovery: # or not filtered_loss
+                            logger.warning("Empty recovery/loss data for selected range.", extra={'user_action': 'Render Operational Metrics'})
+                            st.warning("No operational recovery/loss data available for the selected time range.")
                         else:
                             with st.container(border=True):
                                 st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
-                                resilience_fig = plot_operational_recovery(filtered_recovery, filtered_loss)
+                                resilience_fig = plot_operational_recovery(filtered_recovery, filtered_loss) # Assumes this plot takes filtered_disruption_steps if needed
                                 st.plotly_chart(resilience_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
                                 st.markdown('</div>', unsafe_allow_html=True)
                     except Exception as e:
-                        logger.error(
-                            f"Failed to render operational recovery chart: {str(e)}",
-                            extra={'user_action': 'Render Operational Metrics'}
-                        )
+                        logger.error(f"Failed to render operational recovery chart: {str(e)}", extra={'user_action': 'Render Operational Metrics'})
                         st.error(f"Error rendering operational recovery chart: {str(e)}.")
                     
                     try:
@@ -739,13 +809,16 @@ def main():
                             default=['uptime', 'throughput', 'quality', 'oee'],
                             key="efficiency_metrics_op"
                         )
-                        filtered_df = efficiency_metrics_df.iloc[time_indices[0]:time_indices[1]]
+                        # Ensure efficiency_metrics_df exists and has step/time index for slicing
+                        efficiency_df = sim_data['efficiency_metrics_df']
+                        if isinstance(efficiency_df.index, pd.RangeIndex): # if indexed by step
+                            filtered_df = efficiency_df.iloc[time_indices[0]:time_indices[1]]
+                        else: # Assuming it might have a time-based index, adjust as needed
+                            filtered_df = efficiency_df # Fallback or implement time-based slicing
+                        
                         if filtered_df.empty:
-                            logger.error(
-                                f"Empty efficiency data: rows={len(filtered_df)}",
-                                extra={'user_action': 'Render Operational Metrics'}
-                            )
-                            st.error("No efficiency data available for the selected time range.")
+                            logger.warning("Empty efficiency data for selected range.", extra={'user_action': 'Render Operational Metrics'})
+                            st.warning("No efficiency data available for the selected time range.")
                         else:
                             with st.container(border=True):
                                 st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
@@ -753,10 +826,7 @@ def main():
                                 st.plotly_chart(efficiency_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
                                 st.markdown('</div>', unsafe_allow_html=True)
                     except Exception as e:
-                        logger.error(
-                            f"Failed to render efficiency chart: {str(e)}",
-                            extra={'user_action': 'Render Operational Metrics'}
-                        )
+                        logger.error(f"Failed to render efficiency chart: {str(e)}", extra={'user_action': 'Render Operational Metrics'})
                         st.error(f"Error rendering efficiency chart: {str(e)}.")
             else:
                 st.info("Run a simulation or load data to view metrics.", icon="ℹ️")
@@ -770,40 +840,63 @@ def main():
                 unsafe_allow_html=True
             )
             if st.session_state.simulation_results:
+                sim_data = st.session_state.simulation_results
+                team_positions_df = sim_data['team_positions_df']
+                worker_wellbeing_data = sim_data['worker_wellbeing']
+                psychological_safety_data = sim_data['psychological_safety']
+
                 with st.expander("Worker Distribution", expanded=True):
-                    time_range = st.slider(
-                        "Time Range (minutes)",
+                    time_range_dist = st.slider(
+                        "Time Range (minutes) for Distribution", # Unique label for key
                         min_value=0,
-                        max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
-                        value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
+                        max_value=max(0, current_max_minutes_for_sliders),
+                        value=(0, max(0, current_max_minutes_for_sliders)),
                         step=2,
                         key="time_range_dist"
                     )
-                    time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
+                    time_indices_dist = (time_range_dist[0] // 2, time_range_dist[1] // 2 + 1)
+                    
+                    zone_options = ["All"] + list(DEFAULT_CONFIG.get('WORK_AREAS', {}).keys())
                     zone_filter = st.selectbox(
                         "Zone", 
-                        options=["All"] + list(DEFAULT_CONFIG['WORK_AREAS'].keys())
+                        options=zone_options,
+                        key="zone_filter_dist"
                     )
-                    filtered_df = team_positions_df if zone_filter == "All" else team_positions_df[team_positions_df['zone'] == zone_filter]
-                    filtered_df = filtered_df[(filtered_df['step'] >= time_indices[0]) & (filtered_df['step'] < time_indices[1])]
+                    
+                    # Filter DataFrame by time steps and zone
+                    filtered_df_dist = team_positions_df[
+                        (team_positions_df['step'] >= time_indices_dist[0]) & 
+                        (team_positions_df['step'] < time_indices_dist[1])
+                    ]
+                    if zone_filter != "All":
+                        filtered_df_dist = filtered_df_dist[filtered_df_dist['zone'] == zone_filter]
+
                     show_entry_exit = st.checkbox("Show Entry/Exit Points", value=True, key="show_entry_exit_dist")
                     show_production_lines = st.checkbox("Show Production Lines", value=True, key="show_production_lines_dist")
+                    
                     col_dist1, col_dist2 = st.columns(2)
                     with col_dist1:
                         st.markdown("### Worker Positions")
+                        # Slider for selected_step should be within the filtered time range
+                        min_step_dist = time_indices_dist[0]
+                        max_step_dist = max(min_step_dist, time_indices_dist[1] - 1) # Ensure max_step is not less than min_step
+                        
                         selected_step = st.slider(
-                            "Time Step",
-                            min_value=int(time_indices[0]),
-                            max_value=int(time_indices[1] - 1),
-                            value=int(time_indices[0]),
+                            "Time Step (for Worker Positions snapshot)",
+                            min_value=min_step_dist,
+                            max_value=max_step_dist,
+                            value=min_step_dist, # Default to the start of the filtered range
                             key="team_distribution_step"
                         )
                         try:
                             with st.container(border=True):
                                 st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                                # plot_worker_distribution might need the full df and filter internally, or use filtered_df_dist
                                 distribution_fig = plot_worker_distribution(
-                                    filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=use_3d_distribution,
-                                    selected_step=selected_step, show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
+                                    team_positions_df, # Pass the full DF, selected_step will pick the slice
+                                    DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=use_3d_distribution,
+                                    selected_step=selected_step, # This is the specific step to plot
+                                    show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
                                 )
                                 st.plotly_chart(distribution_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
                                 st.markdown('</div>', unsafe_allow_html=True)
@@ -815,8 +908,10 @@ def main():
                         try:
                             with st.container(border=True):
                                 st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                                # Density heatmap uses the time-filtered DataFrame
                                 heatmap_fig = plot_worker_density_heatmap(
-                                    filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG,
+                                    filtered_df_dist, # Use the time and zone filtered data
+                                    DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG,
                                     show_entry_exit=show_entry_exit, show_production_lines=show_production_lines
                                 )
                                 st.plotly_chart(heatmap_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
@@ -826,24 +921,30 @@ def main():
                             st.error(f"Error rendering density heatmap: {str(e)}. Check debug mode for details.")
 
                 with st.expander("Worker Well-Being & Safety"):
-                    time_range = st.slider(
-                        "Time Range (minutes)",
+                    time_range_well = st.slider(
+                        "Time Range (minutes) for Well-Being", # Unique label
                         min_value=0,
-                        max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
-                        value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
+                        max_value=max(0, current_max_minutes_for_sliders),
+                        value=(0, max(0, current_max_minutes_for_sliders)),
                         step=2,
                         key="time_range_well"
                     )
-                    time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
+                    time_indices_well = (time_range_well[0] // 2, time_range_well[1] // 2 + 1)
+                    
                     col_well1, col_well2 = st.columns(2)
                     with col_well1:
                         st.markdown("### Well-Being Index")
-                        filtered_scores = worker_wellbeing['scores'][time_indices[0]:time_indices[1]]
+                        filtered_scores = worker_wellbeing_data['scores'][time_indices_well[0]:time_indices_well[1]]
+                        # Filter triggers based on time_indices_well (steps)
+                        ww_triggers = worker_wellbeing_data['triggers']
                         filtered_triggers = {
-                            'threshold': [t for t in worker_wellbeing['triggers']['threshold'] if time_indices[0] <= t < time_indices[1]],
-                            'trend': [t for t in worker_wellbeing['triggers']['trend'] if time_indices[0] <= t < time_indices[1]],
-                            'work_area': {k: [t for t in v if time_indices[0] <= t < time_indices[1]] for k, v in worker_wellbeing['triggers']['work_area'].items()},
-                            'disruption': [t for t in worker_wellbeing['triggers']['disruption'] if time_indices[0] <= t < time_indices[1]]
+                            'threshold': [t for t in ww_triggers.get('threshold', []) if time_indices_well[0] <= t < time_indices_well[1]],
+                            'trend': [t for t in ww_triggers.get('trend', []) if time_indices_well[0] <= t < time_indices_well[1]],
+                            'work_area': {
+                                k: [t for t in v if time_indices_well[0] <= t < time_indices_well[1]] 
+                                for k, v in ww_triggers.get('work_area', {}).items()
+                            },
+                            'disruption': [t for t in ww_triggers.get('disruption', []) if time_indices_well[0] <= t < time_indices_well[1]]
                         }
                         with st.container(border=True):
                             st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
@@ -852,18 +953,19 @@ def main():
                             st.markdown('</div>', unsafe_allow_html=True)
                     with col_well2:
                         st.markdown("### Psychological Safety")
-                        filtered_safety = psychological_safety[time_indices[0]:time_indices[1]]
+                        filtered_safety = psychological_safety_data[time_indices_well[0]:time_indices_well[1]]
                         with st.container(border=True):
                             st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
                             safety_fig = plot_psychological_safety(filtered_safety)
                             st.plotly_chart(safety_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
                             st.markdown('</div>', unsafe_allow_html=True)
-                    st.markdown("### Well-Being Triggers")
-                    st.write(f"**Threshold Alerts (< {DEFAULT_CONFIG['WELLBEING_THRESHOLD']*100}%):** {filtered_triggers['threshold']}")
+                    
+                    st.markdown("### Well-Being Triggers (within selected time range)")
+                    st.write(f"**Threshold Alerts (< {DEFAULT_CONFIG.get('WELLBEING_THRESHOLD',0)*100}%):** {filtered_triggers['threshold']}")
                     st.write(f"**Trend Alerts (Declining):** {filtered_triggers['trend']}")
                     st.write("**Work Area Alerts:**")
                     for zone, triggers in filtered_triggers['work_area'].items():
-                        st.write(f"{zone}: {triggers}")
+                        if triggers: st.write(f"  {zone}: {triggers}")
                     st.write(f"**Disruption Alerts:** {filtered_triggers['disruption']}")
             else:
                 st.info("Run a simulation or load data to view insights.", icon="ℹ️")
@@ -877,19 +979,21 @@ def main():
                 unsafe_allow_html=True
             )
             if st.session_state.simulation_results:
-                time_range = st.slider(
-                    "Time Range (minutes)",
+                sim_data = st.session_state.simulation_results
+                downtime_minutes_all = sim_data['downtime_minutes']
+                time_range_down = st.slider(
+                    "Time Range (minutes) for Downtime", # Unique label
                     min_value=0,
-                    max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
-                    value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
+                    max_value=max(0, current_max_minutes_for_sliders),
+                    value=(0, max(0, current_max_minutes_for_sliders)),
                     step=2,
                     key="time_range_down"
                 )
-                time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
-                filtered_downtime = downtime_minutes[time_indices[0]:time_indices[1]]
+                time_indices_down = (time_range_down[0] // 2, time_range_down[1] // 2 + 1)
+                filtered_downtime = downtime_minutes_all[time_indices_down[0]:time_indices_down[1]]
                 with st.container(border=True):
                     st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
-                    downtime_fig = plot_downtime_trend(filtered_downtime, DEFAULT_CONFIG['DOWNTIME_THRESHOLD'])
+                    downtime_fig = plot_downtime_trend(filtered_downtime, DEFAULT_CONFIG.get('DOWNTIME_THRESHOLD', 10)) # Provide default for threshold
                     st.plotly_chart(downtime_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
                     st.markdown('</div>', unsafe_allow_html=True)
             else:
@@ -911,9 +1015,9 @@ def main():
                 - <b>Quality</b>: Percentage of products meeting quality standards (0–100%). Reflects output consistency.
                 - <b>OEE (Overall Equipment Effectiveness)</b>: Combined score of uptime, throughput, and quality (0–100%). Holistic measure of operational performance.
                 - <b>Productivity Loss</b>: Percentage of potential output lost due to inefficiencies or disruptions (0–100%).
-                - <b>Downtime</b>: Total minutes of unplanned operational stops. Tracks interruptions to workflow.
+                - <b>Downtime</b>: Total minutes of unplanned operational stops per interval. Tracks interruptions to workflow.
                 - <b>Task Completion Rate</b>: Percentage of tasks completed per time interval (0–100%). Measures task efficiency over time.
-            """)
+            """, unsafe_allow_html=True) # Added unsafe_allow_html for <b> tags
 
 if __name__ == "__main__":
     main()
