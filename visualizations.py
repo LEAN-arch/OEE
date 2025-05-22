@@ -1,4 +1,9 @@
 # visualizations.py
+# ... (Assumed to be the same as the last fully optimized version provided,
+#      which already includes plot_team_cohesion, plot_perceived_workload,
+#      and an updated plot_downtime_trend that accepts a list of dicts for downtime events)
+#      Make sure _get_colors and _apply_common_layout_settings are robust.
+#      Ensure plot_downtime_causes_pie is present.
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -126,12 +131,14 @@ def plot_psychological_safety(data, high_contrast=False):
     if avg_safety is not None: fig.add_hline(y=avg_safety, line=dict(color=n_c, width=1, dash="dot"), annotation_text=f"Avg: {avg_safety:.1f}%", annotation_position="bottom left", annotation_font_size=10)
     _apply_common_layout_settings(fig, "Psychological Safety Score Trend", high_contrast, yaxis_title="Score (%)", yaxis_range=[0, 105]); return fig
 
-def plot_downtime_trend(downtime_minutes, threshold, high_contrast=False):
-    p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast); fig = go.Figure(); x_vals = list(range(len(downtime_minutes)))
-    bar_colors = [cr_c if d > threshold else pos_c for d in downtime_minutes] 
-    fig.add_trace(go.Bar(x=x_vals, y=downtime_minutes, name='Downtime', marker_color=bar_colors, width=0.7, hovertemplate='Downtime: %{y:.1f} min<extra></extra>'))
-    fig.add_hline(y=threshold, line=dict(color=a_c, width=1.5, dash="longdash"), annotation_text=f"Alert Threshold: {threshold} min", annotation_position="top right", annotation=dict(font_size=10, bgcolor="rgba(250,204,21,0.7)", borderpad=2))
-    _apply_common_layout_settings(fig, "Downtime per Interval", high_contrast, yaxis_title="Downtime (minutes)"); max_y_val = max(max(downtime_minutes) * 1.15 if downtime_minutes else threshold * 1.5, threshold * 1.5, 10); fig.update_yaxes(range=[0, max_y_val]); return fig
+def plot_downtime_trend(downtime_events_list, interval_threshold, high_contrast=False):
+    p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast); fig = go.Figure(); 
+    downtime_durations = [event.get('duration', 0) for event in downtime_events_list]; x_vals = list(range(len(downtime_durations)))
+    bar_colors = [cr_c if d > interval_threshold else pos_c for d in downtime_durations] 
+    hover_texts = [f"Duration: {event.get('duration', 0):.1f} min<br>Cause: {event.get('cause', 'Unknown')}" for event in downtime_events_list]
+    fig.add_trace(go.Bar(x=x_vals, y=downtime_durations, name='Downtime', marker_color=bar_colors, width=0.7, text=hover_texts, hoverinfo='text'))
+    fig.add_hline(y=interval_threshold, line=dict(color=a_c, width=1.5, dash="longdash"), annotation_text=f"Alert Threshold: {interval_threshold} min", annotation_position="top right", annotation=dict(font_size=10, bgcolor="rgba(250,204,21,0.7)", borderpad=2))
+    _apply_common_layout_settings(fig, "Downtime per Interval", high_contrast, yaxis_title="Downtime (minutes)"); max_y_val = max(max(downtime_durations) * 1.15 if downtime_durations else interval_threshold * 1.5, interval_threshold * 1.5, 10); fig.update_yaxes(range=[0, max_y_val]); return fig
 
 def plot_team_cohesion(data, high_contrast=False):
     p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast); fig = go.Figure(); x_vals = list(range(len(data)))
@@ -142,8 +149,7 @@ def plot_team_cohesion(data, high_contrast=False):
 
 def plot_perceived_workload(data, high_workload_threshold, very_high_workload_threshold, high_contrast=False):
     p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast); fig = go.Figure(); x_vals = list(range(len(data)))
-    colors = [cr_c if val >= very_high_workload_threshold else a_c if val >= high_workload_threshold else p_c for val in data]
-    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines+markers', name='Perceived Workload', line=dict(color=p_c, width=1.5), marker=dict(color=colors, size=6, line=dict(width=0.5, color=n_c)), hovertemplate='Workload: %{y:.1f}/10<extra></extra>')) # Segmented coloring for markers could be done by adding multiple traces if needed.
+    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines+markers', name='Perceived Workload', line=dict(color=p_c, width=1.5), marker=dict(size=5, color=[cr_c if val >= very_high_workload_threshold else a_c if val >= high_workload_threshold else p_c for val in data]), hovertemplate='Workload: %{y:.1f}/10<extra></extra>'))
     fig.add_hline(y=high_workload_threshold, line=dict(color=a_c, width=1.5, dash="dash"), annotation_text=f"High Load ({high_workload_threshold})", annotation_position="bottom right", annotation_font=dict(color=a_c, size=10))
     fig.add_hline(y=very_high_workload_threshold, line=dict(color=cr_c, width=1.5, dash="dash"), annotation_text=f"Very High ({very_high_workload_threshold})", annotation_position="top right", annotation_font=dict(color=cr_c, size=10))
     _apply_common_layout_settings(fig, "Perceived Workload Index (0-10 Scale)", high_contrast, yaxis_title="Workload Index", yaxis_range=[0, 10.5]); return fig
