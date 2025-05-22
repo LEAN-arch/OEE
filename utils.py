@@ -45,57 +45,17 @@ def generate_pdf_report(summary_df: pd.DataFrame):
         col_fmt = '|' + 'l|' * num_cols if num_cols > 0 else '|l|' 
         
         latex_table = df_for_latex.to_latex(
-            index=False, 
-            escape=True, 
-            column_format=col_fmt, 
-            header=True, 
-            longtable=True, 
-            na_rep='-',      
-            caption='Summary of Simulation Metrics Over Time.',
-            label='tab:simsummary',
+            index=False, escape=True, column_format=col_fmt, header=True, 
+            longtable=True, na_rep='-', caption='Summary of Simulation Metrics Over Time.',
+            label='tab:simsummary'
         )
         
         latex_document = f"""
-\\documentclass[10pt,a4paper]{{article}}
-\\usepackage[utf8]{{inputenc}}
-\\usepackage{{amsmath}}
-\\usepackage{{amsfonts}}
-\\usepackage{{amssymb}}
-\\usepackage{{graphicx}}
-\\usepackage{{booktabs}} 
-\\usepackage{{longtable}} 
-\\usepackage[margin=1in]{{geometry}} 
-\\usepackage{{fancyhdr}} 
-
-\\pagestyle{{fancy}}
-\\fancyhf{{}} 
-\\fancyhead[C]{{Workplace Shift Monitoring Report}}
-\\fancyfoot[C]{{\\thepage}}
-\\renewcommand{{\\headrulewidth}}{{0.4pt}} 
-\\renewcommand{{\\footrulewidth}}{{0.4pt}} 
-
-\\title{{Workplace Shift Monitoring Report}}
-\\author{{Automated Simulation System}}
-\\date{{\\today}}
-
-\\begin{{document}}
-\\maketitle
-\\thispagestyle{{empty}} 
-\\clearpage
-\\pagenumbering{{arabic}} 
-
-\\section*{{Simulation Data Summary}}
-The data from the dashboard provides an overview of key operational metrics from the
-latest simulation run. The table below presents a time-series summary.
-
-{latex_table}
-
+\\documentclass[10pt,a4paper]{{article}}\\usepackage[utf8]{{inputenc}}\\usepackage{{amsmath}}\\usepackage{{amsfonts}}\\usepackage{{amssymb}}\\usepackage{{graphicx}}\\usepackage{{booktabs}}\\usepackage{{longtable}}\\usepackage[margin=1in]{{geometry}}\\usepackage{{fancyhdr}}\\pagestyle{{fancy}}\\fancyhf{{}}\\fancyhead[C]{{Workplace Shift Monitoring Report}}\\fancyfoot[C]{{\\thepage}}\\renewcommand{{\\headrulewidth}}{{0.4pt}}\\renewcommand{{\\footrulewidth}}{{0.4pt}}\\title{{Workplace Shift Monitoring Report}}\\author{{Automated Simulation System}}\\date{{\\today}}\\begin{{document}}\\maketitle\\thispagestyle{{empty}}\\clearpage\\pagenumbering{{arabic}}\\section*{{Simulation Data Summary}}\\ The data from the dashboard provides an overview of key operational metrics from the latest simulation run. The table below presents a time-series summary.{latex_table}
 % Further analysis and visualizations could be included here, 
 % potentially by saving plots as images and including them 
 % with \\includegraphics{{plot.png}}.
-
-\\end{{document}}
-"""
+\\end{{document}}"""
         report_filename = "workplace_report.tex"
         with open(report_filename, "w", encoding="utf-8") as f: f.write(latex_document)
         logger.info(f"LaTeX report '{report_filename}' generated successfully.", extra={'user_action': 'Generate PDF - Success'})
