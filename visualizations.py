@@ -1018,7 +1018,7 @@ def plot_worker_wellbeing(scores, triggers):
             '<extra></extra>'
         ),
         showlegend=True
-    )
+    
     for t in triggers['threshold']:
         if 0 <= t < len(minutes):
             fig.add_vline(
