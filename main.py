@@ -1,6 +1,6 @@
 """
 main.py
-Streamlit dashboard for the Industrial Workplace Shift Monitoring Dashboard.
+Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
 Provides a professional, interactive UI with actionable visualizations and clear metrics.
 """
 
@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 import numpy as np
 from config import DEFAULT_CONFIG, validate_config
 from visualizations import (
+    plot_gauge_chart,
     plot_task_compliance_score,
     plot_collaboration_proximity_index,
     plot_operational_recovery,
@@ -40,7 +41,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for dark theme
+# Custom CSS for dark theme and improved styling
 st.markdown("""
     <style>
         .main { 
@@ -124,12 +125,17 @@ st.markdown("""
         .stTabs [data-baseweb="tab"]:hover { 
             background-color: #3B82F6; 
         }
+        .recommendation {
+            color: #FBBF24;
+            font-size: 14px;
+            margin-top: 5px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
 # Sidebar
 with st.sidebar:
-    st.header("Shift Monitoring Dashboard")
+    st.header("Workplace Shift Monitoring Dashboard")
     
     # Company logo
     st.markdown(
@@ -168,7 +174,7 @@ with st.sidebar:
     
     with st.expander("Visualization Settings"):
         high_contrast = st.checkbox("High Contrast Mode", help="Enable high-contrast colors for accessibility.")
-        use_3d_distribution = st.checkbox("3D Team Distribution", help="Use 3D scatter plot for team distribution.")
+        use_3d_distribution = st.checkbox("3D Team Distribution", help="Use 3D scatter plot with time slider for team distribution.")
     
     with st.expander("Data Management"):
         load_data = st.button("Load Saved Data", key="load_data")
@@ -196,9 +202,9 @@ with st.sidebar:
         st.markdown("""
             ### Help
             Monitor workplace performance with professional visualizations:
-            - **Overview**: Trends for OEE, Well-Being, and Psychological Safety.
-            - **Efficiency**: Uptime, throughput, quality, and OEE metrics.
-            - **Team Distribution**: Worker positions (2D/3D) or density heatmap.
+            - **Overview**: Gauge charts for OEE, Well-Being, Safety, and Downtime with recommendations.
+            - **Efficiency**: Uptime, throughput, quality, and OEE trends.
+            - **Team Distribution**: Worker positions (2D with layout or 3D with time slider) or density heatmap.
             - **Well-Being**: Worker Well-Being Index with actionable alerts.
             - **Safety**: Psychological Safety Score with training recommendations.
             - **Compliance**: Task Compliance Score with anomaly detection.
@@ -212,7 +218,7 @@ with st.sidebar:
         """, unsafe_allow_html=True)
 
 # Main content
-st.title(f"{DEFAULT_CONFIG['FACILITY_TYPE'].capitalize()} Workplace Shift Monitoring Dashboard")
+st.title("Workplace Shift Monitoring Dashboard")
 
 # Initialize session state
 if 'simulation_results' not in st.session_state:
@@ -246,7 +252,7 @@ if run_simulation:
                 diff = team_size - current_sum
                 config['WORK_AREAS']['Assembly Line']['workers'] += diff
         
-        validate_config(config)  # Validate the updated config
+        validate_config(config)
         logger.info("Running simulation with team_size=%d, shift_duration=%d min", team_size, shift_duration)
         simulation_results = simulate_workplace_operations(
             num_team_members=team_size,
@@ -278,7 +284,7 @@ if st.session_state.simulation_results:
      efficiency_metrics_df, productivity_loss, worker_wellbeing, psychological_safety,
      feedback_impact, downtime_minutes, task_completion_rate) = st.session_state.simulation_results
     
-    # Time range slider
+    # Time range slider for overall trends
     time_range = st.slider(
         "Select Time Range (minutes)",
         min_value=0,
@@ -297,7 +303,7 @@ if st.session_state.simulation_results:
     
     with tabs[0]:
         st.header("Dashboard Overview")
-        st.markdown('<div class="tooltip">Key Metrics<span class="tooltiptext">Trends for OEE, Worker Well-Being, and Psychological Safety over time.</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="tooltip">Key Metrics<span class="tooltiptext">Gauge charts for OEE, Worker Well-Being, Psychological Safety, and Downtime with actionable recommendations.</span></div>', unsafe_allow_html=True)
         
         # Composite line chart
         fig = go.Figure()
@@ -326,33 +332,32 @@ if st.session_state.simulation_results:
             hovertemplate='Time: %{x} min<br>Safety: %{y:.1f}%'
         ))
         
-        # Annotations with offset
         annotations = []
         y_offset = 10
         wellbeing_slice = worker_wellbeing['scores'][time_indices[0]:time_indices[1]]
-        if wellbeing_slice:  # Check if slice is non-empty
+        if wellbeing_slice:
             if np.mean(wellbeing_slice) < DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:
                 annotations.append(dict(
                     x=minutes[time_indices[0]], 
                     y=worker_wellbeing['scores'][time_indices[0]] + y_offset,
-                    text="Low well-being; recommend breaks",
+                    text="Low well-being<br>Recommend breaks",
                     showarrow=True, arrowhead=1, ax=20, ay=-30,
                     font=dict(color='#EF4444')
                 ))
                 y_offset += 5
         safety_slice = psychological_safety[time_indices[0]:time_indices[1]]
-        if safety_slice:  # Check if slice is non-empty
+        if safety_slice:
             if np.mean(safety_slice) < DEFAULT_CONFIG['SAFETY_THRESHOLD'] * 100:
                 annotations.append(dict(
                     x=minutes[time_indices[0]], 
                     y=psychological_safety[time_indices[0]] + y_offset,
-                    text="Low safety; enhance training",
+                    text="Low safety<br>Enhance training",
                     showarrow=True, arrowhead=1, ax=20, ay=-30,
                     font=dict(color='#EF4444')
                 ))
         
         fig.update_layout(
-            title=dict(text='Key Performance Metrics', x=0.5, font_size=22),
+            title=dict(text='Key Performance Metrics Trend', x=0.5, font_size=22),
             xaxis_title='Time (minutes)',
             yaxis_title='Score (%)',
             font=dict(color='#E6ECEF', size=14),
@@ -368,16 +373,62 @@ if st.session_state.simulation_results:
         
         with st.expander("Key Metrics Summary"):
             col1, col2, col3, col4 = st.columns(4)
+            
+            # OEE Gauge
             with col1:
-                st.metric("Average OEE", f"{efficiency_metrics_df['oee'].mean():.1f}%", delta=f"{efficiency_metrics_df['oee'].mean() - 85:.1f}% vs benchmark")
+                oee_mean = efficiency_metrics_df['oee'].mean()
+                oee_fig, oee_rec = plot_gauge_chart(
+                    value=oee_mean,
+                    title="Average OEE",
+                    threshold=75,
+                    recommendation="Optimize processes to improve OEE."
+                )
+                st.plotly_chart(oee_fig, use_container_width=True)
+                if oee_mean < 75:
+                    st.markdown(f'<div class="recommendation">{oee_rec}</div>', unsafe_allow_html=True)
+            
+            # Well-Being Gauge
             with col2:
                 wellbeing_mean = np.mean(worker_wellbeing['scores']) if worker_wellbeing['scores'] else 0
-                st.metric("Average Well-Being", f"{wellbeing_mean:.1f}%", delta=f"{wellbeing_mean - DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:.1f}%")
+                wellbeing_fig, wellbeing_rec = plot_gauge_chart(
+                    value=wellbeing_mean,
+                    title="Average Well-Being",
+                    threshold=DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100,
+                    recommendation="Schedule a break to improve well-being."
+                )
+                st.plotly_chart(wellbeing_fig, use_container_width=True)
+                if wellbeing_mean < DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:
+                    st.markdown(f'<div class="recommendation">{wellbeing_rec}</div>', unsafe_allow_html=True)
+                    if st.button("Suggest Break Schedule", key="break_schedule"):
+                        st.info("Suggested break schedule: Add 10-minute breaks every 60 minutes.")
+            
+            # Safety Gauge
             with col3:
                 safety_mean = np.mean(psychological_safety) if psychological_safety else 0
-                st.metric("Average Safety", f"{safety_mean:.1f}%", delta=f"{safety_mean - DEFAULT_CONFIG['SAFETY_THRESHOLD'] * 100:.1f}%")
+                safety_fig, safety_rec = plot_gauge_chart(
+                    value=safety_mean,
+                    title="Average Safety",
+                    threshold=DEFAULT_CONFIG['SAFETY_THRESHOLD'] * 100,
+                    recommendation="Implement team-building exercises."
+                )
+                st.plotly_chart(safety_fig, use_container_width=True)
+                if safety_mean < DEFAULT_CONFIG['SAFETY_THRESHOLD'] * 100:
+                    st.markdown(f'<div class="recommendation">{safety_rec}</div>', unsafe_allow_html=True)
+            
+            # Downtime Gauge
             with col4:
-                st.metric("Total Downtime", f"{np.sum(downtime_minutes):.1f} min", delta_color="inverse")
+                total_downtime = np.sum(downtime_minutes)
+                downtime_fig, downtime_rec = plot_gauge_chart(
+                    value=total_downtime,
+                    title="Total Downtime",
+                    threshold=DEFAULT_CONFIG['DOWNTIME_THRESHOLD'] * 5,  # Scale threshold for total
+                    max_value=DEFAULT_CONFIG['DOWNTIME_THRESHOLD'] * 10,
+                    recommendation="Investigate equipment or process issues."
+                )
+                downtime_fig.update_traces(number_suffix=" min")
+                st.plotly_chart(downtime_fig, use_container_width=True)
+                if total_downtime > DEFAULT_CONFIG['DOWNTIME_THRESHOLD'] * 5:
+                    st.markdown(f'<div class="recommendation">{downtime_rec}</div>', unsafe_allow_html=True)
     
     with tabs[1]:
         st.header("Operational Efficiency")
@@ -394,17 +445,35 @@ if st.session_state.simulation_results:
     
     with tabs[2]:
         st.header("Team Distribution")
-        st.markdown('<div class="tooltip">Worker Positions<span class="tooltiptext">2D/3D scatter or heatmap showing worker locations in meters.</span></div>', unsafe_allow_html=True)
+        st.markdown('<div class="tooltip">Worker Positions<span class="tooltiptext">2D layout or 3D scatter with time slider showing worker locations in meters, color-coded by workload status.</span></div>', unsafe_allow_html=True)
         zone_filter = st.selectbox("Filter by Zone", options=["All"] + list(DEFAULT_CONFIG['WORK_AREAS'].keys()))
         filtered_df = team_positions_df if zone_filter == "All" else team_positions_df[team_positions_df['zone'] == zone_filter]
         filtered_df = filtered_df[(filtered_df['step'] >= time_indices[0]) & (filtered_df['step'] < time_indices[1])]
         
-        if st.checkbox("Show Density Heatmap"):
-            heatmap_fig = plot_worker_density_heatmap(filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG)
-            st.plotly_chart(heatmap_fig, use_container_width=True)
-        else:
-            distribution_fig = plot_worker_distribution(filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=use_3d_distribution)
+        if use_3d_distribution:
+            selected_step = st.slider(
+                "Select Time Step",
+                min_value=int(time_indices[0]),
+                max_value=int(time_indices[1] - 1),
+                value=int(time_indices[0]),
+                key="team_distribution_step"
+            )
+            distribution_fig = plot_worker_distribution(filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=True, selected_step=selected_step)
             st.plotly_chart(distribution_fig, use_container_width=True)
+        else:
+            if st.checkbox("Show Density Heatmap"):
+                heatmap_fig = plot_worker_density_heatmap(filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG)
+                st.plotly_chart(heatmap_fig, use_container_width=True)
+            else:
+                selected_step = st.slider(
+                    "Select Time Step",
+                    min_value=int(time_indices[0]),
+                    max_value=int(time_indices[1] - 1),
+                    value=int(time_indices[0]),
+                    key="team_distribution_step_2d"
+                )
+                distribution_fig = plot_worker_distribution(filtered_df, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, use_3d=False, selected_step=selected_step)
+                st.plotly_chart(distribution_fig, use_container_width=True)
     
     with tabs[3]:
         st.header("Worker Well-Being")
@@ -480,58 +549,4 @@ if st.session_state.simulation_results:
             - **Throughput**: Percentage of maximum production rate achieved (0–100%).
             - **Quality**: Percentage of products meeting quality standards (0–100%).
             - **OEE**: Combined metric of uptime, throughput, and quality (0–100%).
-            - **Productivity Loss**: Percentage of potential output lost due to disruptions (0–100%).
-            - **Downtime**: Total minutes of unplanned equipment or process stops.
-            - **Task Completion Rate**: Percentage of assigned tasks completed per interval (0–100%).
-            - **Feedback Impact**: Estimated improvement in well-being or team cohesion from initiatives.
-        """)
-        st.markdown("""
-            ### Terms
-            - **Disruption**: An event (e.g., equipment failure) causing a temporary drop in performance.
-            - **Team Initiative**: Strategies like "More frequent breaks" or "Team recognition".
-            - **Anomaly**: A statistically significant deviation (z-score > 2.0) in metrics.
-        """)
-
-else:
-    st.info("Run a simulation or load saved data using the sidebar controls to view results.")
-
-# High-contrast mode
-if high_contrast:
-    st.markdown("""
-        <style>
-            .main { 
-                background-color: #000000; 
-                color: #FFFFFF; 
-            }
-            h1, h2, h3 { 
-                color: #FFFFFF; 
-            }
-            .stButton>button { 
-                background-color: #FFFFFF; 
-                color: #000000; 
-                border: 2px solid #FFFFFF; 
-            }
-            .stButton>button:hover { 
-                background-color: #19D3F3; 
-                color: #000000; 
-            }
-            .stSelectbox, .stSlider, .stMultiSelect { 
-                background-color: #333333; 
-                color: #FFFFFF; 
-            }
-            [data-testid="stSidebar"] { 
-                background-color: #111111; 
-                color: #FFFFFF; 
-            }
-            .stMetric, .stExpander { 
-                background-color: #333333; 
-            }
-            .stTabs [data-baseweb="tab"] { 
-                color: #FFFFFF; 
-                background-color: #333333; 
-            }
-            .stTabs [data-baseweb="tab"]:hover { 
-                background-color: #19D3F3; 
-            }
-        </style>
-    """, unsafe_allow_html=True)
+            - **Productivity Loss**: Percentage of potential output
