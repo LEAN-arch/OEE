@@ -2,6 +2,7 @@
 # Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
 # Enhanced for professional visuals, seamless UX, accessibility, fixed tab rendering, debug mode, and error handling for plot_task_compliance_score.
 # Fixed nesting issue in render_settings_sidebar to prevent StreamlitAPIException.
+# Added input validation for plot_key_metrics_summary to prevent ValueError in visualizations.py.
 
 import logging
 import streamlit as st
@@ -538,7 +539,9 @@ def main():
                 st.session_state.show_tour = False
 
     # Help Modal
-    if st.session_state.show_help:
+    if
+
+ st.session_state.show_help:
         with st.container():
             st.markdown("""
                 <div class="onboarding-modal" role="dialog" aria-label="Help Section">
@@ -584,10 +587,29 @@ def main():
                 (team_positions_df, task_compliance, collaboration_proximity, operational_recovery,
                  efficiency_metrics_df, productivity_loss, worker_wellbeing, psychological_safety,
                  feedback_impact, downtime_minutes, task_completion_rate) = st.session_state.simulation_results
-                compliance_mean = np.mean(task_compliance['data'])
-                proximity_mean = np.mean(collaboration_proximity['data'])
-                wellbeing_mean = np.mean(worker_wellbeing['scores']) if worker_wellbeing['scores'] else 0
-                total_downtime = np.sum(downtime_minutes)
+                
+                # Validate and compute means with fallbacks
+                inputs = {
+                    "compliance_mean": np.mean(task_compliance['data']) if task_compliance['data'] and not np.all(np.isnan(task_compliance['data'])) else 0.0,
+                    "proximity_mean": np.mean(collaboration_proximity['data']) if collaboration_proximity['data'] and not np.all(np.isnan(collaboration_proximity['data'])) else 0.0,
+                    "wellbeing_mean": np.mean(worker_wellbeing['scores']) if worker_wellbeing['scores'] and not np.all(np.isnan(worker_wellbeing['scores'])) else 0.0,
+                    "total_downtime": np.sum(downtime_minutes) if downtime_minutes and not np.all(np.isnan(downtime_minutes)) else 0.0
+                }
+
+                # Log inputs and validate
+                for name, value in inputs.items():
+                    if not isinstance(value, (int, float)) or np.isnan(value):
+                        logger.error(f"Invalid input in main.py: {name}={value}, type={type(value)}", extra={'user_action': 'Render Overview Metrics'})
+                        inputs[name] = 0.0  # Fallback to 0.0
+                    logger.info(f"Input in main.py: {name}={value}, type={type(value)}", extra={'user_action': 'Render Overview Metrics'})
+
+                compliance_mean = inputs["compliance_mean"]
+                proximity_mean = inputs["proximity_mean"]
+                wellbeing_mean = inputs["wellbeing_mean"]
+                total_downtime = inputs["total_downtime"]
+
+                # Call plot_key_metrics_summary
+                summary_figs = plot_key_metrics_summary(compliance_mean, proximity_mean, wellbeing_mean, total_downtime)
                 
                 # Enhanced Metrics Display
                 col1, col2, col3, col4 = st.columns(4)
@@ -613,7 +635,6 @@ def main():
                 
                 # Gauge Charts
                 col1, col2 = st.columns(2)
-                summary_figs = plot_key_metrics_summary(compliance_mean, proximity_mean, wellbeing_mean, total_downtime)
                 for i, fig in enumerate(summary_figs):
                     with st.container(border=True):
                         st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
