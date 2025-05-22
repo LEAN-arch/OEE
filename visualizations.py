@@ -108,7 +108,7 @@ def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score,
 
 def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None, colors=None):
     """
-    Create a gauge chart with vibrant colors, glassmorphic design, and dynamic tooltips.
+    Create a gauge chart with vibrant colors, glassmorphic design, and enhanced annotations.
 
     Args:
         value (float): Current value of the metric.
@@ -225,23 +225,14 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
             height=280
         )
 
-        # Dynamic tooltip
-        hover_template = (
-            f"<b>{title}</b><br>"
-            f"Value: %{{value:.1f}}{'%' if max_value == 100 else ' min'}<br>"
-            f"Status: {status}<br>"
-            f"Recommendation: {recommendation}<extra></extra>"
-        )
-        fig.update_traces(hovertemplate=hover_template)
-
-        # Update layout
+        # Add status and recommendation as annotations
         fig.update_layout(
             font=dict(color='#E5E7EB', size=14, family='Inter, sans-serif'),
             template='plotly_dark',
             plot_bgcolor='rgba(17, 24, 39, 0.9)',
             paper_bgcolor='rgba(17, 24, 39, 0.9)',
             height=320,
-            margin=dict(l=30, r=30, t=60, b=30),
+            margin=dict(l=30, r=30, t=60, b=50),
             transition={'duration': 600, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
             annotations=[
                 dict(
@@ -252,9 +243,19 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
                     text=f"Status: {status}",
                     showarrow=False,
                     font=dict(size=12, color='#9CA3AF', family='Inter, sans-serif')
+                ),
+                dict(
+                    x=0.5,
+                    y=-0.2,
+                    xref="paper",
+                    yref="paper",
+                    text=f"Recommendation: {recommendation}",
+                    showarrow=False,
+                    font=dict(size=12, color='#9CA3AF', family='Inter, sans-serif')
                 )
             ]
         )
+
         return fig
     except Exception as e:
         logger.error(
@@ -430,7 +431,7 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
 
         # Handle NaNs
         proximity_scores = np.nan_to_num(proximity_scores, nan=0.0)
-        forecast = np.nan_to_num(fellowship, nan=0.0) if forecast is not None else None
+        forecast = np.nan_to_num(forecast, nan=0.0) if forecast is not None else None
 
         minutes = [i * 2 for i in range(len(proximity_scores))]
         fig = go.Figure()
