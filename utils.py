@@ -24,7 +24,8 @@ def save_simulation_data(
     operational_resilience: list,
     team_wellbeing: dict,
     safety: list,
-    productivity_loss: list
+    productivity_loss: list,
+    feedback_impact: dict
 ) -> None:
     """
     Save simulation outputs to CSV files.
@@ -38,6 +39,7 @@ def save_simulation_data(
         team_wellbeing (dict): Well-being data.
         safety (list): Safety scores.
         productivity_loss (list): Productivity loss values.
+        feedback_impact (dict): Feedback impact data (wellbeing, cohesion).
 
     Raises:
         Exception: If saving fails, with detailed logging.
@@ -46,6 +48,9 @@ def save_simulation_data(
         # Defensive import for Streamlit reloading
         import pandas as pd
         logger.info("save_simulation_data: Pandas imported successfully")
+        
+        # Log number of arguments received
+        logger.info("save_simulation_data: Received %d arguments", 9)
         
         logger.info("Saving team_positions.csv")
         team_positions_df.to_csv('team_positions.csv', index=False)
@@ -59,7 +64,9 @@ def save_simulation_data(
             'resilience': operational_resilience,
             'wellbeing': team_wellbeing['scores'],
             'safety': safety,
-            'productivity_loss': productivity_loss
+            'productivity_loss': productivity_loss,
+            'feedback_wellbeing': [feedback_impact['wellbeing']] * DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS'],
+            'feedback_cohesion': [feedback_impact['cohesion']] * DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS']
         })
         logger.info("Saving summary_metrics.csv")
         summary_df.to_csv('summary_metrics.csv', index=False)
