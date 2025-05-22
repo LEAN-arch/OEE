@@ -424,17 +424,6 @@ def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, 
                     line=dict(color='#FFFFFF', width=4, dash='dash'),
                     layer='below'
                 ))
-                # Add annotation for production line label
-                mid_x = (line['start'][0] + line['end'][0]) / 2
-                mid_y = (line['start'][1] + line['end'][1]) / 2
-                fig.add_annotation(
-                    x=mid_x,
-                    y=mid_y,
-                    text=line['label'],
-                    showarrow=False,
-                    font=dict(color='#FFFFFF', size=10),
-                    yshift=10
-                )
         
         # Plot workers by workload status
         for zone, area in config['WORK_AREAS'].items():
@@ -508,6 +497,20 @@ def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, 
                         font=dict(color='#FBBF24', size=10)
                     ))
         
+        # Add production line annotations after figure initialization
+        if show_production_lines:
+            for line in config['PRODUCTION_LINES']:
+                mid_x = (line['start'][0] + line['end'][0]) / 2
+                mid_y = (line['start'][1] + line['end'][1]) / 2
+                fig.add_annotation(
+                    x=mid_x,
+                    y=mid_y,
+                    text=line['label'],
+                    showarrow=False,
+                    font=dict(color='#FFFFFF', size=10),
+                    yshift=10
+                )
+        
         fig.update_layout(
             title=dict(text='Worker Distribution with Facility Layout', x=0.5, font_size=22),
             xaxis_title='X (m)',
@@ -531,6 +534,16 @@ def plot_worker_density_heatmap(positions_df, facility_size, config, show_entry_
     x_bins = np.linspace(0, facility_size, config['DENSITY_GRID_SIZE'])
     y_bins = np.linspace(0, facility_size, config['DENSITY_GRID_SIZE'])
     heatmap, xedges, yedges = np.histogram2d(positions_df['x'], positions_df['y'], bins=[x_bins, y_bins])
+    
+    # Create figure first
+    fig = go.Figure(data=go.Heatmap(
+        z=heatmap.T,
+        x=xedges,
+        y=yedges,
+        colorscale='Viridis',
+        showscale=True,
+        hovertemplate='X: %{x} m<br>Y: %{y} m<br>Workers: %{z}'
+    ))
     
     # Add facility layout
     shapes = []
@@ -561,27 +574,6 @@ def plot_worker_density_heatmap(positions_df, facility_size, config, show_entry_
                 line=dict(color='#FFFFFF', width=4, dash='dash'),
                 layer='below'
             ))
-            # Add annotation for production line label
-            mid_x = (line['start'][0] + line['end'][0]) / 2
-            mid_y = (line['start'][1] + line['end'][1]) / 2
-            fig.add_annotation(
-                x=mid_x,
-                y=mid_y,
-                text=line['label'],
-                showarrow=False,
-                font=dict(color='#FFFFFF', size=10),
-                yshift=10
-            )
-    
-    # Create heatmap
-    fig = go.Figure(data=go.Heatmap(
-        z=heatmap.T,
-        x=xedges,
-        y=yedges,
-        colorscale='Viridis',
-        showscale=True,
-        hovertemplate='X: %{x} m<br>Y: %{y} m<br>Workers: %{z}'
-    ))
     
     # Add entry/exit points
     if show_entry_exit:
@@ -597,6 +589,20 @@ def plot_worker_density_heatmap(positions_df, facility_size, config, show_entry_
                 textposition='top center',
                 hovertemplate=f"{point['label']} ({point['type']})<br>Coords: ({point['coords'][0]}, {point['coords'][1]})"
             ))
+    
+    # Add production line annotations
+    if show_production_lines:
+        for line in config['PRODUCTION_LINES']:
+            mid_x = (line['start'][0] + line['end'][0]) / 2
+            mid_y = (line['start'][1] + line['end'][1]) / 2
+            fig.add_annotation(
+                x=mid_x,
+                y=mid_y,
+                text=line['label'],
+                showarrow=False,
+                font=dict(color='#FFFFFF', size=10),
+                yshift=10
+            )
     
     # Add overcrowding and high traffic annotations
     annotations = []
