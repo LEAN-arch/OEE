@@ -1,19 +1,39 @@
-# config.py
-# Configuration for Industrial Workplace Shift Monitoring Dashboard
-# Defines parameters for simulating and analyzing shift performance, safety, and team well-being.
+"""
+config.py
+Configuration management for the Industrial Workplace Shift Monitoring Dashboard.
+Provides default parameters and validation for simulation settings.
+"""
 
-def validate_config(config):
-    """Validate configuration parameters."""
-    assert config['FACILITY_SIZE'] > 0, "Facility size must be positive"
-    assert 0 <= config['WELLBEING_THRESHOLD'] <= 1, "Well-being threshold must be between 0 and 1"
-    assert 0 <= config['SAFETY_COMPLIANCE_THRESHOLD'] <= 1, "Safety threshold must be between 0 and 1"
-    assert config['TEAM_SIZE'] > 0, "Team size must be positive"
-    assert config['SHIFT_DURATION_INTERVALS'] > 0, "Shift duration must be positive"
-    assert all(0 <= t <= config['SHIFT_DURATION_INTERVALS'] for t in config['DISRUPTION_INTERVALS']), "Disruption intervals out of range"
-    assert 0 <= config['ADAPTATION_RATE'] <= 1, "Adaptation rate must be between 0 and 1"
-    assert 0 <= config['SUPERVISOR_INFLUENCE'] <= 1, "Supervisor influence must be between 0 and 1"
+def validate_config(config: dict) -> None:
+    """
+    Validate configuration parameters.
 
-CONFIG = {
+    Args:
+        config (dict): Configuration dictionary.
+
+    Raises:
+        ValueError: If any parameter is invalid.
+    """
+    if config['FACILITY_SIZE'] <= 0:
+        raise ValueError("Facility size must be positive")
+    if not (0 <= config['WELLBEING_THRESHOLD'] <= 1):
+        raise ValueError("Well-being threshold must be between 0 and 1")
+    if not (0 <= config['SAFETY_COMPLIANCE_THRESHOLD'] <= 1):
+        raise ValueError("Safety threshold must be between 0 and 1")
+    if config['TEAM_SIZE'] <= 0:
+        raise ValueError("Team size must be positive")
+    if config['SHIFT_DURATION_INTERVALS'] <= 0:
+        raise ValueError("Shift duration must be positive")
+    if any(t < 0 or t > config['SHIFT_DURATION_INTERVALS'] for t in config['DISRUPTION_INTERVALS']):
+        raise ValueError("Disruption intervals out of range")
+    if not (0 <= config['ADAPTATION_RATE'] <= 1):
+        raise ValueError("Adaptation rate must be between 0 and 1")
+    if not (0 <= config['SUPERVISOR_INFLUENCE'] <= 1):
+        raise ValueError("Supervisor influence must be between 0 and 1")
+    if sum(zone['workers'] for zone in config['WORK_AREAS'].values()) != config['TEAM_SIZE']:
+        raise ValueError("Sum of workers in WORK_AREAS must equal TEAM_SIZE")
+
+DEFAULT_CONFIG = {
     'WORK_AREAS': {
         'Assembly Line': {'center': [20, 20], 'label': 'Assembly Line', 'workers': 20},
         'Packaging Zone': {'center': [60, 60], 'label': 'Packaging Zone', 'workers': 15},
@@ -36,4 +56,5 @@ CONFIG = {
     'FACILITY_TYPE': 'manufacturing'
 }
 
-validate_config(CONFIG)
+# Validate default configuration
+validate_config(DEFAULT_CONFIG)
