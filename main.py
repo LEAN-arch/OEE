@@ -100,22 +100,22 @@ def render_settings_sidebar():
         st.markdown(f'<img src="{LEAN_LOGO_BASE64}" width="100" alt="Lean Institute Logo" style="display: block; margin: 0 auto 1rem;">', unsafe_allow_html=True)
         st.markdown("## ⚙️ Simulation Controls")
         with st.expander("🧪 Simulation Parameters", expanded=True):
-            team_size_val = st.session_state.get('sb_team_size_slider', DEFAULT_CONFIG['TEAM_SIZE']) # Use widget key
-            shift_duration_val = st.session_state.get('sb_shift_duration_slider', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']) # Use widget key
+            team_size_val = st.session_state.get('sb_team_size_slider', DEFAULT_CONFIG['TEAM_SIZE']) 
+            shift_duration_val = st.session_state.get('sb_shift_duration_slider', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']) 
             team_size = st.slider("Team Size", 10, 100, team_size_val, key="sb_team_size_slider", help="Adjust the number of workers in the simulated shift.")
             shift_duration = st.slider("Shift Duration (min)", 200, 2000, shift_duration_val, step=2, key="sb_shift_duration_slider", help="Set the total length of the simulated work shift.")
             max_disrupt_time = shift_duration - 2 
             disruption_options = [i * 2 for i in range(max_disrupt_time // 2)] if max_disrupt_time > 0 else []
             default_disrupt_mins_raw = [i * 2 for i in DEFAULT_CONFIG.get('DISRUPTION_INTERVALS', [])]
             valid_default_disrupt_mins = [m for m in default_disrupt_mins_raw if m in disruption_options]
-            _current_disrupt_selection_from_state = st.session_state.get('sb_disruption_intervals_multiselect', valid_default_disrupt_mins) # Use widget key
+            _current_disrupt_selection_from_state = st.session_state.get('sb_disruption_intervals_multiselect', valid_default_disrupt_mins) 
             current_disrupt_selection_for_widget = []
             if not isinstance(_current_disrupt_selection_from_state, list): logger.warning(f"Session 'sb_disruption_intervals_multiselect' not a list. Resetting."); current_disrupt_selection_for_widget = valid_default_disrupt_mins
             else: current_disrupt_selection_for_widget = _current_disrupt_selection_from_state
             valid_current_disrupt_selection_for_widget = [m for m in current_disrupt_selection_for_widget if m in disruption_options]
             disruption_intervals_minutes = st.multiselect("Disruption Times (min)", disruption_options, valid_current_disrupt_selection_for_widget, key="sb_disruption_intervals_multiselect", help="Select specific times (in minutes from shift start) when disruptions will occur in the simulation.")
             team_initiative_opts = ["Standard Operations", "More frequent breaks", "Team recognition"]
-            current_initiative = st.session_state.get('sb_team_initiative_selectbox', team_initiative_opts[0]) # Use widget key
+            current_initiative = st.session_state.get('sb_team_initiative_selectbox', team_initiative_opts[0]) 
             team_initiative_idx = team_initiative_opts.index(current_initiative) if current_initiative in team_initiative_opts else 0
             team_initiative = st.selectbox("Operational Initiative", team_initiative_opts, index=team_initiative_idx, key="sb_team_initiative_selectbox", help="Apply an operational strategy to observe its impact on metrics.")
             run_simulation_button = st.button("🚀 Run New Simulation", key="sb_run_simulation_button", type="primary", use_container_width=True)
@@ -126,7 +126,7 @@ def render_settings_sidebar():
         with st.expander("💾 Data Management & Export"):
             load_data_button = st.button("🔄 Load Previous Simulation", key="sb_load_data_button", use_container_width=True)
             can_gen_report = 'simulation_results' in st.session_state and st.session_state.simulation_results is not None
-            if st.button("📄 Download Report (.tex)", key="sb_download_report_button", disabled=not can_gen_report, use_container_width=True, help="Generates a LaTeX (.tex) file summarizing the simulation. Requires a LaTeX distribution to compile to PDF."):
+            if st.button("📄 Download Report (.tex)", key="sb_pdf_button", disabled=not can_gen_report, use_container_width=True, help="Generates a LaTeX (.tex) file summarizing the simulation. Requires a LaTeX distribution to compile to PDF."):
                 if can_gen_report:
                     try:
                         sim_res = st.session_state.simulation_results; num_steps = len(sim_res.get('downtime_minutes', []))
@@ -136,14 +136,14 @@ def render_settings_sidebar():
                         generate_pdf_report(pd.DataFrame(pdf_data)); st.success("✅ LaTeX report (.tex) file 'workplace_report.tex' has been generated.")
                     except SystemExit: pass 
                     except Exception as e: logger.error(f"PDF Generation Error: {e}", exc_info=True); st.error(f"❌ PDF Generation Error: {e}")
-            if 'simulation_results' in st.session_state and st.session_state.simulation_results:
+            if 'simulation_results' in st.session_state and st.session_state.simulation_results :
                 sim_res_exp = st.session_state.simulation_results; num_steps_csv = len(sim_res_exp.get('downtime_minutes', []))
                 if num_steps_csv > 0:
                     csv_data = {k: sim_res_exp.get(k, [np.nan]*num_steps_csv)[:num_steps_csv] for k in ['operational_recovery', 'psychological_safety', 'productivity_loss', 'downtime_minutes', 'task_completion_rate']}
                     csv_data.update({'task_compliance': sim_res_exp.get('task_compliance', {}).get('data', [np.nan]*num_steps_csv)[:num_steps_csv], 'collaboration_proximity': sim_res_exp.get('collaboration_proximity', {}).get('data', [np.nan]*num_steps_csv)[:num_steps_csv], 'worker_wellbeing': sim_res_exp.get('worker_wellbeing', {}).get('scores', [np.nan]*num_steps_csv)[:num_steps_csv], 'step': list(range(num_steps_csv)), 'time_minutes': [i * 2 for i in range(num_steps_csv)]})
-                    st.download_button("📥 Download Data (CSV)", pd.DataFrame(csv_data).to_csv(index=False).encode('utf-8'), "workplace_summary.csv", "text/csv", key="sb_download_csv_button", use_container_width=True)
+                    st.download_button("📥 Download Data (CSV)", pd.DataFrame(csv_data).to_csv(index=False).encode('utf-8'), "workplace_summary.csv", "text/csv", key="sb_csv_dl_button", use_container_width=True)
                 else: st.caption("No detailed data to export for CSV.") 
-            else: st.caption("Run a simulation to enable data export.")
+            elif not can_gen_report : st.caption("Run simulation for export.") # Show this if sim_results is None
         if st.session_state.get('sb_debug_mode_checkbox', False): 
             with st.expander("🛠️ Debug Information", expanded=False): 
                 st.write("**Default Config (Partial):**"); st.json({k: DEFAULT_CONFIG.get(k) for k in ['ENTRY_EXIT_POINTS', 'WORK_AREAS']}, expanded=False)
@@ -151,8 +151,8 @@ def render_settings_sidebar():
                     st.write("**Active Simulation Config (from results):**"); st.json(st.session_state.simulation_results.get('config_params', {}), expanded=False)
                 else: st.write("**No active simulation data to show config from.**")
         st.markdown("## 📋 Help & Info")
-        if st.button("ℹ️ Help & Glossary", key="sb_help_toggle_button", use_container_width=True): st.session_state.show_help_glossary = not st.session_state.get('show_help_glossary', False); st.rerun()
-        if st.button("🚀 Quick Tour", key="sb_tour_toggle_button", use_container_width=True): st.session_state.show_tour = not st.session_state.get('show_tour', False); st.rerun()
+        if st.button("ℹ️ Help & Glossary", key="sb_help_button", use_container_width=True): st.session_state.show_help_glossary = not st.session_state.get('show_help_glossary', False); st.rerun() 
+        if st.button("🚀 Quick Tour", key="sb_tour_button", use_container_width=True): st.session_state.show_tour = not st.session_state.get('show_tour', False); st.rerun() 
     return team_size, shift_duration, disruption_intervals_minutes, team_initiative, run_simulation_button, load_data_button, high_contrast, use_3d_distribution, debug_mode
 
 @st.cache_data(ttl=3600, show_spinner="⚙️ Running simulation model...")
@@ -186,50 +186,61 @@ def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals
     simulation_output_dict['config_params'] = {'TEAM_SIZE': team_size, 'SHIFT_DURATION_MINUTES': shift_duration_minutes, 'DISRUPTION_INTERVALS_MINUTES': disruption_intervals_minutes, 'DISRUPTION_INTERVALS_STEPS': config['DISRUPTION_INTERVALS'], 'TEAM_INITIATIVE': team_initiative_selected}
     save_simulation_data(simulation_output_dict); return simulation_output_dict
 
-def get_actionable_insights(sim_data, current_config): # Renamed parameter for clarity
+def safe_get(data_dict, path_str, default_val=None): # MOVED TO MODULE LEVEL
+    current = data_dict
+    default_return = default_val if default_val is not None else ([]) 
+    if not isinstance(path_str, str) or not isinstance(data_dict, dict): 
+        return default_return
+    for key in path_str.split('.'):
+        if isinstance(current, dict):
+            current = current.get(key)
+        elif isinstance(current, (list, pd.Series)) and key.isdigit():
+            try:
+                idx = int(key)
+                current = current[idx] if idx < len(current) else None
+            except (ValueError, IndexError): current = None; break
+        else: current = None; break
+    return current if current is not None else default_return
+
+def safe_stat(data_list, stat_func, default_val=0.0): # MOVED TO MODULE LEVEL
+    if not isinstance(data_list, (list, np.ndarray, pd.Series)): data_list = []
+    valid_data = [x for x in data_list if x is not None and not (isinstance(x, float) and np.isnan(x))]; return stat_func(valid_data) if valid_data else default_val
+
+def get_actionable_insights(sim_data, current_config): 
     insights = []
     if not sim_data or not isinstance(sim_data, dict): return insights 
-    
-    compliance_data = safe_get(sim_data, 'task_compliance.data', [])
-    target_compliance_from_config = current_config.get('TARGET_COMPLIANCE', 75) 
-    compliance_avg = safe_stat(compliance_data, np.mean, default_val=target_compliance_from_config)
+    compliance_data = safe_get(sim_data, 'task_compliance.data', []); target_compliance_from_config = current_config.get('TARGET_COMPLIANCE', 75); compliance_avg = safe_stat(compliance_data, np.mean, default_val=target_compliance_from_config)
     if compliance_avg < target_compliance_from_config * 0.9: insights.append({"type": "critical", "title": "Low Task Compliance", "text": f"Avg. Task Compliance ({compliance_avg:.1f}%) is significantly below target ({target_compliance_from_config}%). Review disruption impacts, task complexities, and training."})
     elif compliance_avg < target_compliance_from_config: insights.append({"type": "warning", "title": "Suboptimal Task Compliance", "text": f"Avg. Task Compliance at {compliance_avg:.1f}%. Identify intervals or areas with lowest compliance for process review."})
-
-    wellbeing_scores = safe_get(sim_data, 'worker_wellbeing.scores', [])
-    target_wellbeing_from_config = current_config.get('TARGET_WELLBEING', 70)
-    wellbeing_avg = safe_stat(wellbeing_scores, np.mean, default_val=target_wellbeing_from_config)
+    wellbeing_scores = safe_get(sim_data, 'worker_wellbeing.scores', []); target_wellbeing_from_config = current_config.get('TARGET_WELLBEING', 70); wellbeing_avg = safe_stat(wellbeing_scores, np.mean, default_val=target_wellbeing_from_config)
     if wellbeing_avg < target_wellbeing_from_config * 0.85: insights.append({"type": "critical", "title": "Critical Worker Well-being Levels", "text": f"Avg. Well-being ({wellbeing_avg:.1f}%) is critically low (target {target_wellbeing_from_config}%). Urgent review of work conditions, load, and stress factors needed."})
     threshold_triggers = safe_get(sim_data, 'worker_wellbeing.triggers.threshold', [])
     if wellbeing_scores and len(threshold_triggers) > (len(wellbeing_scores) * 0.1) and len(threshold_triggers) > 2 : insights.append({"type": "warning", "title": "Frequent Low Well-being Alerts", "text": f"{len(threshold_triggers)} instances of well-being dropping below threshold. Investigate specific triggers and affected periods."})
-
-    downtime_data = safe_get(sim_data, 'downtime_minutes', [])
-    total_downtime = safe_stat(downtime_data, np.sum)
-    sim_config_params = sim_data.get('config_params', {}); actual_shift_duration_minutes = sim_config_params.get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'])
-    downtime_threshold_total_shift = current_config.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', actual_shift_duration_minutes * 0.05) 
+    downtime_data = safe_get(sim_data, 'downtime_minutes', []); total_downtime = safe_stat(downtime_data, np.sum); sim_config_params = sim_data.get('config_params', {}); actual_shift_duration_minutes = sim_config_params.get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']); downtime_threshold_total_shift = current_config.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', actual_shift_duration_minutes * 0.05) 
     if total_downtime > downtime_threshold_total_shift : insights.append({"type": "critical", "title": "Excessive Total Downtime", "text": f"Total shift downtime is {total_downtime:.0f} minutes, exceeding the guideline of {downtime_threshold_total_shift:.0f} min. Focus on causes of disruptions and equipment reliability."})
-    
-    if compliance_avg > target_compliance_from_config * 1.05 and wellbeing_avg > target_wellbeing_from_config * 1.05 and total_downtime < downtime_threshold_total_shift * 0.5 :
-        insights.append({"type": "positive", "title": "Excellent Overall Performance", "text": "Key metrics significantly exceed targets, indicating highly effective operations and a positive work environment. Identify and replicate success factors."})
-    
+    if compliance_avg > target_compliance_from_config * 1.05 and wellbeing_avg > target_wellbeing_from_config * 1.05 and total_downtime < downtime_threshold_total_shift * 0.5 : insights.append({"type": "positive", "title": "Excellent Overall Performance", "text": "Key metrics significantly exceed targets, indicating highly effective operations and a positive work environment. Identify and replicate success factors."})
     initiative = sim_data.get('config_params', {}).get('TEAM_INITIATIVE', 'Standard Operations')
     if initiative != "Standard Operations": insights.append({"type": "info", "title": f"Initiative Active: '{initiative}'", "text": f"The '{initiative}' initiative was simulated. Compare results to a baseline 'Standard Operations' run to quantify its specific impact."})
     return insights
 
 def main():
     st.title("Workplace Shift Optimization Dashboard")
-    general_state_keys = ['simulation_results', 'show_tour', 'show_help_glossary', 'op_metrics_time_slider_val', 'worker_insights_time_slider_val', 'worker_snap_step_slider_val_dist_tab', 'downtime_tab_time_slider_val'] # Value keys for sliders
-    for key in general_state_keys: # Initialize general app state variables
-        if key not in st.session_state: st.session_state[key] = None 
+    # Initialize session state for app-level variables, not widget values directly here.
+    # Widget values will be managed by st.session_state.get('widget_key', default) within render_settings_sidebar
+    app_state_keys = ['simulation_results', 'show_tour', 'show_help_glossary',
+                      'op_metrics_time_slider_val', 'worker_insights_time_slider_val', 
+                      'worker_snap_step_slider_val_dist_tab', 'downtime_tab_time_slider_val']
+    for key in app_state_keys:
+        if key not in st.session_state: 
+            st.session_state[key] = None # Specific slider vals might get better defaults later
     
-    # The values returned by render_settings_sidebar are the current values of the widgets.
-    # These widgets also store their values in st.session_state using their assigned 'key'.
+    # Sidebar widgets implicitly manage their state in st.session_state via their 'key'
     sb_team_size, sb_shift_duration, sb_disrupt_mins, sb_team_initiative, \
     sb_run_sim_btn, sb_load_data_btn, sb_high_contrast, \
     sb_use_3d, sb_debug_mode = render_settings_sidebar()
-        
+    
+    # Use the current values from sidebar widgets for logic
     _default_shift_duration = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']
-    # Use the direct widget value from sidebar for current shift duration logic
     _current_shift_duration_for_slider_max = sb_shift_duration if sb_shift_duration is not None else _default_shift_duration
     current_max_minutes_for_sliders = _current_shift_duration_for_slider_max - 2
     disruption_steps_for_plots = []
@@ -239,16 +250,15 @@ def main():
         if num_steps_from_sim > 0: current_max_minutes_for_sliders = (num_steps_from_sim - 1) * 2
         disruption_steps_for_plots = st.session_state.simulation_results.get('config_params', {}).get('DISRUPTION_INTERVALS_STEPS', [])
     else: 
-        _disrupt_mins_list_for_plots = sb_disrupt_mins if sb_disrupt_mins is not None else [] # Use current widget value
+        _disrupt_mins_list_for_plots = sb_disrupt_mins if sb_disrupt_mins is not None else []
         disruption_steps_for_plots = [m // 2 for m in _disrupt_mins_list_for_plots if isinstance(m, (int, float))]
     current_max_minutes_for_sliders = max(0, current_max_minutes_for_sliders) 
 
     if sb_run_sim_btn:
         with st.spinner("🚀 Simulating workplace operations..."):
             try: 
-                # Pass current widget values directly to simulation logic
                 st.session_state.simulation_results = run_simulation_logic(
-                    sb_team_size, sb_shift_duration, sb_disrupt_mins, sb_team_initiative
+                    sb_team_size, sb_shift_duration, sb_disrupt_mins, sb_team_initiative # Pass direct sidebar values
                 )
                 st.success("✅ Simulation completed!"); 
                 logger.info("Simulation run successful.", extra={'user_action': 'Run Simulation - Success'}); 
@@ -265,14 +275,12 @@ def main():
                 if loaded_data and isinstance(loaded_data, dict):
                     st.session_state.simulation_results = loaded_data; 
                     cfg = loaded_data.get('config_params', {})
-                    # When data is loaded, update the session_state keys that correspond to sidebar widget keys
-                    # This will make the sidebar widgets reflect the loaded simulation's parameters on the next rerun
+                    # Update session_state keys that sidebar widgets read from
                     st.session_state.sb_team_size_slider = cfg.get('TEAM_SIZE', st.session_state.get('sb_team_size_slider'))
                     st.session_state.sb_shift_duration_slider = cfg.get('SHIFT_DURATION_MINUTES', st.session_state.get('sb_shift_duration_slider'))
                     st.session_state.sb_team_initiative_selectbox = cfg.get('TEAM_INITIATIVE', st.session_state.get('sb_team_initiative_selectbox'))
                     st.session_state.sb_disruption_intervals_multiselect = cfg.get('DISRUPTION_INTERVALS_MINUTES', st.session_state.get('sb_disruption_intervals_multiselect'))
-                    # UI preferences might not be part of config_params, keep them as user set
-                    # st.session_state.sb_high_contrast_checkbox = cfg.get('HIGH_CONTRAST', st.session_state.get('sb_high_contrast_checkbox')) 
+                    
                     st.success("✅ Data loaded successfully!"); 
                     logger.info("Saved data loaded successfully.", extra={'user_action': 'Load Data - Success'}); 
                     st.rerun() 
@@ -285,58 +293,23 @@ def main():
                 st.session_state.simulation_results = None
     
     if st.session_state.get('show_tour'): 
-        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>🚀 Quick Dashboard Tour</h3><p>Welcome! ...</p></div>""", unsafe_allow_html=True) 
+        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>🚀 Quick Dashboard Tour</h3> ... </div>""", unsafe_allow_html=True) 
         if st.button("Got it!", key="tour_modal_close_btn"): st.session_state.show_tour = False; st.rerun()
     if st.session_state.get('show_help_glossary'): 
-        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>ℹ️ Help & Glossary</h3><p>This dashboard ...</p><h4>Metric Definitions:</h4>...</div>""", unsafe_allow_html=True) 
+        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>ℹ️ Help & Glossary</h3> ... </div>""", unsafe_allow_html=True) 
         if st.button("Understood", key="help_modal_close_btn"): st.session_state.show_help_glossary = False; st.rerun()
 
     tabs_main_names = ["📊 Overview & Insights", "📈 Operational Metrics", "👥 Worker Insights", "⏱️ Downtime Analysis", "📖 Glossary"]
     tabs = st.tabs(tabs_main_names)
     
-    def safe_get(data_dict, path_str, default_val=None): # CORRECTED safe_get
-        current = data_dict
-        default_return = default_val if default_val is not None else ([]) # Default to empty list if default_val is None and path expects iterable
-        if not isinstance(path_str, str) or not isinstance(data_dict, dict): 
-            return default_return
-        for key in path_str.split('.'):
-            if isinstance(current, dict):
-                current = current.get(key)
-            elif isinstance(current, (list, pd.Series)) and key.isdigit():
-                try:
-                    idx = int(key)
-                    current = current[idx] if idx < len(current) else None
-                except (ValueError, IndexError):
-                    current = None 
-                    break
-            else: 
-                current = None
-                break
-        return current if current is not None else default_return
-
-    def safe_stat(data_list, stat_func, default_val=0.0):
-        if not isinstance(data_list, (list, np.ndarray, pd.Series)): data_list = []
-        valid_data = [x for x in data_list if x is not None and not (isinstance(x, float) and np.isnan(x))]; return stat_func(valid_data) if valid_data else default_val
-    
     plot_config_interactive = {'displaylogo': False, 'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'resetScale2d', 'zoomIn2d', 'zoomOut2d', 'pan2d'], 'toImageButtonOptions': {'format': 'png', 'filename': 'plot_export', 'scale': 2}}; plot_config_minimal = {'displayModeBar': False}
-
-    # Retrieve high_contrast setting from session state for plots
     current_high_contrast = st.session_state.get('sb_high_contrast_checkbox', False)
-
 
     with tabs[0]: 
         st.header("📊 Key Performance Indicators & Actionable Insights", divider="blue")
         if st.session_state.simulation_results:
-            sim_data = st.session_state.simulation_results; 
-            # Merge DEFAULT_CONFIG with sim_data's config_params for targets, giving precedence to sim_data's params
-            # This allows targets to potentially be part of the saved simulation config
-            effective_config_for_targets = {**DEFAULT_CONFIG, **sim_data.get('config_params', {})} 
-
-            compliance_target=effective_config_for_targets.get('TARGET_COMPLIANCE', 75)
-            collab_target=effective_config_for_targets.get('TARGET_COLLABORATION', 60)
-            wb_target=effective_config_for_targets.get('TARGET_WELLBEING', 70)
-            dt_target_total_shift=effective_config_for_targets.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', sim_data.get('config_params',{}).get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']) * 0.05 )
-            
+            sim_data = st.session_state.simulation_results; effective_config_for_targets = {**DEFAULT_CONFIG, **sim_data.get('config_params', {})} 
+            compliance_target=effective_config_for_targets.get('TARGET_COMPLIANCE', 75); collab_target=effective_config_for_targets.get('TARGET_COLLABORATION', 60); wb_target=effective_config_for_targets.get('TARGET_WELLBEING', 70); dt_target_total_shift=effective_config_for_targets.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', sim_data.get('config_params',{}).get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']) * 0.05 )
             compliance = safe_stat(safe_get(sim_data, 'task_compliance.data', []), np.mean); proximity = safe_stat(safe_get(sim_data, 'collaboration_proximity.data', []), np.mean); wellbeing = safe_stat(safe_get(sim_data, 'worker_wellbeing.scores', []), np.mean); downtime = safe_stat(safe_get(sim_data, 'downtime_minutes', []), np.sum)
             cols_metrics = st.columns(4); cols_metrics[0].metric("Task Compliance", f"{compliance:.1f}%", f"{compliance-compliance_target:.1f}% vs Target {compliance_target}%"); cols_metrics[1].metric("Collaboration Index", f"{proximity:.1f}%", f"{proximity-collab_target:.1f}% vs Target {collab_target}%"); cols_metrics[2].metric("Worker Well-Being", f"{wellbeing:.1f}%", f"{wellbeing-wb_target:.1f}% vs Target {wb_target}%"); cols_metrics[3].metric("Total Downtime", f"{downtime:.1f} min", f"{downtime-dt_target_total_shift:.1f} min vs Target {dt_target_total_shift:.0f}min", delta_color="inverse")
             try:
@@ -361,27 +334,16 @@ def main():
                 else: st.caption("No detailed overview data.")
         else: st.info("ℹ️ Run a simulation or load data to view the Overview & Insights.", icon="📊")
 
-    # --- Code for other tabs (Operational, Worker Insights, Downtime, Glossary) ---
-    # Ensure each slider within these tabs also uses the robust defaulting and value clamping pattern for its session state value key
-    # Example for Operational Metrics slider:
     with tabs[1]: 
         st.header("📈 Operational Performance Trends", divider="blue")
         if st.session_state.simulation_results:
-            sim_data = st.session_state.simulation_results
-            slider_key = "op_metrics_time_slider"; value_key = "op_metrics_time_slider_val"
-            default_value = (0, current_max_minutes_for_sliders)
-            value_from_state = st.session_state.get(value_key)
-            if value_from_state is None or not (isinstance(value_from_state, tuple) and len(value_from_state) == 2): 
-                current_slider_value = default_value; st.session_state[value_key] = current_slider_value
-            else: current_slider_value = value_from_state
-            current_slider_value = (min(current_slider_value[0], current_max_minutes_for_sliders), min(current_slider_value[1], current_max_minutes_for_sliders))
-            current_slider_value = (current_slider_value[0], max(current_slider_value[0], current_slider_value[1])) # Ensure end >= start
-            
-            time_range = st.slider("Select Time Range (minutes):", 0, current_max_minutes_for_sliders, current_slider_value, 2, 
-                                   key=slider_key, disabled=current_max_minutes_for_sliders == 0, 
-                                   on_change=lambda: st.session_state.update({value_key: st.session_state[slider_key]}))
+            sim_data = st.session_state.simulation_results; op_slider_key = "op_time_slider"; op_val_key = "op_metrics_time_slider_val"
+            default_val = (0, current_max_minutes_for_sliders); val_from_state = st.session_state.get(op_val_key)
+            if val_from_state is None or not (isinstance(val_from_state, tuple) and len(val_from_state) == 2): current_val = default_val; st.session_state[op_val_key] = current_val
+            else: current_val = val_from_state
+            current_val = (min(current_val[0], current_max_minutes_for_sliders), min(current_val[1], current_max_minutes_for_sliders)); current_val = (current_val[0], max(current_val[0], current_val[1]))
+            time_range = st.slider("Select Time Range (minutes):", 0, current_max_minutes_for_sliders, current_val, 2, key=op_slider_key, disabled=current_max_minutes_for_sliders == 0, on_change=lambda: st.session_state.update({op_val_key: st.session_state[op_slider_key]}))
             start_idx, end_idx = time_range[0]//2, time_range[1]//2 + 1; filt_disrupt_steps = [s for s in disruption_steps_for_plots if start_idx <= s < end_idx]
-            
             tc_data_list = safe_get(sim_data, 'task_compliance.data', [])[start_idx:end_idx]
             if tc_data_list:
                 with st.container(border=True): st.markdown('<h5>Task Compliance Score Over Time</h5>', unsafe_allow_html=True)
@@ -408,7 +370,7 @@ def main():
                         sel_metrics = st.multiselect("Select Efficiency Metrics:", ['uptime', 'throughput', 'quality', 'oee'], default=['uptime', 'throughput', 'quality', 'oee'], key="eff_metrics_multiselect_op_tab")
                         filt_eff_df = eff_df_full.iloc[start_idx:end_idx] if isinstance(eff_df_full.index, pd.RangeIndex) and end_idx <= len(eff_df_full) else eff_df_full 
                         if not filt_eff_df.empty: st.plotly_chart(plot_operational_efficiency(filt_eff_df, sel_metrics, current_high_contrast), use_container_width=True, config=plot_config_interactive)
-                        else: st.caption("No OEE data for this time range after filtering.") # Using caption
+                        else: st.caption("No OEE data for this time range after filtering.")
                     except Exception as e: logger.error(f"Op Tab OEE Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting OEE.")
                 else: st.caption("No OEE data available.")
         else: st.info("ℹ️ Run a simulation or load data to view Operational Metrics.", icon="📈")
@@ -434,7 +396,7 @@ def main():
                 with cols_dist[0]:
                     st.markdown("<h5>Worker Positions (Time Snapshot)</h5>", unsafe_allow_html=True)
                     min_step, max_step = shared_start_idx, max(shared_start_idx, shared_end_idx -1)
-                    snap_slider_key="wsnap_slider"; snap_val_key="worker_snap_step_slider_val_dist_tab"; default_snap=min_step # Corrected val key from general init
+                    snap_slider_key="wsnap_slider"; snap_val_key="worker_snap_step_slider_val_dist_tab"; default_snap=min_step 
                     snap_val_from_state=st.session_state.get(snap_val_key)
                     if snap_val_from_state is None or not isinstance(snap_val_from_state, int): snap_val = default_snap; st.session_state[snap_val_key] = snap_val
                     else: snap_val = snap_val_from_state
@@ -484,7 +446,7 @@ def main():
         st.header("⏱️ Downtime Analysis", divider="blue")
         if st.session_state.simulation_results:
             sim_data = st.session_state.simulation_results
-            slider_key = "downtime_tab_time_slider"; value_key = "downtime_tab_time_slider_val" # Unique keys
+            slider_key = "downtime_tab_time_slider"; value_key = "downtime_tab_time_slider_val"
             default_value = (0, current_max_minutes_for_sliders); value_from_state = st.session_state.get(value_key)
             if value_from_state is None or not (isinstance(value_from_state, tuple) and len(value_from_state) == 2): current_slider_value = default_value; st.session_state[value_key] = current_slider_value
             else: current_slider_value = value_from_state
@@ -503,7 +465,7 @@ def main():
         
     with tabs[4]: 
         st.header("📖 Glossary of Terms", divider="blue")
-        st.markdown("""<div style="font-size: 0.95rem; line-height: 1.7;"><p>This glossary defines key metrics...</p>...</div>""", unsafe_allow_html=True) # Abridged for brevity
+        st.markdown("""<div style="font-size: 0.95rem; line-height: 1.7;"><p>This glossary defines key metrics used throughout the dashboard...</p>...</div>""", unsafe_allow_html=True) # Abridged for brevity
 
 if __name__ == "__main__":
     main()
