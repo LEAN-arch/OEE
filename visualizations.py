@@ -179,7 +179,9 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
             }
         }
     ))
-    fig.update_layout(
+
+    # Prepare layout parameters
+    layout_params = dict(
         font=dict(color='#F5F7FA', size=16, family='Roboto'),
         template='plotly_dark',
         plot_bgcolor='#1E2A44',
@@ -201,6 +203,23 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
             'toImageButtonOptions': {'format': 'png', 'filename': title.replace(' ', '_').lower()}
         }
     )
+
+    # Log layout parameters
+    logger.info(
+        f"Updating layout for {title}: {layout_params}",
+        extra={'user_action': 'Plot Gauge Chart'}
+    )
+
+    # Apply layout with error handling
+    try:
+        fig.update_layout(**layout_params)
+    except ValueError as e:
+        logger.error(
+            f"ValueError in update_layout for {title}: {str(e)}, params={layout_params}",
+            extra={'user_action': 'Plot Gauge Chart'}
+        )
+        raise
+
     return fig
 
 def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_scores):
@@ -985,7 +1004,7 @@ def plot_worker_wellbeing(scores, triggers):
     """
     minutes = [i * 2 for i in range(len(scores))]
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
+    fig.add_trace(go-flowchart
         x=minutes,
         y=scores,
         mode='lines+markers',
