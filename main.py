@@ -3,7 +3,7 @@ import logging
 import streamlit as st
 import pandas as pd
 import numpy as np
-from config import DEFAULT_CONFIG, validate_config # Ensure TARGET_COMPLIANCE etc. are in DEFAULT_CONFIG if used as fallback
+from config import DEFAULT_CONFIG, validate_config 
 from visualizations import (
     plot_key_metrics_summary,
     plot_task_compliance_score,
@@ -143,7 +143,7 @@ def render_settings_sidebar():
                     csv_data.update({'task_compliance': sim_res_exp.get('task_compliance', {}).get('data', [np.nan]*num_steps_csv)[:num_steps_csv], 'collaboration_proximity': sim_res_exp.get('collaboration_proximity', {}).get('data', [np.nan]*num_steps_csv)[:num_steps_csv], 'worker_wellbeing': sim_res_exp.get('worker_wellbeing', {}).get('scores', [np.nan]*num_steps_csv)[:num_steps_csv], 'step': list(range(num_steps_csv)), 'time_minutes': [i * 2 for i in range(num_steps_csv)]})
                     st.download_button("📥 Download Data (CSV)", pd.DataFrame(csv_data).to_csv(index=False).encode('utf-8'), "workplace_summary.csv", "text/csv", key="sb_csv_dl_button", use_container_width=True)
                 else: st.caption("No detailed data to export for CSV.") 
-            elif not can_gen_report : st.caption("Run simulation for export.") # Show this if sim_results is None
+            elif not can_gen_report : st.caption("Run simulation for export.")
         if st.session_state.get('sb_debug_mode_checkbox', False): 
             with st.expander("🛠️ Debug Information", expanded=False): 
                 st.write("**Default Config (Partial):**"); st.json({k: DEFAULT_CONFIG.get(k) for k in ['ENTRY_EXIT_POINTS', 'WORK_AREAS']}, expanded=False)
@@ -186,7 +186,7 @@ def run_simulation_logic(team_size, shift_duration_minutes, disruption_intervals
     simulation_output_dict['config_params'] = {'TEAM_SIZE': team_size, 'SHIFT_DURATION_MINUTES': shift_duration_minutes, 'DISRUPTION_INTERVALS_MINUTES': disruption_intervals_minutes, 'DISRUPTION_INTERVALS_STEPS': config['DISRUPTION_INTERVALS'], 'TEAM_INITIATIVE': team_initiative_selected}
     save_simulation_data(simulation_output_dict); return simulation_output_dict
 
-def safe_get(data_dict, path_str, default_val=None): # MOVED TO MODULE LEVEL
+def safe_get(data_dict, path_str, default_val=None):
     current = data_dict
     default_return = default_val if default_val is not None else ([]) 
     if not isinstance(path_str, str) or not isinstance(data_dict, dict): 
@@ -198,48 +198,60 @@ def safe_get(data_dict, path_str, default_val=None): # MOVED TO MODULE LEVEL
             try:
                 idx = int(key)
                 current = current[idx] if idx < len(current) else None
-            except (ValueError, IndexError): current = None; break
-        else: current = None; break
+            except (ValueError, IndexError):
+                current = None 
+                break
+        else: 
+            current = None
+            break
     return current if current is not None else default_return
 
-def safe_stat(data_list, stat_func, default_val=0.0): # MOVED TO MODULE LEVEL
+def safe_stat(data_list, stat_func, default_val=0.0):
     if not isinstance(data_list, (list, np.ndarray, pd.Series)): data_list = []
-    valid_data = [x for x in data_list if x is not None and not (isinstance(x, float) and np.isnan(x))]; return stat_func(valid_data) if valid_data else default_val
+    valid_data = [x for x in data_list if x is not None and not (isinstance(x, float) and np.isnan(x))]
+    return stat_func(valid_data) if valid_data else default_val
 
 def get_actionable_insights(sim_data, current_config): 
     insights = []
     if not sim_data or not isinstance(sim_data, dict): return insights 
-    compliance_data = safe_get(sim_data, 'task_compliance.data', []); target_compliance_from_config = current_config.get('TARGET_COMPLIANCE', 75); compliance_avg = safe_stat(compliance_data, np.mean, default_val=target_compliance_from_config)
+    compliance_data = safe_get(sim_data, 'task_compliance.data', [])
+    target_compliance_from_config = current_config.get('TARGET_COMPLIANCE', 75) 
+    compliance_avg = safe_stat(compliance_data, np.mean, default_val=target_compliance_from_config)
     if compliance_avg < target_compliance_from_config * 0.9: insights.append({"type": "critical", "title": "Low Task Compliance", "text": f"Avg. Task Compliance ({compliance_avg:.1f}%) is significantly below target ({target_compliance_from_config}%). Review disruption impacts, task complexities, and training."})
     elif compliance_avg < target_compliance_from_config: insights.append({"type": "warning", "title": "Suboptimal Task Compliance", "text": f"Avg. Task Compliance at {compliance_avg:.1f}%. Identify intervals or areas with lowest compliance for process review."})
-    wellbeing_scores = safe_get(sim_data, 'worker_wellbeing.scores', []); target_wellbeing_from_config = current_config.get('TARGET_WELLBEING', 70); wellbeing_avg = safe_stat(wellbeing_scores, np.mean, default_val=target_wellbeing_from_config)
+    wellbeing_scores = safe_get(sim_data, 'worker_wellbeing.scores', [])
+    target_wellbeing_from_config = current_config.get('TARGET_WELLBEING', 70)
+    wellbeing_avg = safe_stat(wellbeing_scores, np.mean, default_val=target_wellbeing_from_config)
     if wellbeing_avg < target_wellbeing_from_config * 0.85: insights.append({"type": "critical", "title": "Critical Worker Well-being Levels", "text": f"Avg. Well-being ({wellbeing_avg:.1f}%) is critically low (target {target_wellbeing_from_config}%). Urgent review of work conditions, load, and stress factors needed."})
     threshold_triggers = safe_get(sim_data, 'worker_wellbeing.triggers.threshold', [])
     if wellbeing_scores and len(threshold_triggers) > (len(wellbeing_scores) * 0.1) and len(threshold_triggers) > 2 : insights.append({"type": "warning", "title": "Frequent Low Well-being Alerts", "text": f"{len(threshold_triggers)} instances of well-being dropping below threshold. Investigate specific triggers and affected periods."})
-    downtime_data = safe_get(sim_data, 'downtime_minutes', []); total_downtime = safe_stat(downtime_data, np.sum); sim_config_params = sim_data.get('config_params', {}); actual_shift_duration_minutes = sim_config_params.get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']); downtime_threshold_total_shift = current_config.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', actual_shift_duration_minutes * 0.05) 
+    downtime_data = safe_get(sim_data, 'downtime_minutes', [])
+    total_downtime = safe_stat(downtime_data, np.sum)
+    sim_config_params = sim_data.get('config_params', {}); actual_shift_duration_minutes = sim_config_params.get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'])
+    downtime_threshold_total_shift = current_config.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', actual_shift_duration_minutes * 0.05) 
     if total_downtime > downtime_threshold_total_shift : insights.append({"type": "critical", "title": "Excessive Total Downtime", "text": f"Total shift downtime is {total_downtime:.0f} minutes, exceeding the guideline of {downtime_threshold_total_shift:.0f} min. Focus on causes of disruptions and equipment reliability."})
-    if compliance_avg > target_compliance_from_config * 1.05 and wellbeing_avg > target_wellbeing_from_config * 1.05 and total_downtime < downtime_threshold_total_shift * 0.5 : insights.append({"type": "positive", "title": "Excellent Overall Performance", "text": "Key metrics significantly exceed targets, indicating highly effective operations and a positive work environment. Identify and replicate success factors."})
+    if compliance_avg > target_compliance_from_config * 1.05 and wellbeing_avg > target_wellbeing_from_config * 1.05 and total_downtime < downtime_threshold_total_shift * 0.5 :
+        insights.append({"type": "positive", "title": "Excellent Overall Performance", "text": "Key metrics significantly exceed targets, indicating highly effective operations and a positive work environment. Identify and replicate success factors."})
     initiative = sim_data.get('config_params', {}).get('TEAM_INITIATIVE', 'Standard Operations')
     if initiative != "Standard Operations": insights.append({"type": "info", "title": f"Initiative Active: '{initiative}'", "text": f"The '{initiative}' initiative was simulated. Compare results to a baseline 'Standard Operations' run to quantify its specific impact."})
     return insights
 
 def main():
     st.title("Workplace Shift Optimization Dashboard")
-    # Initialize session state for app-level variables, not widget values directly here.
-    # Widget values will be managed by st.session_state.get('widget_key', default) within render_settings_sidebar
     app_state_keys = ['simulation_results', 'show_tour', 'show_help_glossary',
                       'op_metrics_time_slider_val', 'worker_insights_time_slider_val', 
                       'worker_snap_step_slider_val_dist_tab', 'downtime_tab_time_slider_val']
     for key in app_state_keys:
         if key not in st.session_state: 
-            st.session_state[key] = None # Specific slider vals might get better defaults later
+            st.session_state[key] = None 
     
-    # Sidebar widgets implicitly manage their state in st.session_state via their 'key'
     sb_team_size, sb_shift_duration, sb_disrupt_mins, sb_team_initiative, \
     sb_run_sim_btn, sb_load_data_btn, sb_high_contrast, \
     sb_use_3d, sb_debug_mode = render_settings_sidebar()
     
-    # Use the current values from sidebar widgets for logic
+    # Values from sidebar widgets (which are also in st.session_state by their keys like 'sb_team_size_slider')
+    # are used for logic and passed to functions.
+    # For clarity, using the direct return values here for calculations for current_max_minutes_for_sliders
     _default_shift_duration = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']
     _current_shift_duration_for_slider_max = sb_shift_duration if sb_shift_duration is not None else _default_shift_duration
     current_max_minutes_for_sliders = _current_shift_duration_for_slider_max - 2
@@ -258,7 +270,7 @@ def main():
         with st.spinner("🚀 Simulating workplace operations..."):
             try: 
                 st.session_state.simulation_results = run_simulation_logic(
-                    sb_team_size, sb_shift_duration, sb_disrupt_mins, sb_team_initiative # Pass direct sidebar values
+                    sb_team_size, sb_shift_duration, sb_disrupt_mins, sb_team_initiative
                 )
                 st.success("✅ Simulation completed!"); 
                 logger.info("Simulation run successful.", extra={'user_action': 'Run Simulation - Success'}); 
@@ -275,7 +287,7 @@ def main():
                 if loaded_data and isinstance(loaded_data, dict):
                     st.session_state.simulation_results = loaded_data; 
                     cfg = loaded_data.get('config_params', {})
-                    # Update session_state keys that sidebar widgets read from
+                    # Update the session_state keys that sidebar widgets read from (using their specific keys)
                     st.session_state.sb_team_size_slider = cfg.get('TEAM_SIZE', st.session_state.get('sb_team_size_slider'))
                     st.session_state.sb_shift_duration_slider = cfg.get('SHIFT_DURATION_MINUTES', st.session_state.get('sb_shift_duration_slider'))
                     st.session_state.sb_team_initiative_selectbox = cfg.get('TEAM_INITIATIVE', st.session_state.get('sb_team_initiative_selectbox'))
@@ -293,10 +305,10 @@ def main():
                 st.session_state.simulation_results = None
     
     if st.session_state.get('show_tour'): 
-        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>🚀 Quick Dashboard Tour</h3> ... </div>""", unsafe_allow_html=True) 
+        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>🚀 Quick Dashboard Tour</h3><p>Welcome! ...</p></div>""", unsafe_allow_html=True) 
         if st.button("Got it!", key="tour_modal_close_btn"): st.session_state.show_tour = False; st.rerun()
     if st.session_state.get('show_help_glossary'): 
-        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>ℹ️ Help & Glossary</h3> ... </div>""", unsafe_allow_html=True) 
+        with st.container(): st.markdown("""<div class="onboarding-modal"><h3>ℹ️ Help & Glossary</h3><p>This dashboard ...</p><h4>Metric Definitions:</h4>...</div>""", unsafe_allow_html=True) 
         if st.button("Understood", key="help_modal_close_btn"): st.session_state.show_help_glossary = False; st.rerun()
 
     tabs_main_names = ["📊 Overview & Insights", "📈 Operational Metrics", "👥 Worker Insights", "⏱️ Downtime Analysis", "📖 Glossary"]
@@ -405,7 +417,7 @@ def main():
                     snap_step = st.slider("Select Time Step for Snapshot:", min_step, max_step, snap_val, 1, key=snap_slider_key, disabled=max_step < min_step, on_change=lambda:st.session_state.update({snap_val_key: st.session_state[snap_slider_key]}))
                     if not team_pos_df_all.empty and max_step >= min_step :
                         with st.container(border=True):
-                            try: st.plotly_chart(plot_worker_distribution(team_pos_df_all, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, st.session_state.get('use_3d_distribution_setting', False), snap_step, show_ee, show_pl, current_high_contrast), use_container_width=True, config=plot_config_interactive)
+                            try: st.plotly_chart(plot_worker_distribution(team_pos_df_all, DEFAULT_CONFIG['FACILITY_SIZE'], DEFAULT_CONFIG, st.session_state.get('sb_use_3d_distribution_checkbox', False), snap_step, show_ee, show_pl, current_high_contrast), use_container_width=True, config=plot_config_interactive) # use sb_ key
                             except Exception as e: logger.error(f"Worker Dist Plot Error: {e}", exc_info=True); st.error("⚠️ Error plotting Worker Positions.")
                     else: st.caption("No data for positions snapshot with current filters.")
                 with cols_dist[1]:
@@ -465,7 +477,23 @@ def main():
         
     with tabs[4]: 
         st.header("📖 Glossary of Terms", divider="blue")
-        st.markdown("""<div style="font-size: 0.95rem; line-height: 1.7;"><p>This glossary defines key metrics used throughout the dashboard...</p>...</div>""", unsafe_allow_html=True) # Abridged for brevity
+        st.markdown("""
+            <div style="font-size: 0.95rem; line-height: 1.7;">
+            <p>This glossary defines key metrics used throughout the dashboard to help you understand the operational insights provided. For a combined view with general help, click the "ℹ️ Help & Glossary" button in the sidebar.</p>
+            <details><summary><strong>Task Compliance Score</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">The percentage of tasks completed correctly and within the allocated time. It measures adherence to operational protocols and standards. <em>Range: 0-100%. Higher is better.</em></p></details>
+            <details><summary><strong>Collaboration Proximity Index</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">The percentage of workers observed within a defined proximity (e.g., 5 meters) of their colleagues. This index suggests opportunities for teamwork, communication, and knowledge sharing. <em>Range: 0-100%. Optimal levels vary.</em></p></details>
+            <details><summary><strong>Operational Recovery Score</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">A measure of the system's ability to return to and maintain target output levels after experiencing disruptions. It reflects operational resilience. <em>Range: 0-100%. Higher is better.</em></p></details>
+            <details><summary><strong>Worker Well-Being Index</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">A composite score derived from simulated factors such as fatigue, stress levels, and job satisfaction. It provides an indicator of overall worker health and morale. <em>Range: 0-100%. Higher is better.</em></p></details>
+            <details><summary><strong>Psychological Safety Score</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">An estimate of the perceived comfort level among workers to report issues, voice concerns, or suggest improvements without fear of negative consequences. It indicates a supportive and open work environment. <em>Range: 0-100%. Higher is better.</em></p></details>
+            <details><summary><strong>Uptime</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">The percentage of scheduled operational time that equipment or a system is available and functioning correctly. <em>Range: 0-100%. Higher is better.</em></p></details>
+            <details><summary><strong>Throughput</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">The rate at which a system processes work or produces output, often expressed as a percentage of its maximum potential or target rate. <em>Range: 0-100%. Higher is better.</em></p></details>
+            <details><summary><strong>Quality Rate</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">The percentage of products or outputs that meet predefined quality standards, free of defects. <em>Range: 0-100%. Higher is better.</em></p></details>
+            <details><summary><strong>OEE (Overall Equipment Effectiveness)</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">A comprehensive metric calculated as (Uptime × Throughput × Quality Rate). It provides a holistic view of operational performance and efficiency. <em>Range: 0-100%. Higher is better.</em></p></details>
+            <details><summary><strong>Productivity Loss</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">The percentage of potential output or operational time lost due to inefficiencies, disruptions, downtime, or substandard performance. <em>Range: 0-100%. Lower is better.</em></p></details>
+            <details><summary><strong>Downtime (per interval)</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">The total duration (in minutes) of unplanned operational stops or non-productive time within each measured time interval. Tracks interruptions to workflow. <em>Lower is better.</em></p></details>
+            <details><summary><strong>Task Completion Rate</strong></summary><p style="padding-left: 20px; font-size:0.9rem;">The percentage of assigned tasks that are successfully completed within a given time interval. Measures task throughput and efficiency over time. <em>Range: 0-100%. Higher is better.</em></p></details>
+            </div>
+        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
