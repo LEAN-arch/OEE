@@ -1,3 +1,8 @@
+"""
+visualizations.py
+Visualization functions for the Workplace Shift Monitoring Dashboard using Plotly.
+Ensures accessible, high-contrast visuals with clear labels and error handling.
+"""
 import logging
 import plotly.graph_objects as go
 import numpy as np
@@ -197,7 +202,8 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
                 'Time: %{x} min<br>'
                 'Compliance: %{y:.1f}%<br>'
                 'Z-Score: %{customdata:.2f}<br>'
-                'Action: Review protocols if <75%'<extra></extra>'
+                'Action: Review protocols if <75%'  # Fixed: Added missing closing quote
+                '<extra></extra>'
             ),
             customdata=z_scores,
             showlegend=True
