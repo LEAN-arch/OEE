@@ -50,6 +50,19 @@ def validate_config(config: dict) -> None:
         raise ValueError("Density grid size must be positive")
     if config['ANOMALY_THRESHOLD'] <= 0:
         raise ValueError("Anomaly threshold (z-score) must be positive")
+    # Validate entry/exit points
+    for point in config['ENTRY_EXIT_POINTS']:
+        x, y = point['coords']
+        if not (0 <= x <= config['FACILITY_SIZE'] and 0 <= y <= config['FACILITY_SIZE']):
+            raise ValueError(f"Entry/Exit point {point['label']} coords ({x}, {y}) out of facility bounds")
+    # Validate production lines
+    for line in config['PRODUCTION_LINES']:
+        start_x, start_y = line['start']
+        end_x, end_y = line['end']
+        if not (0 <= start_x <= config['FACILITY_SIZE'] and 0 <= start_y <= config['FACILITY_SIZE']):
+            raise ValueError(f"Production line {line['label']} start ({start_x}, {start_y}) out of bounds")
+        if not (0 <= end_x <= config['FACILITY_SIZE'] and 0 <= end_y <= config['FACILITY_SIZE']):
+            raise ValueError(f"Production line {line['label']} end ({end_x}, {end_y}) out of bounds")
 
 DEFAULT_CONFIG = {
     'WORK_AREAS': {
@@ -57,25 +70,36 @@ DEFAULT_CONFIG = {
         'Packaging Zone': {'center': [60, 60], 'label': 'Packaging Zone', 'workers': 15},
         'Quality Control': {'center': [80, 80], 'label': 'Quality Control', 'workers': 15}
     },
-    'WELLBEING_THRESHOLD': 0.7,  # Worker Well-Being Index (0-1) below which alerts are triggered
-    'WELLBEING_TREND_WINDOW': 3,  # Intervals (6 minutes) for detecting well-being trends
-    'DISRUPTION_RECOVERY_WINDOW': 10,  # Intervals (20 minutes) for recovery post-disruption
-    'BREAK_FREQUENCY_INTERVALS': 30,  # Intervals (60 minutes) between breaks
-    'WORKLOAD_CAP_INTERVALS': 10,  # Intervals (20 minutes) for workload limits
-    'TEAM_SIZE': 50,  # Total number of workers
-    'SHIFT_DURATION_INTERVALS': 480,  # Number of 2-minute intervals (960 minutes = 16 hours)
-    'SHIFT_DURATION_MINUTES': 960,  # Total shift duration in minutes
-    'FACILITY_SIZE': 100,  # Facility size in meters (100m x 100m)
-    'ADAPTATION_RATE': 0.05,  # Rate of compliance improvement per interval
-    'SUPERVISOR_INFLUENCE': 0.2,  # Supervisor impact on compliance (0-1)
-    'DISRUPTION_INTERVALS': [60, 180],  # Intervals (120, 360 minutes) for disruptions
-    'ANOMALY_THRESHOLD': 2.0,  # Z-score threshold for anomaly detection
-    'SAFETY_THRESHOLD': 0.7,  # Psychological Safety Score (0-1) below which alerts are triggered
-    'DENSITY_GRID_SIZE': 20,  # Grid size for density heatmap
-    'FACILITY_TYPE': 'Workplace',  # Updated for universal application
-    'DOWNTIME_THRESHOLD': 10,  # Minutes of downtime triggering alerts
-    'TASK_COMPLETION_THRESHOLD': 0.9,  # Task completion rate (0-1) below which alerts are triggered
-    'COMPANY_LOGO_PATH': 'logo.png'  # Path to company logo for sidebar (not used due to base64 embedding)
+    'WELLBEING_THRESHOLD': 0.7,
+    'WELLBEING_TREND_WINDOW': 3,
+    'DISRUPTION_RECOVERY_WINDOW': 10,
+    'BREAK_FREQUENCY_INTERVALS': 30,
+    'WORKLOAD_CAP_INTERVALS': 10,
+    'TEAM_SIZE': 50,
+    'SHIFT_DURATION_INTERVALS': 480,
+    'SHIFT_DURATION_MINUTES': 960,
+    'FACILITY_SIZE': 100,
+    'ADAPTATION_RATE': 0.05,
+    'SUPERVISOR_INFLUENCE': 0.2,
+    'DISRUPTION_INTERVALS': [60, 180],
+    'ANOMALY_THRESHOLD': 2.0,
+    'SAFETY_THRESHOLD': 0.7,
+    'DENSITY_GRID_SIZE': 20,
+    'FACILITY_TYPE': 'Workplace',
+    'DOWNTIME_THRESHOLD': 10,
+    'TASK_COMPLETION_THRESHOLD': 0.9,
+    'COMPANY_LOGO_PATH': 'logo.png',
+    # Entry and Exit points (e.g., doors at facility edges)
+    'ENTRY_EXIT_POINTS': [
+        {'label': 'Entry 1', 'coords': [0, 50], 'type': 'Entry'},
+        {'label': 'Exit 1', 'coords': [100, 50], 'type': 'Exit'},
+        {'label': 'Entry/Exit 2', 'coords': [50, 0], 'type': 'Entry/Exit'}
+    ],
+    # Production lines (linear paths across the facility)
+    'PRODUCTION_LINES': [
+        {'label': 'Line 1', 'start': [10, 10], 'end': [40, 40]},
+        {'label': 'Line 2', 'start': [50, 50], 'end': [70, 70]}
+    ]
 }
 
 # Validate default configuration
