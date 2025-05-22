@@ -8,7 +8,7 @@ import logging
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from config import DEFAULT_CONFIG
+from config import DEFAULT_CONFIG, validate_config
 from visualizations import (
     plot_task_compliance_score,
     plot_collaboration_proximity_index,
