@@ -157,7 +157,7 @@ def simulate_workplace_operations(
         productivity_loss,
         team_wellbeing,
         safety,
-        feedback hunt        feedback_impact
+        feedback_impact
     )
 
 def plot_task_compliance_trend(compliance_data, disruption_intervals, forecast=None):
