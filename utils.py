@@ -41,22 +41,21 @@ def generate_pdf_report(summary_df: pd.DataFrame):
         for col in df_for_latex.select_dtypes(include=np.number).columns:
             if not pd.api.types.is_integer_dtype(df_for_latex[col].dropna()): df_for_latex[col] = df_for_latex[col].round(2)
         df_for_latex.columns = [col.replace('_', ' ').title() for col in df_for_latex.columns]
-        # Ensure column format string matches number of columns
         num_cols = len(df_for_latex.columns)
-        col_fmt = '|' + 'l|' * num_cols if num_cols > 0 else '|l|' # at least one column if empty df for some reason
+        col_fmt = '|' + 'l|' * num_cols if num_cols > 0 else '|l|' 
         
         latex_table = df_for_latex.to_latex(
             index=False, 
             escape=True, 
             column_format=col_fmt, 
             header=True, 
-            longtable=True, # Better for potentially long tables
+            longtable=True, 
             na_rep='-',      
             caption='Summary of Simulation Metrics Over Time.',
             label='tab:simsummary',
-            # position='!htbp' # position is less critical with longtable
         )
         
+        # Corrected LaTeX comment
         latex_document = f"""
 \\documentclass[10pt,a4paper]{{article}}
 \\usepackage[utf8]{{inputenc}}
@@ -73,8 +72,8 @@ def generate_pdf_report(summary_df: pd.DataFrame):
 \\fancyhf{{}} 
 \\fancyhead[C]{{Workplace Shift Monitoring Report}}
 \\fancyfoot[C]{{\\thepage}}
-\\renewcommand{{\\headrulewidth}}{{0.4pt}} % Add a line under the header
-\\renewcommand{{\\footrulewidth}}{{0.4pt}} % Add a line over the footer
+\\renewcommand{{\\headrulewidth}}{{0.4pt}} 
+\\renewcommand{{\\footrulewidth}}{{0.4pt}} 
 
 \\title{{Workplace Shift Monitoring Report}}
 \\author{{Automated Simulation System}}
@@ -92,8 +91,9 @@ latest simulation run. The table below presents a time-series summary.
 
 {latex_table}
 
-\\ Gend{further analysis and visualizations could be included here, potentially by
-\\ saving plots as images and including them with \\includegraphics{{plot.png}}.
+% Further analysis and visualizations could be included here, 
+% potentially by saving plots as images and including them 
+% with \\includegraphics{{plot.png}}.
 
 \\end{{document}}
 """
