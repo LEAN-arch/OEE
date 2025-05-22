@@ -398,9 +398,7 @@ if st.session_state.simulation_results:
     with tabs[4]:
         st.header("Psychological Safety")
         st.markdown('<div class="tooltip">Safety Score<span class="tooltiptext">Psychological Safety Score (0–100%) reflecting comfort in reporting issues.</span></div>', unsafe_allow_html=True)
-        filtered_safety = psychological_safety DUE TO CHARACTER LIMITS, THE REMAINDER OF THIS FILE IS CONTINUED BELOW:
-
-[time_indices[0]:time_indices[1]]
+        filtered_safety = psychological_safety[time_indices[0]:time_indices[1]]
         safety_fig = plot_psychological_safety(filtered_safety)
         st.plotly_chart(safety_fig, use_container_width=True)
     
