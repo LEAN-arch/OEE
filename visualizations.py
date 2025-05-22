@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
 
-# Configure logging for debugging and error tracking
+# Configure logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.INFO,
@@ -13,7 +13,7 @@ logging.basicConfig(
 
 def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score, downtime_minutes):
     """
-    Create a 2x2 grid of gauge charts with modern colors, gradients, and enhanced interactivity.
+    Create a 2x2 grid of gauge charts with vibrant colors, gradients, and enhanced interactivity.
 
     Args:
         compliance_score (float): Average task compliance score (%).
@@ -36,8 +36,8 @@ def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score,
                 f"Invalid input: {name}={score}, type={type(score)}",
                 extra={'user_action': 'Plot Key Metrics'}
             )
-            raise ValueError(f"Invalid input: {name} must be a number, got {score}")
-    
+            raise ValueError(f"Invalid {name}: must be a number, got {score}")
+
     # Log inputs
     logger.info(
         f"Inputs: compliance={compliance_score}, proximity={proximity_score}, "
@@ -45,13 +45,13 @@ def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score,
         extra={'user_action': 'Plot Key Metrics'}
     )
 
-    # Ensure values are within valid ranges
+    # Clamp values
     compliance_score = max(0, min(compliance_score, 100))
     proximity_score = max(0, min(proximity_score, 100))
     wellbeing_score = max(0, min(wellbeing_score, 100))
     downtime_minutes = max(0, downtime_minutes)
 
-    # Define thresholds and recommendations
+    # Define metrics
     metrics = [
         {
             'value': compliance_score,
@@ -87,21 +87,28 @@ def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score,
         }
     ]
 
-    figs = [
-        plot_gauge_chart(
-            metric['value'],
-            metric['title'],
-            metric['threshold'],
-            metric['max_value'],
-            metric['recommendation'],
-            metric['colors']
-        ) for metric in metrics
-    ]
-    return figs
+    try:
+        figs = [
+            plot_gauge_chart(
+                metric['value'],
+                metric['title'],
+                metric['threshold'],
+                metric['max_value'],
+                metric['recommendation'],
+                metric['colors']
+            ) for metric in metrics
+        ]
+        return figs
+    except Exception as e:
+        logger.error(
+            f"Failed to plot key metrics: {str(e)}",
+            extra={'user_action': 'Plot Key Metrics'}
+        )
+        raise
 
 def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None, colors=None):
     """
-    Create a modern gauge chart with gradients, neumorphic design, and dynamic tooltips.
+    Create a gauge chart with gradients, glassmorphic design, and dynamic tooltips.
 
     Args:
         value (float): Current value of the metric.
@@ -141,11 +148,10 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
         raise ValueError(f"Invalid recommendation: must be a string, got {recommendation}")
 
     # Default colors
-    default_colors = {
+    colors = colors or {
         'gradient': ['#10B981', '#34D399'],
         'threshold': '#F472B6'
     }
-    colors = colors or default_colors
 
     # Clamp value
     value = max(0, min(value, max_value))
@@ -154,112 +160,117 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
     status = "Optimal" if value >= threshold else "Needs Attention"
     delta_color = "#34D399" if value >= threshold else "#F87171"
 
-    # Create gauge chart
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number+delta",
-        value=value,
-        delta={
-            'reference': threshold,
-            'increasing': {'color': delta_color},
-            'decreasing': {'color': delta_color},
-            'font': {'size': 24, 'family': 'Inter, sans-serif'}
-        },
-        domain={'x': [0, 1], 'y': [0, 1]},
-        title={
-            'text': title,
-            'font': {'size': 28, 'color': '#E5E7EB', 'family': 'Inter, sans-serif', 'weight': '600'}
-        },
-        number={
-            'suffix': "%" if max_value == 100 else " min",
-            'font': {'size': 56, 'color': '#E5E7EB', 'family': 'Inter, sans-serif', 'weight': '600'},
-            'valueformat': '.1f'
-        },
-        gauge={
-            'axis': {
-                'range': [0, max_value],
-                'tickwidth': 2,
-                'tickcolor': "#6B7280",
-                'tickfont': {'color': '#6B7280', 'size': 16, 'family': 'Inter, sans-serif'},
-                'showticklabels': True
+    try:
+        # Create gauge chart
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=value,
+            delta={
+                'reference': threshold,
+                'increasing': {'color': delta_color},
+                'decreasing': {'color': delta_color},
+                'font': {'size': 20, 'family': 'Inter, sans-serif'}
             },
-            'bar': {
-                'color': {
-                    'gradient': {
-                        'type': 'linear',
-                        'color': colors['gradient']
-                    }
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={
+                'text': title,
+                'font': {'size': 24, 'color': '#E5E7EB', 'family': 'Inter, sans-serif', 'weight': '600'}
+            },
+            number={
+                'suffix': "%" if max_value == 100 else " min",
+                'font': {'size': 48, 'color': '#E5E7EB', 'family': 'Inter, sans-serif', 'weight': '600'},
+                'valueformat': '.1f'
+            },
+            gauge={
+                'axis': {
+                    'range': [0, max_value],
+                    'tickwidth': 1,
+                    'tickcolor': "#6B7280",
+                    'tickfont': {'color': '#6B7280', 'size': 14, 'family': 'Inter, sans-serif'},
+                    'showticklabels': True
                 },
-                'thickness': 0.35,
-                'line': {'color': '#111827', 'width': 2}
-            },
-            'bgcolor': "rgba(31, 41, 55, 0.9)",
-            'borderwidth': 0,
-            'shape': 'angular',
-            'steps': [
-                {'range': [0, threshold], 'color': "rgba(248, 113, 113, 0.3)"},
-                {'range': [threshold, max_value], 'color': "rgba(52, 211, 153, 0.3)"}
-            ],
-            'threshold': {
-                'line': {'color': colors['threshold'], 'width': 6},
-                'thickness': 0.9,
-                'value': threshold
+                'bar': {
+                    'color': {
+                        'gradient': {
+                            'type': 'linear',
+                            'color': colors['gradient']
+                        }
+                    },
+                    'thickness': 0.3,
+                    'line': {'color': '#111827', 'width': 1}
+                },
+                'bgcolor': "rgba(31, 41, 55, 0.8)",  # Glassmorphic
+                'borderwidth': 0,
+                'shape': 'angular',
+                'steps': [
+                    {'range': [0, threshold], 'color': "rgba(248, 113, 113, 0.2)"},
+                    {'range': [threshold, max_value], 'color': "rgba(52, 211, 153, 0.2)"}
+                ],
+                'threshold': {
+                    'line': {'color': colors['threshold'], 'width': 4},
+                    'thickness': 0.8,
+                    'value': threshold
+                }
             }
-        }
-    ))
+        ))
 
-    # Add neumorphic shadow
-    fig.add_annotation(
-        x=0.5,
-        y=0.5,
-        xref="paper",
-        yref="paper",
-        showarrow=False,
-        bgcolor="rgba(255, 255, 255, 0.1)",
-        bordercolor="rgba(255, 255, 255, 0.2)",
-        borderwidth=2,
-        borderpad=10,
-        opacity=0.8,
-        width=300,
-        height=300,
-        standoff=10
-    )
+        # Add neumorphic shadow
+        fig.add_annotation(
+            x=0.5,
+            y=0.5,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            bgcolor="rgba(255, 255, 255, 0.05)",
+            bordercolor="rgba(255, 255, 255, 0.1)",
+            borderwidth=1,
+            borderpad=10,
+            opacity=0.7,
+            width=280,
+            height=280
+        )
 
-    # Dynamic tooltip
-    hover_template = (
-        f"<b>{title}</b><br>" +
-        "Value: %{value:.1f}" + ("%" if max_value == 100 else " min") + "<br>" +
-        f"Status: {status}<br>" +
-        f"Recommendation: {recommendation}<extra></extra>"
-    )
-    fig.update_traces(hovertemplate=hover_template)
+        # Dynamic tooltip
+        hover_template = (
+            f"<b>{title}</b><br>"
+            f"Value: %{{value:.1f}}{'%' if max_value == 100 else ' min'}<br>"
+            f"Status: {status}<br>"
+            f"Recommendation: {recommendation}<extra></extra>"
+        )
+        fig.update_traces(hovertemplate=hover_template)
 
-    # Update layout
-    fig.update_layout(
-        font=dict(color='#E5E7EB', size=16, family='Inter, sans-serif'),
-        template='plotly_dark',
-        plot_bgcolor='rgba(17, 24, 39, 0.95)',
-        paper_bgcolor='rgba(17, 24, 39, 0.95)',
-        height=360,
-        margin=dict(l=40, r=40, t=80, b=40),
-        transition={'duration': 800, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
-        annotations=[
-            dict(
-                x=0.5,
-                y=-0.1,
-                xref="paper",
-                yref="paper",
-                text=f"Status: {status}",
-                showarrow=False,
-                font=dict(size=14, color='#9CA3AF', family='Inter, sans-serif')
-            )
-        ]
-    )
-
-    return fig
+        # Update layout
+        fig.update_layout(
+            font=dict(color='#E5E7EB', size=14, family='Inter, sans-serif'),
+            template='plotly_dark',
+            plot_bgcolor='rgba(17, 24, 39, 0.9)',
+            paper_bgcolor='rgba(17, 24, 39, 0.9)',
+            height=320,
+            margin=dict(l=30, r=30, t=60, b=30),
+            transition={'duration': 600, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
+            annotations=[
+                dict(
+                    x=0.5,
+                    y=-0.1,
+                    xref="paper",
+                    yref="paper",
+                    text=f"Status: {status}",
+                    showarrow=False,
+                    font=dict(size=12, color='#9CA3AF', family='Inter, sans-serif')
+                )
+            ]
+        )
+        return fig
+    except Exception as e:
+        logger.error(
+            f"Failed to plot gauge chart for {title}: {str(e)}",
+            extra={'user_action': 'Plot Gauge Chart'}
+        )
+        raise
 
 def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_scores):
     """
-    Plot task compliance with modern colors, annotations, and actionable insights.
+    Plot task compliance with modern colors and annotations.
 
     Args:
         compliance_scores (list): List of compliance scores (%).
@@ -272,6 +283,10 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
     """
     try:
         # Validate inputs
+        compliance_scores = np.array(compliance_scores, dtype=float)
+        z_scores = np.array(z_scores, dtype=float)
+        if forecast is not None:
+            forecast = np.array(forecast, dtype=float)
         if not (len(compliance_scores) == len(z_scores) and (forecast is None or len(forecast) == len(compliance_scores))):
             logger.error(
                 f"Input length mismatch: compliance_scores={len(compliance_scores)}, "
@@ -279,11 +294,13 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
                 extra={'user_action': 'Plot Task Compliance'}
             )
             raise ValueError("Input arrays must have the same length")
+        if not disruptions or not isinstance(disruptions, (list, np.ndarray)):
+            disruptions = []
 
         # Handle NaNs
-        compliance_scores = np.nan_to_num(np.array(compliance_scores, dtype=float), nan=0.0)
-        z_scores = np.nan_to_num(np.array(z_scores, dtype=float), nan=0.0)
-        forecast = np.nan_to_num(np.array(forecast, dtype=float), nan=0.0) if forecast is not None else None
+        compliance_scores = np.nan_to_num(compliance_scores, nan=0.0)
+        z_scores = np.nan_to_num(z_scores, nan=0.0)
+        forecast = np.nan_to_num(forecast, nan=0.0) if forecast is not None else None
 
         minutes = [i * 2 for i in range(len(compliance_scores))]
         fig = go.Figure()
@@ -292,8 +309,8 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
             y=compliance_scores,
             mode='lines+markers',
             name='Task Compliance',
-            line=dict(color='#4F46E5', width=3.5),
-            marker=dict(size=10, line=dict(width=2, color='#E5E7EB')),
+            line=dict(color='#4F46E5', width=3),
+            marker=dict(size=8, line=dict(width=1, color='#E5E7EB')),
             hovertemplate=(
                 'Time: %{x} min<br>'
                 'Compliance: %{y:.1f}%<br>'
@@ -310,19 +327,19 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
                 y=forecast,
                 mode='lines',
                 name='Forecast',
-                line=dict(color='#FBBF24', width=2.5, dash='dash'),
+                line=dict(color='#FBBF24', width=2, dash='dash'),
                 hovertemplate='Time: %{x} min<br>Forecast: %{y:.1f}%<extra></extra>',
                 showlegend=True
             ))
         for disruption in disruptions:
-            if 0 <= disruption < len(minutes):
+            if isinstance(disruption, (int, float)) and 0 <= disruption < len(minutes):
                 fig.add_vline(
-                    x=minutes[disruption],
+                    x=minutes[int(disruption)],
                     line_dash="dot",
                     line_color="#F87171",
                     annotation_text="Disruption",
                     annotation_position="top",
-                    annotation_font=dict(size=14, color='#F87171', family='Inter, sans-serif')
+                    annotation_font=dict(size=12, color='#F87171', family='Inter, sans-serif')
                 )
             else:
                 logger.warning(
@@ -337,34 +354,34 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
                     y=float(score),
                     text=f"Anomaly: {score:.1f}%",
                     showarrow=True,
-                    arrowhead=2,
-                    ax=40,
-                    ay=-50,
-                    font=dict(color='#F87171', size=14, family='Inter, sans-serif')
+                    arrowhead=1,
+                    ax=30,
+                    ay=-40,
+                    font=dict(color='#F87171', size=12, family='Inter, sans-serif')
                 ))
 
         fig.update_layout(
             title=dict(
                 text='Task Compliance Score',
                 x=0.5,
-                font=dict(size=28, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Score (%)',
             xaxis=dict(
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
             yaxis=dict(
                 range=[0, 100],
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
-            font=dict(color='#E5E7EB', size=16, family='Inter, sans-serif'),
+            font=dict(color='#E5E7EB', size=14, family='Inter, sans-serif'),
             template='plotly_dark',
             plot_bgcolor='#111827',
             paper_bgcolor='#111827',
@@ -372,14 +389,14 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
             legend=dict(
                 orientation='h',
                 yanchor='top',
-                y=1.2,
+                y=1.15,
                 xanchor='center',
                 x=0.5,
-                font=dict(size=14, family='Inter, sans-serif')
+                font=dict(size=12, family='Inter, sans-serif')
             ),
             annotations=annotations,
-            transition={'duration': 800, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
-            margin=dict(l=60, r=60, t=120, b=60)
+            transition={'duration': 600, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
+            margin=dict(l=50, r=50, t=100, b=50)
         )
         return fig
     except Exception as e:
@@ -391,7 +408,7 @@ def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_score
 
 def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
     """
-    Plot collaboration proximity with modern colors and actionable annotations.
+    Plot collaboration proximity with modern colors and annotations.
 
     Args:
         proximity_scores (list): List of proximity scores (%).
@@ -402,9 +419,23 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
         go.Figure: Plotly line chart figure.
     """
     try:
+        # Validate inputs
+        proximity_scores = np.array(proximity_scores, dtype=float)
+        if forecast is not None:
+            forecast = np.array(forecast, dtype=float)
+        if not (forecast is None or len(forecast) == len(proximity_scores)):
+            logger.error(
+                f"Input length mismatch: proximity_scores={len(proximity_scores)}, "
+                f"forecast={'None' if forecast is None else len(forecast)}",
+                extra={'user_action': 'Plot Collaboration Proximity'}
+            )
+            raise ValueError("Input arrays must have the same length")
+        if not disruptions or not isinstance(disruptions, (list, np.ndarray)):
+            disruptions = []
+
         # Handle NaNs
-        proximity_scores = np.nan_to_num(np.array(proximity_scores, dtype=float), nan=0.0)
-        forecast = np.nan_to_num(np.array(forecast, dtype=float), nan=0.0) if forecast is not None else None
+        proximity_scores = np.nan_to_num(proximity_scores, nan=0.0)
+        forecast = np.nan_to_num(forecast, nan=0.0) if forecast is not None else None
 
         minutes = [i * 2 for i in range(len(proximity_scores))]
         fig = go.Figure()
@@ -413,8 +444,8 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
             y=proximity_scores,
             mode='lines+markers',
             name='Proximity Index',
-            line=dict(color='#34D399', width=3.5),
-            marker=dict(size=10, line=dict(width=2, color='#E5E7EB')),
+            line=dict(color='#34D399', width=3),
+            marker=dict(size=8, line=dict(width=1, color='#E5E7EB')),
             hovertemplate=(
                 'Time: %{x} min<br>'
                 'Proximity: %{y:.1f}%<br>'
@@ -429,19 +460,19 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
                 y=forecast,
                 mode='lines',
                 name='Forecast',
-                line=dict(color='#FBBF24', width=2.5, dash='dash'),
+                line=dict(color='#FBBF24', width=2, dash='dash'),
                 hovertemplate='Time: %{x} min<br>Forecast: %{y:.1f}%<extra></extra>',
                 showlegend=True
             ))
         for disruption in disruptions:
-            if 0 <= disruption < len(minutes):
+            if isinstance(disruption, (int, float)) and 0 <= disruption < len(minutes):
                 fig.add_vline(
-                    x=minutes[disruption],
+                    x=minutes[int(disruption)],
                     line_dash="dot",
                     line_color="#F87171",
                     annotation_text="Disruption",
                     annotation_position="top",
-                    annotation_font=dict(size=14, color='#F87171', family='Inter, sans-serif')
+                    annotation_font=dict(size=12, color='#F87171', family='Inter, sans-serif')
                 )
             else:
                 logger.warning(
@@ -455,33 +486,33 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
                 y=max(proximity_scores) + 5,
                 text="Low collaboration<br>Encourage team activities",
                 showarrow=True,
-                arrowhead=2,
-                ax=40,
-                ay=-50,
-                font=dict(color='#F87171', size=14, family='Inter, sans-serif')
+                arrowhead=1,
+                ax=30,
+                ay=-40,
+                font=dict(color='#F87171', size=12, family='Inter, sans-serif')
             ))
         fig.update_layout(
             title=dict(
                 text='Collaboration Proximity Index',
                 x=0.5,
-                font=dict(size=28, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Index (%)',
             xaxis=dict(
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
             yaxis=dict(
                 range=[0, 100],
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
-            font=dict(color='#E5E7EB', size=16, family='Inter, sans-serif'),
+            font=dict(color='#E5E7EB', size=14, family='Inter, sans-serif'),
             template='plotly_dark',
             plot_bgcolor='#111827',
             paper_bgcolor='#111827',
@@ -489,14 +520,14 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
             legend=dict(
                 orientation='h',
                 yanchor='top',
-                y=1.2,
+                y=1.15,
                 xanchor='center',
                 x=0.5,
-                font=dict(size=14, family='Inter, sans-serif')
+                font=dict(size=12, family='Inter, sans-serif')
             ),
             annotations=annotations,
-            transition={'duration': 800, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
-            margin=dict(l=60, r=60, t=120, b=60)
+            transition={'duration': 600, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
+            margin=dict(l=50, r=50, t=100, b=50)
         )
         return fig
     except Exception as e:
@@ -508,7 +539,7 @@ def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
 
 def plot_operational_recovery(recovery_scores, productivity_loss):
     """
-    Plot operational recovery vs. productivity loss with modern colors and annotations.
+    Plot operational recovery vs. productivity loss with modern colors.
 
     Args:
         recovery_scores (list): List of recovery scores (%).
@@ -518,9 +549,20 @@ def plot_operational_recovery(recovery_scores, productivity_loss):
         go.Figure: Plotly line chart figure.
     """
     try:
+        # Validate inputs
+        recovery_scores = np.array(recovery_scores, dtype=float)
+        productivity_loss = np.array(productivity_loss, dtype=float)
+        if len(recovery_scores) != len(productivity_loss):
+            logger.error(
+                f"Input length mismatch: recovery_scores={len(recovery_scores)}, "
+                f"productivity_loss={len(productivity_loss)}",
+                extra={'user_action': 'Plot Operational Recovery'}
+            )
+            raise ValueError("Input arrays must have the same length")
+
         # Handle NaNs
-        recovery_scores = np.nan_to_num(np.array(recovery_scores, dtype=float), nan=0.0)
-        productivity_loss = np.nan_to_num(np.array(productivity_loss, dtype=float), nan=0.0)
+        recovery_scores = np.nan_to_num(recovery_scores, nan=0.0)
+        productivity_loss = np.nan_to_num(productivity_loss, nan=0.0)
 
         minutes = [i * 2 for i in range(len(recovery_scores))]
         fig = go.Figure()
@@ -529,8 +571,8 @@ def plot_operational_recovery(recovery_scores, productivity_loss):
             y=recovery_scores,
             mode='lines+markers',
             name='Operational Recovery',
-            line=dict(color='#4F46E5', width=3.5),
-            marker=dict(size=10, line=dict(width=2, color='#E5E7EB')),
+            line=dict(color='#4F46E5', width=3),
+            marker=dict(size=8, line=dict(width=1, color='#E5E7EB')),
             hovertemplate='Time: %{x} min<br>Recovery: %{y:.1f}%<extra></extra>',
             showlegend=True
         ))
@@ -539,8 +581,8 @@ def plot_operational_recovery(recovery_scores, productivity_loss):
             y=productivity_loss,
             mode='lines+markers',
             name='Productivity Loss',
-            line=dict(color='#F87171', width=3.5),
-            marker=dict(size=10, line=dict(width=2, color='#E5E7EB')),
+            line=dict(color='#F87171', width=3),
+            marker=dict(size=8, line=dict(width=1, color='#E ratings: []E7EB')),
             hovertemplate='Time: %{x} min<br>Loss: %{y:.1f}%<extra></extra>',
             showlegend=True
         ))
@@ -552,33 +594,33 @@ def plot_operational_recovery(recovery_scores, productivity_loss):
                 y=productivity_loss[max_loss_idx] + 5,
                 text=f"High loss: {productivity_loss[max_loss_idx]:.1f}%",
                 showarrow=True,
-                arrowhead=2,
-                ax=40,
-                ay=-50,
-                font=dict(color='#F87171', size=14, family='Inter, sans-serif')
+                arrowhead=1,
+                ax=30,
+                ay=-40,
+                font=dict(color='#F87171', size=12, family='Inter, sans-serif')
             ))
         fig.update_layout(
             title=dict(
                 text='Operational Recovery vs. Productivity Loss',
                 x=0.5,
-                font=dict(size=28, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Score (%)',
             xaxis=dict(
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
             yaxis=dict(
                 range=[0, 100],
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
-            font=dict(color='#E5E7EB', size=16, family='Inter, sans-serif'),
+            font=dict(color='#E5E7EB', size=14, family='Inter, sans-serif'),
             template='plotly_dark',
             plot_bgcolor='#111827',
             paper_bgcolor='#111827',
@@ -586,14 +628,14 @@ def plot_operational_recovery(recovery_scores, productivity_loss):
             legend=dict(
                 orientation='h',
                 yanchor='top',
-                y=1.2,
+                y=1.15,
                 xanchor='center',
                 x=0.5,
-                font=dict(size=14, family='Inter, sans-serif')
+                font=dict(size=12, family='Inter, sans-serif')
             ),
             annotations=annotations,
-            transition={'duration': 800, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
-            margin=dict(l=60, r=60, t=120, b=60)
+            transition={'duration': 600, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
+            margin=dict(l=50, r=50, t=100, b=50)
         )
         return fig
     except Exception as e:
@@ -605,7 +647,7 @@ def plot_operational_recovery(recovery_scores, productivity_loss):
 
 def plot_operational_efficiency(efficiency_df, selected_metrics):
     """
-    Plot operational efficiency metrics with modern colors and interactivity.
+    Plot operational efficiency metrics with modern colors.
 
     Args:
         efficiency_df (pd.DataFrame): DataFrame with efficiency metrics (uptime, throughput, quality, oee).
@@ -615,8 +657,28 @@ def plot_operational_efficiency(efficiency_df, selected_metrics):
         go.Figure: Plotly line chart figure.
     """
     try:
+        # Validate inputs
+        if not isinstance(efficiency_df, pd.DataFrame):
+            logger.error(
+                f"Invalid efficiency_df: expected DataFrame, got {type(efficiency_df)}",
+                extra={'user_action': 'Plot Operational Efficiency'}
+            )
+            raise ValueError("efficiency_df must be a pandas DataFrame")
+        if not selected_metrics or not all(metric in efficiency_df.columns for metric in selected_metrics):
+            logger.error(
+                f"Invalid selected_metrics: {selected_metrics}, available: {list(efficiency_df.columns)}",
+                extra={'user_action': 'Plot Operational Efficiency'}
+            )
+            raise ValueError("Selected metrics must be non-empty and in DataFrame columns")
+
         # Handle NaNs
         efficiency_df = efficiency_df.fillna(0.0)
+        if efficiency_df.empty:
+            logger.warning(
+                "Empty efficiency DataFrame",
+                extra={'user_action': 'Plot Operational Efficiency'}
+            )
+            return go.Figure()
 
         minutes = [i * 2 for i in range(len(efficiency_df))]
         fig = go.Figure()
@@ -632,45 +694,45 @@ def plot_operational_efficiency(efficiency_df, selected_metrics):
                 y=efficiency_df[metric],
                 mode='lines+markers',
                 name=metric.capitalize(),
-                line=dict(color=colors[metric], width=3.5),
-                marker=dict(size=10, line=dict(width=2, color='#E5E7EB')),
+                line=dict(color=colors[metric], width=3),
+                marker=dict(size=8, line=dict(width=1, color='#E5E7EB')),
                 hovertemplate=f'Time: %{{x}} min<br>{metric.capitalize()}: %{{y:.1f}}%<extra></extra>',
                 showlegend=True
             ))
         annotations = []
-        if 'oee' in selected_metrics and np.mean(efficiency_df['oee']) < 75:
+        if 'oee' in selected_metrics and efficiency_df['oee'].mean() < 75:
             annotations.append(dict(
                 x=minutes[0],
                 y=max(efficiency_df['oee']) + 5,
                 text="Low OEE<br>Optimize processes",
                 showarrow=True,
-                arrowhead=2,
-                ax=40,
-                ay=-50,
-                font=dict(color='#F87171', size=14, family='Inter, sans-serif')
+                arrowhead=1,
+                ax=30,
+                ay=-40,
+                font=dict(color='#F87171', size=12, family='Inter, sans-serif')
             ))
         fig.update_layout(
             title=dict(
                 text='Operational Efficiency Metrics',
                 x=0.5,
-                font=dict(size=28, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Score (%)',
             xaxis=dict(
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
             yaxis=dict(
                 range=[0, 100],
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
-            font=dict(color='#E5E7EB', size=16, family='Inter, sans-serif'),
+            font=dict(color='#E5E7EB', size=14, family='Inter, sans-serif'),
             template='plotly_dark',
             plot_bgcolor='#111827',
             paper_bgcolor='#111827',
@@ -678,14 +740,14 @@ def plot_operational_efficiency(efficiency_df, selected_metrics):
             legend=dict(
                 orientation='h',
                 yanchor='top',
-                y=1.2,
+                y=1.15,
                 xanchor='center',
                 x=0.5,
-                font=dict(size=14, family='Inter, sans-serif')
+                font=dict(size=12, family='Inter, sans-serif')
             ),
             annotations=annotations,
-            transition={'duration': 800, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
-            margin=dict(l=60, r=60, t=120, b=60)
+            transition={'duration': 600, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
+            margin=dict(l=50, r=50, t=100, b=50)
         )
         return fig
     except Exception as e:
@@ -712,8 +774,34 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
         go.Figure: Plotly scatter or 3D scatter figure.
     """
     try:
+        # Validate inputs
+        if not isinstance(team_positions_df, pd.DataFrame):
+            logger.error(
+                f"Invalid team_positions_df: expected DataFrame, got {type(team_positions_df)}",
+                extra={'user_action': 'Plot Worker Distribution'}
+            )
+            raise ValueError("team_positions_df must be a pandas DataFrame")
+        if not isinstance(config, dict):
+            logger.error(
+                f"Invalid config: expected dict, got {type(config)}",
+                extra={'user_action': 'Plot Worker Distribution'}
+            )
+            raise ValueError("config must be a dictionary")
+        if not isinstance(facility_size, (int, float)) or facility_size <= 0:
+            logger.error(
+                f"Invalid facility_size: {facility_size}",
+                extra={'user_action': 'Plot Worker Distribution'}
+            )
+            raise ValueError("facility_size must be a positive number")
+
         # Handle NaNs
         team_positions_df = team_positions_df.fillna({'x': 0.0, 'y': 0.0, 'workload': 0.0})
+        if team_positions_df.empty:
+            logger.warning(
+                "Empty team positions DataFrame",
+                extra={'user_action': 'Plot Worker Distribution'}
+            )
+            return go.Figure()
 
         filtered_df = team_positions_df[team_positions_df['step'] == selected_step]
         if filtered_df.empty:
@@ -739,10 +827,10 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
                     mode='markers',
                     name=zone,
                     marker=dict(
-                        size=8,
+                        size=6,
                         color=colors.get(zone, '#FBBF24'),
-                        opacity=0.8,
-                        line=dict(width=2, color='#E5E7EB')
+                        opacity=0.7,
+                        line=dict(width=1, color='#E5E7EB')
                     ),
                     hovertemplate=(
                         'Worker: %{text}<br>'
@@ -752,7 +840,7 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
                     ),
                     text=zone_df['worker']
                 ))
-            if show_entry_exit:
+            if show_entry_exit and 'ENTRY_EXIT_POINTS' in config:
                 for point in config['ENTRY_EXIT_POINTS']:
                     fig.add_trace(go.Scatter3d(
                         x=[point['coords'][0]],
@@ -760,11 +848,11 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
                         z=[0],
                         mode='markers+text',
                         name=point['label'],
-                        marker=dict(size=10, color='#F87171', symbol='diamond'),
+                        marker=dict(size=8, color='#F87171', symbol='diamond'),
                         text=[point['label']],
                         textposition='top center'
                     ))
-            if show_production_lines:
+            if show_production_lines and 'PRODUCTION_LINES' in config:
                 for line in config['PRODUCTION_LINES']:
                     fig.add_trace(go.Scatter3d(
                         x=[line['start'][0], line['end'][0]],
@@ -772,36 +860,36 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
                         z=[0, 0],
                         mode='lines',
                         name=line['label'],
-                        line=dict(color='#FBBF24', width=4)
+                        line=dict(color='#FBBF24', width=3)
                     ))
             fig.update_layout(
                 title=dict(
                     text=f'Worker Distribution at {selected_step * 2} min',
                     x=0.5,
-                    font=dict(size=28, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                    font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
                 ),
                 scene=dict(
                     xaxis_title='X (meters)',
                     yaxis_title='Y (meters)',
                     zaxis_title='Workload (%)',
-                    xaxis=dict(range=[0, facility_size], gridcolor="#4B5EAA"),
-                    yaxis=dict(range=[0, facility_size], gridcolor="#4B5EAA"),
-                    zaxis=dict(range=[0, 100], gridcolor="#4B5EAA"),
+                    xaxis=dict(range=[0, facility_size], gridcolor="#374151"),
+                    yaxis=dict(range=[0, facility_size], gridcolor="#374151"),
+                    zaxis=dict(range=[0, 100], gridcolor="#374151"),
                     bgcolor='#111827'
                 ),
-                font=dict(color='#E5E7EB', size=16, family='Inter, sans-serif'),
+                font=dict(color='#E5E7EB', size=14, family='Inter, sans-serif'),
                 template='plotly_dark',
                 showlegend=True,
                 legend=dict(
                     orientation='h',
                     yanchor='top',
-                    y=1.2,
+                    y=1.15,
                     xanchor='center',
                     x=0.5,
-                    font=dict(size=14, family='Inter, sans-serif')
+                    font=dict(size=12, family='Inter, sans-serif')
                 ),
-                transition={'duration': 800, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
-                margin=dict(l=60, r=60, t=120, b=60)
+                transition={'duration': 600, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
+                margin=dict(l=50, r=50, t=100, b=50)
             )
         else:
             fig = go.Figure()
@@ -813,10 +901,10 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
                     mode='markers',
                     name=zone,
                     marker=dict(
-                        size=12,
+                        size=10,
                         color=colors.get(zone, '#FBBF24'),
-                        opacity=0.8,
-                        line=dict(width=2, color='#E5E7EB')
+                        opacity=0.7,
+                        line=dict(width=1, color='#E5E7EB')
                     ),
                     hovertemplate=(
                         'Worker: %{text}<br>'
@@ -828,39 +916,39 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
                     customdata=zone_df['workload'] * 100,
                     showlegend=True
                 ))
-            if show_entry_exit:
+            if show_entry_exit and 'ENTRY_EXIT_POINTS' in config:
                 for point in config['ENTRY_EXIT_POINTS']:
                     fig.add_trace(go.Scatter(
                         x=[point['coords'][0]],
                         y=[point['coords'][1]],
                         mode='markers+text',
                         name=point['label'],
-                        marker=dict(size=10, color='#F87171', symbol='diamond'),
+                        marker=dict(size=8, color='#F87171', symbol='diamond'),
                         text=[point['label']],
                         textposition='top center',
                         showlegend=True
                     ))
-            if show_production_lines:
+            if show_production_lines and 'PRODUCTION_LINES' in config:
                 for line in config['PRODUCTION_LINES']:
                     fig.add_trace(go.Scatter(
                         x=[line['start'][0], line['end'][0]],
                         y=[line['start'][1], line['end'][1]],
                         mode='lines',
                         name=line['label'],
-                        line=dict(color='#FBBF24', width=4),
+                        line=dict(color='#FBBF24', width=3),
                         showlegend=True
                     ))
             fig.update_layout(
                 title=dict(
                     text=f'Worker Distribution at {selected_step * 2} min',
                     x=0.5,
-                    font=dict(size=28, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                    font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
                 ),
                 xaxis_title='X (meters)',
                 yaxis_title='Y (meters)',
-                xaxis=dict(range=[0, facility_size], gridcolor="#4B5EAA"),
-                yaxis=dict(range=[0, facility_size], gridcolor="#4B5EAA"),
-                font=dict(color='#E5E7EB', size=16, family='Inter, sans-serif'),
+                xaxis=dict(range=[0, facility_size], gridcolor="#374151"),
+                yaxis=dict(range=[0, facility_size], gridcolor="#374151"),
+                font=dict(color='#E5E7EB', size=14, family='Inter, sans-serif'),
                 template='plotly_dark',
                 plot_bgcolor='#111827',
                 paper_bgcolor='#111827',
@@ -868,13 +956,13 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
                 legend=dict(
                     orientation='h',
                     yanchor='top',
-                    y=1.2,
+                    y=1.15,
                     xanchor='center',
                     x=0.5,
-                    font=dict(size=14, family='Inter, sans-serif')
+                    font=dict(size=12, family='Inter, sans-serif')
                 ),
-                transition={'duration': 800, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
-                margin=dict(l=60, r=60, t=120, b=60)
+                transition={'duration': 600, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
+                margin=dict(l=50, r=50, t=100, b=50)
             )
         return fig
     except Exception as e:
@@ -886,7 +974,7 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
 
 def plot_worker_density_heatmap(team_positions_df, facility_size, config, show_entry_exit=True, show_production_lines=True):
     """
-    Plot worker density heatmap with modern colors and annotations.
+    Plot worker density heatmap with modern colors.
 
     Args:
         team_positions_df (pd.DataFrame): DataFrame with worker positions.
@@ -899,10 +987,36 @@ def plot_worker_density_heatmap(team_positions_df, facility_size, config, show_e
         go.Figure: Plotly heatmap figure.
     """
     try:
+        # Validate inputs
+        if not isinstance(team_positions_df, pd.DataFrame):
+            logger.error(
+                f"Invalid team_positions_df: expected DataFrame, got {type(team_positions_df)}",
+                extra={'user_action': 'Plot Worker Density Heatmap'}
+            )
+            raise ValueError("team_positions_df must be a pandas DataFrame")
+        if not isinstance(config, dict):
+            logger.error(
+                f"Invalid config: expected dict, got {type(config)}",
+                extra={'user_action': 'Plot Worker Density Heatmap'}
+            )
+            raise ValueError("config must be a dictionary")
+        if not isinstance(facility_size, (int, float)) or facility_size <= 0:
+            logger.error(
+                f"Invalid facility_size: {facility_size}",
+                extra={'user_action': 'Plot Worker Density Heatmap'}
+            )
+            raise ValueError("facility_size must be a positive number")
+
         # Handle NaNs
         team_positions_df = team_positions_df.fillna({'x': 0.0, 'y': 0.0})
+        if team_positions_df.empty:
+            logger.warning(
+                "Empty team positions DataFrame",
+                extra={'user_action': 'Plot Worker Density Heatmap'}
+            )
+            return go.Figure()
 
-        grid_size = config['DENSITY_GRID_SIZE']
+        grid_size = config.get('DENSITY_GRID_SIZE', 50)
         x_bins = np.linspace(0, facility_size, grid_size + 1)
         y_bins = np.linspace(0, facility_size, grid_size + 1)
         heatmap, x_edges, y_edges = np.histogram2d(
@@ -916,39 +1030,39 @@ def plot_worker_density_heatmap(team_positions_df, facility_size, config, show_e
             hovertemplate='X: %{x:.1f} m<br>Y: %{y:.1f} m<br>Density: %{z}<extra></extra>',
             showscale=True
         ))
-        if show_entry_exit:
+        if show_entry_exit and 'ENTRY_EXIT_POINTS' in config:
             for point in config['ENTRY_EXIT_POINTS']:
                 fig.add_trace(go.Scatter(
                     x=[point['coords'][0]],
                     y=[point['coords'][1]],
                     mode='markers+text',
                     name=point['label'],
-                    marker=dict(size=10, color='#F87171', symbol='diamond'),
+                    marker=dict(size=8, color='#F87171', symbol='diamond'),
                     text=[point['label']],
                     textposition='top center',
                     showlegend=True
                 ))
-        if show_production_lines:
+        if show_production_lines and 'PRODUCTION_LINES' in config:
             for line in config['PRODUCTION_LINES']:
                 fig.add_trace(go.Scatter(
                     x=[line['start'][0], line['end'][0]],
                     y=[line['start'][1], line['end'][1]],
                     mode='lines',
                     name=line['label'],
-                    line=dict(color='#FBBF24', width=4),
+                    line=dict(color='#FBBF24', width=3),
                     showlegend=True
                 ))
         fig.update_layout(
             title=dict(
                 text='Worker Density Heatmap',
                 x=0.5,
-                font=dict(size=28, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
             ),
             xaxis_title='X (meters)',
             yaxis_title='Y (meters)',
-            xaxis=dict(range=[0, facility_size], gridcolor="#4B5EAA"),
-            yaxis=dict(range=[0, facility_size], gridcolor="#4B5EAA"),
-            font=dict(color='#E5E7EB', size=16, family='Inter, sans-serif'),
+            xaxis=dict(range=[0, facility_size], gridcolor="#374151"),
+            yaxis=dict(range=[0, facility_size], gridcolor="#374151"),
+            font=dict(color='#E5E7EB', size=14, family='Inter, sans-serif'),
             template='plotly_dark',
             plot_bgcolor='#111827',
             paper_bgcolor='#111827',
@@ -956,13 +1070,13 @@ def plot_worker_density_heatmap(team_positions_df, facility_size, config, show_e
             legend=dict(
                 orientation='h',
                 yanchor='top',
-                y=1.2,
+                y=1.15,
                 xanchor='center',
                 x=0.5,
-                font=dict(size=14, family='Inter, sans-serif')
+                font=dict(size=12, family='Inter, sans-serif')
             ),
-            transition={'duration': 800, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
-            margin=dict(l=60, r=60, t=120, b=60)
+            transition={'duration': 600, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
+            margin=dict(l=50, r=50, t=100, b=50)
         )
         return fig
     except Exception as e:
@@ -984,8 +1098,17 @@ def plot_worker_wellbeing(wellbeing_scores, triggers):
         go.Figure: Plotly line chart figure.
     """
     try:
+        # Validate inputs
+        wellbeing_scores = np.array(wellbeing_scores, dtype=float)
+        if not isinstance(triggers, dict):
+            logger.error(
+                f"Invalid triggers: expected dict, got {type(triggers)}",
+                extra={'user_action': 'Plot Worker Wellbeing'}
+            )
+            raise ValueError("triggers must be a dictionary")
+
         # Handle NaNs
-        wellbeing_scores = np.nan_to_num(np.array(wellbeing_scores, dtype=float), nan=0.0)
+        wellbeing_scores = np.nan_to_num(wellbeing_scores, nan=0.0)
 
         minutes = [i * 2 for i in range(len(wellbeing_scores))]
         fig = go.Figure()
@@ -994,81 +1117,81 @@ def plot_worker_wellbeing(wellbeing_scores, triggers):
             y=wellbeing_scores,
             mode='lines+markers',
             name='Well-Being Index',
-            line=dict(color='#34D399', width=3.5),
-            marker=dict(size=10, line=dict(width=2, color='#E5E7EB')),
+            line=dict(color='#34D399', width=3),
+            marker=dict(size=8, line=dict(width=1, color='#E5E7EB')),
             hovertemplate='Time: %{x} min<br>Well-Being: %{y:.1f}%<extra></extra>',
             showlegend=True
         ))
         annotations = []
         for trigger in triggers.get('threshold', []):
-            if 0 <= trigger < len(minutes):
+            if isinstance(trigger, (int, float)) and 0 <= trigger < len(minutes):
                 annotations.append(dict(
-                    x=minutes[trigger],
-                    y=wellbeing_scores[trigger],
+                    x=minutes[int(trigger)],
+                    y=wellbeing_scores[int(trigger)],
                     text="Low Well-Being",
                     showarrow=True,
-                    arrowhead=2,
-                    ax=40,
-                    ay=-50,
-                    font=dict(color='#F87171', size=14, family='Inter, sans-serif')
+                    arrowhead=1,
+                    ax=30,
+                    ay=-40,
+                    font=dict(color='#F87171', size=12, family='Inter, sans-serif')
                 ))
         for trigger in triggers.get('trend', []):
-            if 0 <= trigger < len(minutes):
+            if isinstance(trigger, (int, float)) and 0 <= trigger < len(minutes):
                 annotations.append(dict(
-                    x=minutes[trigger],
-                    y=wellbeing_scores[trigger],
+                    x=minutes[int(trigger)],
+                    y=wellbeing_scores[int(trigger)],
                     text="Declining Trend",
                     showarrow=True,
-                    arrowhead=2,
-                    ax=40,
-                    ay=-50,
-                    font=dict(color='#F87171', size=14, family='Inter, sans-serif')
+                    arrowhead=1,
+                    ax=30,
+                    ay=-40,
+                    font=dict(color='#F87171', size=12, family='Inter, sans-serif')
                 ))
         for zone, zone_triggers in triggers.get('work_area', {}).items():
             for trigger in zone_triggers:
-                if 0 <= trigger < len(minutes):
+                if isinstance(trigger, (int, float)) and 0 <= trigger < len(minutes):
                     annotations.append(dict(
-                        x=minutes[trigger],
-                        y=wellbeing_scores[trigger],
+                        x=minutes[int(trigger)],
+                        y=wellbeing_scores[int(trigger)],
                         text=f"{zone} Alert",
                         showarrow=True,
-                        arrowhead=2,
-                        ax=40,
-                        ay=-50,
-                        font=dict(color='#F87171', size=14, family='Inter, sans-serif')
+                        arrowhead=1,
+                        ax=30,
+                        ay=-40,
+                        font=dict(color='#F87171', size=12, family='Inter, sans-serif')
                     ))
         for disruption in triggers.get('disruption', []):
-            if 0 <= disruption < len(minutes):
+            if isinstance(disruption, (int, float)) and 0 <= disruption < len(minutes):
                 fig.add_vline(
-                    x=minutes[disruption],
+                    x=minutes[int(disruption)],
                     line_dash="dot",
                     line_color="#F87171",
                     annotation_text="Disruption",
                     annotation_position="top",
-                    annotation_font=dict(size=14, color='#F87171', family='Inter, sans-serif')
+                    annotation_font=dict(size=12, color='#F87171', family='Inter, sans-serif')
                 )
         fig.update_layout(
             title=dict(
                 text='Worker Well-Being Index',
                 x=0.5,
-                font=dict(size=28, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Index (%)',
             xaxis=dict(
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
             yaxis=dict(
                 range=[0, 100],
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
-            font=dict(color='#E5E7EB', size=16, family='Inter, sans-serif'),
+            font=dict(color='#E5E7EB', size=14, family='Inter, sans-serif'),
             template='plotly_dark',
             plot_bgcolor='#111827',
             paper_bgcolor='#111827',
@@ -1076,14 +1199,14 @@ def plot_worker_wellbeing(wellbeing_scores, triggers):
             legend=dict(
                 orientation='h',
                 yanchor='top',
-                y=1.2,
+                y=1.15,
                 xanchor='center',
                 x=0.5,
-                font=dict(size=14, family='Inter, sans-serif')
+                font=dict(size=12, family='Inter, sans-serif')
             ),
             annotations=annotations,
-            transition={'duration': 800, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
-            margin=dict(l=60, r=60, t=120, b=60)
+            transition={'duration': 600, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
+            margin=dict(l=50, r=50, t=100, b=50)
         )
         return fig
     except Exception as e:
@@ -1095,7 +1218,7 @@ def plot_worker_wellbeing(wellbeing_scores, triggers):
 
 def plot_psychological_safety(safety_scores):
     """
-    Plot psychological safety with modern colors and actionable annotations.
+    Plot psychological safety with modern colors and annotations.
 
     Args:
         safety_scores (list): List of psychological safety scores (%).
@@ -1104,8 +1227,11 @@ def plot_psychological_safety(safety_scores):
         go.Figure: Plotly line chart figure.
     """
     try:
+        # Validate inputs
+        safety_scores = np.array(safety_scores, dtype=float)
+
         # Handle NaNs
-        safety_scores = np.nan_to_num(np.array(safety_scores, dtype=float), nan=0.0)
+        safety_scores = np.nan_to_num(safety_scores, nan=0.0)
 
         minutes = [i * 2 for i in range(len(safety_scores))]
         fig = go.Figure()
@@ -1114,8 +1240,8 @@ def plot_psychological_safety(safety_scores):
             y=safety_scores,
             mode='lines+markers',
             name='Psychological Safety',
-            line=dict(color='#EC4899', width=3.5),
-            marker=dict(size=10, line=dict(width=2, color='#E5E7EB')),
+            line=dict(color='#EC4899', width=3),
+            marker=dict(size=8, line=dict(width=1, color='#E5E7EB')),
             hovertemplate='Time: %{x} min<br>Safety: %{y:.1f}%<extra></extra>',
             showlegend=True
         ))
@@ -1126,33 +1252,33 @@ def plot_psychological_safety(safety_scores):
                 y=max(safety_scores) + 5,
                 text="Low safety<br>Promote open communication",
                 showarrow=True,
-                arrowhead=2,
-                ax=40,
-                ay=-50,
-                font=dict(color='#F87171', size=14, family='Inter, sans-serif')
+                arrowhead=1,
+                ax=30,
+                ay=-40,
+                font=dict(color='#F87171', size=12, family='Inter, sans-serif')
             ))
         fig.update_layout(
             title=dict(
                 text='Psychological Safety Score',
                 x=0.5,
-                font=dict(size=28, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Score (%)',
             xaxis=dict(
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
             yaxis=dict(
                 range=[0, 100],
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
-            font=dict(color='#E5E7EB', size=16, family='Inter, sans-serif'),
+            font=dict(color='#E5E7EB', size=14, family='Inter, sans-serif'),
             template='plotly_dark',
             plot_bgcolor='#111827',
             paper_bgcolor='#111827',
@@ -1160,14 +1286,14 @@ def plot_psychological_safety(safety_scores):
             legend=dict(
                 orientation='h',
                 yanchor='top',
-                y=1.2,
+                y=1.15,
                 xanchor='center',
                 x=0.5,
-                font=dict(size=14, family='Inter, sans-serif')
+                font=dict(size=12, family='Inter, sans-serif')
             ),
             annotations=annotations,
-            transition={'duration': 800, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
-            margin=dict(l=60, r=60, t=120, b=60)
+            transition={'duration': 600, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
+            margin=dict(l=50, r=50, t=100, b=50)
         )
         return fig
     except Exception as e:
@@ -1189,8 +1315,17 @@ def plot_downtime_trend(downtime_minutes, threshold):
         go.Figure: Plotly line chart figure.
     """
     try:
+        # Validate inputs
+        downtime_minutes = np.array(downtime_minutes, dtype=float)
+        if not isinstance(threshold, (int, float)):
+            logger.error(
+                f"Invalid threshold: {threshold}, expected number",
+                extra={'user_action': 'Plot Downtime Trend'}
+            )
+            raise ValueError("threshold must be a number")
+
         # Handle NaNs
-        downtime_minutes = np.nan_to_num(np.array(downtime_minutes, dtype=float), nan=0.0)
+        downtime_minutes = np.nan_to_num(downtime_minutes, nan=0.0)
 
         minutes = [i * 2 for i in range(len(downtime_minutes))]
         fig = go.Figure()
@@ -1199,8 +1334,8 @@ def plot_downtime_trend(downtime_minutes, threshold):
             y=downtime_minutes,
             mode='lines+markers',
             name='Downtime',
-            line=dict(color='#F87171', width=3.5),
-            marker=dict(size=10, line=dict(width=2, color='#E5E7EB')),
+            line=dict(color='#F87171', width=3),
+            marker=dict(size=8, line=dict(width=1, color='#E5E7EB')),
             hovertemplate='Time: %{x} min<br>Downtime: %{y:.1f} min<extra></extra>',
             showlegend=True
         ))
@@ -1210,7 +1345,7 @@ def plot_downtime_trend(downtime_minutes, threshold):
             line_color="#FBBF24",
             annotation_text="Threshold",
             annotation_position="right",
-            annotation_font=dict(size=14, color='#FBBF24', family='Inter, sans-serif')
+            annotation_font=dict(size=12, color='#FBBF24', family='Inter, sans-serif')
         )
         annotations = []
         for i, downtime in enumerate(downtime_minutes):
@@ -1220,32 +1355,32 @@ def plot_downtime_trend(downtime_minutes, threshold):
                     y=downtime,
                     text=f"High: {downtime:.1f} min",
                     showarrow=True,
-                    arrowhead=2,
-                    ax=40,
-                    ay=-50,
-                    font=dict(color='#F87171', size=14, family='Inter, sans-serif')
+                    arrowhead=1,
+                    ax=30,
+                    ay=-40,
+                    font=dict(color='#F87171', size=12, family='Inter, sans-serif')
                 ))
         fig.update_layout(
             title=dict(
                 text='Downtime Trend',
                 x=0.5,
-                font=dict(size=28, family='Inter, sans-serif', color='#E5E7EB', weight='600')
+                font=dict(size=24, family='Inter, sans-serif', color='#E5E7EB', weight='600')
             ),
             xaxis_title='Time (minutes)',
             yaxis_title='Downtime (minutes)',
             xaxis=dict(
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
             yaxis=dict(
-                gridcolor="#4B5EAA",
+                gridcolor="#374151",
                 zeroline=False,
-                title_font=dict(size=18, family='Inter, sans-serif'),
-                tickfont=dict(size=14, family='Inter, sans-serif')
+                title_font=dict(size=16, family='Inter, sans-serif'),
+                tickfont=dict(size=12, family='Inter, sans-serif')
             ),
-            font=dict(color='#E5E7EB', size=16, family='Inter, sans-serif'),
+            font=dict(color='#E5E7EB', size=14, family='Inter, sans-serif'),
             template='plotly_dark',
             plot_bgcolor='#111827',
             paper_bgcolor='#111827',
@@ -1253,14 +1388,14 @@ def plot_downtime_trend(downtime_minutes, threshold):
             legend=dict(
                 orientation='h',
                 yanchor='top',
-                y=1.2,
+                y=1.15,
                 xanchor='center',
                 x=0.5,
-                font=dict(size=14, family='Inter, sans-serif')
+                font=dict(size=12, family='Inter, sans-serif')
             ),
             annotations=annotations,
-            transition={'duration': 800, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
-            margin=dict(l=60, r=60, t=120, b=60)
+            transition={'duration': 600, 'easing': 'cubic-bezier(0.4, 0, 0.2, 1)'},
+            margin=dict(l=50, r=50, t=100, b=50)
         )
         return fig
     except Exception as e:
