@@ -1,879 +1,502 @@
 """
-visualizations.py
-Functions to create enhanced Plotly visualizations for the Workplace Shift Monitoring Dashboard.
-Optimized for user experience, graphics, and actionable metrics.
+main.py
+Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
+Provides a professional, interactive UI with actionable visualizations and clear metrics.
 """
 
-import plotly.graph_objects as go
+import logging
+import streamlit as st
+import pandas as pd
 import numpy as np
-from plotly.colors import sequential
-from config import DEFAULT_CONFIG
+from config import DEFAULT_CONFIG, validate_config
+from visualizations import (
+    plot_key_metrics_summary,
+    plot_task_compliance_score,
+    plot_collaboration_proximity_index,
+    plot_operational_recovery,
+    plot_operational_efficiency,
+    plot_worker_distribution,
+    plot_worker_density_heatmap,
+    plot_worker_wellbeing,
+    plot_psychological_safety,
+    plot_downtime_trend
+)
+from simulation import simulate_workplace_operations
+from utils import save_simulation_data, load_simulation_data, generate_pdf_report
+from assets import LEAN_LOGO_BASE64
 
-def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score, downtime_minutes):
-    """
-    Create a permanent 2x2 grid of gauge charts for key metrics.
-    
-    Args:
-        compliance_score (float): Task compliance score (0-100).
-        proximity_score (float): Collaboration proximity index (0-100).
-        wellbeing_score (float): Worker well-being score (0-100).
-        downtime_minutes (float): Total downtime in minutes.
-    
-    Returns:
-        list: List of go.Figure objects for the 2x2 grid.
-    """
-    # Clamp values to valid ranges
-    compliance_score = max(0, min(compliance_score, 100))
-    proximity_score = max(0, min(proximity_score, 100))
-    wellbeing_score = max(0, min(wellbeing_score, 100))
-    downtime_minutes = max(0, downtime_minutes)
+# Configure logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    filename='dashboard.log'
+)
 
-    # Define thresholds
-    compliance_threshold = 75
-    proximity_threshold = 60
-    wellbeing_threshold = DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100
-    downtime_threshold = 30  # Example threshold, adjust as per config
+# Streamlit page config
+st.set_page_config(
+    page_title="Workplace Shift Monitoring Dashboard",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-    # Create gauge charts
-    figs = []
-    figs.append(plot_gauge_chart(compliance_score, "Task Compliance", compliance_threshold, 100, "Review protocols if <75%"))
-    figs.append(plot_gauge_chart(proximity_score, "Collaboration Proximity", proximity_threshold, 100, "Encourage activities if <60%"))
-    figs.append(plot_gauge_chart(wellbeing_score, "Worker Well-Being", wellbeing_threshold, 100, "Schedule break if <70%"))
-    figs.append(plot_gauge_chart(downtime_minutes, "Downtime", downtime_threshold, 60, "Investigate if >30 min"))
-
-    return figs
-
-def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None):
-    """
-    Create an enhanced gauge chart with color gradients and interactive tooltips.
-    
-    Args:
-        value (float): Metric value.
-        title (str): Chart title.
-        threshold (float): Threshold for warning.
-        max_value (float): Maximum value for the gauge.
-        recommendation (str): Actionable recommendation if below threshold.
-    
-    Returns:
-        go.Figure: Enhanced gauge chart.
-    """
-    max_value = max(max_value, 1)  # Prevent division by zero
-    value = max(0, min(value, max_value))  # Clamp value between 0 and max_value
-
-    colors = sequential.Viridis
-    color_idx = int((value / max_value) * (len(colors) - 1))
-    color_idx = max(0, min(color_idx, len(colors) - 1))  # Ensure index is within bounds
-    bar_color = colors[color_idx]
-    
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number+delta",
-        value=value,
-        delta={'reference': threshold, 'increasing': {'color': "#10B981"}, 'decreasing': {'color': "#EF4444"}},
-        domain={'x': [0, 1], 'y': [0, 1]},
-        title={'text': title, 'font': {'size': 20, 'color': '#E6ECEF'}},
-        number={'suffix': "%" if max_value == 100 else " min", 'font': {'size': 40, 'color': '#E6ECEF'}},
-        gauge={
-            'axis': {'range': [0, max_value], 'tickwidth': 2, 'tickcolor': "#E6ECEF"},
-            'bar': {'color': bar_color},
-            'bgcolor': "#2D3748",
-            'borderwidth': 2,
-            'bordercolor': "#E6ECEF",
-            'steps': [
-                {'range': [0, threshold], 'color': "#EF4444"},
-                {'range': [threshold, max_value], 'color': "#10B981"}
-            ],
-            'threshold': {
-                'line': {'color': "#FFFFFF", 'width': 4},
-                'thickness': 0.8,
-                'value': threshold
-            }
+# Custom CSS for dark theme and improved styling
+st.markdown("""
+    <style>
+        .main { 
+            background-color: #1A252F; 
+            color: #E6ECEF; 
         }
-    ))
-    fig.update_layout(
-        font=dict(color='#E6ECEF', size=16),
-        template='plotly_dark',
-        plot_bgcolor='#1A252F',
-        paper_bgcolor='#1A252F',
-        margin=dict(l=30, r=30, t=60, b=30),
-        height=300,
-        annotations=[
-            dict(
-                text=recommendation or "N/A",
-                x=0.5,
-                y=-0.2,
-                showarrow=False,
-                font=dict(size=14, color='#FBBF24' if value < threshold else '#10B981')
-            ) if recommendation else None
-        ]
-    )
-    return fig
+        .stButton>button { 
+            background-color: #3B82F6; 
+            color: #E6ECEF; 
+            border-radius: 8px; 
+            border: 2px solid #E6ECEF; 
+            padding: 8px 16px; 
+            transition: background-color 0.3s; 
+        }
+        .stButton>button:hover { 
+            background-color: #EC4899; 
+            border-color: #EC4899; 
+        }
+        .stSelectbox, .stSlider, .stMultiSelect { 
+            background-color: #2D3748; 
+            color: #E6ECEF; 
+            border-radius: 8px; 
+            padding: 5px; 
+        }
+        h1, h2, h3 { 
+            color: #E6ECEF; 
+            font-weight: 700; 
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 250px;
+            background-color: #2D3748;
+            color: #E6ECEF;
+            text-align: center;
+            border-radius: 8px;
+            padding: 10px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -125px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        [data-testid="stSidebar"] { 
+            background-color: #2D3748; 
+            color: #E6ECEF; 
+        }
+        [data-testid="stSidebar"] .stButton>button { 
+            background-color: #10B981; 
+            border-color: #E6ECEF; 
+        }
+        [data-testid="stSidebar"] .stButton>button:hover { 
+            background-color: #EC4899; 
+            border-color: #EC4899; 
+        }
+        .stMetric { 
+            background-color: #2D3748; 
+            border-radius: 8px; 
+            padding: 10px; 
+        }
+        .stExpander { 
+            background-color: #2D3748; 
+            border-radius: 8px; 
+        }
+        .recommendation {
+            color: #FBBF24;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-def plot_task_compliance_score(compliance_scores, disruptions, forecast, z_scores):
-    """
-    Plot task compliance scores with interactive disruptions and anomaly detection.
-    """
-    minutes = [i * 2 for i in range(len(compliance_scores))]
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=minutes,
-        y=compliance_scores,
-        mode='lines+markers',
-        name='Task Compliance',
-        line=dict(color='#3B82F6', width=3),
-        marker=dict(size=8),
-        hovertemplate='Time: %{x} min<br>Compliance: %{y:.1f}%<extra></extra>'
-    ))
+# Sidebar
+with st.sidebar:
+    st.header("Workplace Shift Monitoring Dashboard")
     
-    if forecast is not None:
-        fig.add_trace(go.Scatter(
-            x=minutes,
-            y=forecast,
-            mode='lines',
-            name='Forecast',
-            line=dict(color='#FBBF24', width=2, dash='dash'),
-            hovertemplate='Time: %{x} min<br>Forecast: %{y:.1f}%<extra></extra>'
-        ))
-    
-    for disruption in disruptions:
-        if 0 <= disruption < len(minutes):
-            fig.add_vline(
-                x=minutes[disruption],
-                line_dash="dot",
-                line_color="#EF4444",
-                annotation_text="Disruption",
-                annotation_position="top",
-                annotation_font_size=12
-            )
-    
-    annotations = []
-    y_offset = 5
-    for i, (score, z) in enumerate(zip(compliance_scores, z_scores)):
-        if abs(z) > DEFAULT_CONFIG['ANOMALY_THRESHOLD']:
-            annotations.append(dict(
-                x=minutes[i],
-                y=score + y_offset,
-                text=f"Anomaly: {score:.1f}%<br>Review protocols",
-                showarrow=True,
-                arrowhead=1,
-                ax=20,
-                ay=-30,
-                font=dict(color='#EF4444', size=12)
-            ))
-            y_offset += 5 if y_offset < 20 else -15
-    
-    fig.update_layout(
-        title=dict(text='Task Compliance Score', x=0.5, font_size=24),
-        xaxis_title='Time (minutes)',
-        yaxis_title='Score (%)',
-        yaxis=dict(range=[0, 100], gridcolor="#444"),
-        font=dict(color='#E6ECEF', size=16),
-        template='plotly_dark',
-        plot_bgcolor='#1A252F',
-        paper_bgcolor='#1A252F',
-        hovermode='x unified',
-        legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
-        annotations=annotations[:5],
-        transition_duration=500
+    # Company logo
+    st.markdown(
+        f'<img src="{LEAN_LOGO_BASE64}" width="150" alt="Lean 2.0 Institute Logo">',
+        unsafe_allow_html=True
     )
-    return fig
-
-def plot_collaboration_proximity_index(proximity_scores, disruptions, forecast):
-    """
-    Plot collaboration proximity index with interactive elements.
-    """
-    minutes = [i * 2 for i in range(len(proximity_scores))]
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=minutes,
-        y=proximity_scores,
-        mode='lines+markers',
-        name='Proximity Index',
-        line=dict(color='#10B981', width=3),
-        marker=dict(size=8),
-        hovertemplate='Time: %{x} min<br>Proximity: %{y:.1f}%<extra></extra>'
-    ))
     
-    if forecast is not None:
-        fig.add_trace(go.Scatter(
-            x=minutes,
-            y=forecast,
-            mode='lines',
-            name='Forecast',
-            line=dict(color='#FBBF24', width=2, dash='dash'),
-            hovertemplate='Time: %{x} min<br>Forecast: %{y:.1f}%<extra></extra>'
-        ))
-    
-    for disruption in disruptions:
-        if 0 <= disruption < len(minutes):
-            fig.add_vline(
-                x=minutes[disruption],
-                line_dash="dot",
-                line_color="#EF4444",
-                annotation_text="Disruption",
-                annotation_position="top",
-                annotation_font_size=12
-            )
-    
-    annotations = []
-    if np.mean(proximity_scores) < 60:
-        annotations.append(dict(
-            x=minutes[0],
-            y=max(proximity_scores) + 5,
-            text="Low collaboration<br>Encourage team activities",
-            showarrow=True,
-            arrowhead=1,
-            ax=20,
-            ay=-30,
-            font=dict(color='#EF4444', size=12)
-        ))
-    
-    fig.update_layout(
-        title=dict(text='Collaboration Proximity Index', x=0.5, font_size=24),
-        xaxis_title='Time (minutes)',
-        yaxis_title='Index (%)',
-        yaxis=dict(range=[0, 100], gridcolor="#444"),
-        font=dict(color='#E6ECEF', size=16),
-        template='plotly_dark',
-        plot_bgcolor='#1A252F',
-        paper_bgcolor='#1A252F',
-        hovermode='x unified',
-        legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
-        annotations=annotations,
-        transition_duration=500
-    )
-    return fig
-
-def plot_operational_recovery(recovery_scores, productivity_loss):
-    """
-    Plot operational recovery vs. productivity loss with enhanced visuals.
-    """
-    minutes = [i * 2 for i in range(len(recovery_scores))]
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=minutes,
-        y=recovery_scores,
-        mode='lines+markers',
-        name='Operational Recovery',
-        line=dict(color='#3B82F6', width=3),
-        marker=dict(size=8),
-        hovertemplate='Time: %{x} min<br>Recovery: %{y:.1f}%<extra></extra>'
-    ))
-    fig.add_trace(go.Scatter(
-        x=minutes,
-        y=productivity_loss,
-        mode='lines+markers',
-        name='Productivity Loss',
-        line=dict(color='#EF4444', width=3),
-        marker=dict(size=8),
-        hovertemplate='Time: %{x} min<br>Loss: %{y:.1f}%<extra></extra>'
-    ))
-    
-    annotations = []
-    max_loss_idx = np.argmax(productivity_loss)
-    if productivity_loss[max_loss_idx] > 10:
-        annotations.append(dict(
-            x=minutes[max_loss_idx],
-            y=productivity_loss[max_loss_idx] + 5,
-            text=f"High loss: {productivity_loss[max_loss_idx]:.1f}%<br>Investigate",
-            showarrow=True,
-            arrowhead=1,
-            ax=20,
-            ay=-30,
-            font=dict(color='#EF4444', size=12)
-        ))
-    
-    fig.update_layout(
-        title=dict(text='Operational Recovery vs. Productivity Loss', x=0.5, font_size=24),
-        xaxis_title='Time (minutes)',
-        yaxis_title='Score (%)',
-        yaxis=dict(range=[0, 100], gridcolor="#444"),
-        font=dict(color='#E6ECEF', size=16),
-        template='plotly_dark',
-        plot_bgcolor='#1A252F',
-        paper_bgcolor='#1A252F',
-        hovermode='x unified',
-        legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
-        annotations=annotations,
-        transition_duration=500
-    )
-    return fig
-
-def plot_operational_efficiency(efficiency_df, selected_metrics):
-    """
-    Plot operational efficiency metrics with interactive selection.
-    """
-    minutes = [i * 2 for i in range(len(efficiency_df))]
-    fig = go.Figure()
-    colors = {'uptime': '#3B82F6', 'throughput': '#10B981', 'quality': '#EC4899', 'oee': '#FBBF24'}
-    
-    for metric in selected_metrics:
-        fig.add_trace(go.Scatter(
-            x=minutes,
-            y=efficiency_df[metric],
-            mode='lines+markers',
-            name=metric.capitalize(),
-            line=dict(color=colors[metric], width=3),
-            marker=dict(size=8),
-            hovertemplate=f'Time: %{{x}} min<br>{metric.capitalize()}: %{{y:.1f}}%<extra></extra>'
-        ))
-    
-    annotations = []
-    if 'oee' in selected_metrics and np.mean(efficiency_df['oee']) < 75:
-        annotations.append(dict(
-            x=minutes[0],
-            y=max(efficiency_df['oee']) + 5,
-            text="Low OEE<br>Optimize processes",
-            showarrow=True,
-            arrowhead=1,
-            ax=20,
-            ay=-30,
-            font=dict(color='#EF4444', size=12)
-        ))
-    
-    fig.update_layout(
-        title=dict(text='Operational Efficiency Metrics', x=0.5, font_size=24),
-        xaxis_title='Time (minutes)',
-        yaxis_title='Score (%)',
-        yaxis=dict(range=[0, 100], gridcolor="#444"),
-        font=dict(color='#E6ECEF', size=16),
-        template='plotly_dark',
-        plot_bgcolor='#1A252F',
-        paper_bgcolor='#1A252F',
-        hovermode='x unified',
-        legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
-        annotations=annotations,
-        transition_duration=500
-    )
-    return fig
-
-def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, selected_step=None, show_entry_exit=True, show_production_lines=True):
-    """
-    Plot worker distribution with enhanced 3D/2D visuals and interactivity.
-    """
-    if use_3d:
-        fig = go.Figure()
-        if selected_step is not None:
-            positions_df = positions_df[positions_df['step'] == selected_step]
-        
-        for zone, area in config['WORK_AREAS'].items():
-            zone_df = positions_df[positions_df['zone'] == zone]
-            for status in ['Normal', 'High', 'Critical']:
-                status_df = zone_df[zone_df['workload_status'] == status]
-                color = '#10B981' if status == 'Normal' else '#FBBF24' if status == 'High' else '#EF4444'
-                fig.add_trace(go.Scatter3d(
-                    x=status_df['x'],
-                    y=status_df['y'],
-                    z=status_df['step'],
-                    mode='markers',
-                    name=f"{area['label']} ({status})",
-                    marker=dict(size=6, color=color, opacity=0.8),
-                    text=[f"Worker: {w}<br>Zone: {z}<br>Workload: {wl:.2f} ({s})"
-                          for w, z, wl, s in zip(status_df['worker'], status_df['zone'], status_df['workload'], status_df['workload_status'])],
-                    hoverinfo='text'
-                ))
-        
-        if show_production_lines:
-            for line in config['PRODUCTION_LINES']:
-                fig.add_trace(go.Scatter3d(
-                    x=[line['start'][0], line['end'][0]],
-                    y=[line['start'][1], line['end'][1]],
-                    z=[selected_step, selected_step],
-                    mode='lines',
-                    name=line['label'],
-                    line=dict(color='#FFFFFF', width=4, dash='dash'),
-                    hovertemplate=f"{line['label']}<br>Start: ({line['start'][0]}, {line['start'][1]})<br>End: ({line['end'][0]}, {line['end'][1]})"
-                ))
-                mid_x = (line['start'][0] + line['end'][0]) / 2
-                mid_y = (line['start'][1] + line['end'][1]) / 2
-                fig.add_annotation(
-                    x=mid_x,
-                    y=mid_y,
-                    z=selected_step,
-                    text=line['label'],
-                    showarrow=False,
-                    font=dict(color='#FFFFFF', size=12),
-                    yshift=15
-                )
-        
-        if show_entry_exit:
-            for point in config['ENTRY_EXIT_POINTS']:
-                marker_color = '#00FF00' if point['type'] == 'Entry' else '#FF0000'
-                fig.add_trace(go.Scatter3d(
-                    x=[point['coords'][0]],
-                    y=[point['coords'][1]],
-                    z=[selected_step],
-                    mode='markers+text',
-                    name=point['label'],
-                    marker=dict(size=10, color=marker_color, symbol='diamond'),
-                    text=[point['label']],
-                    textposition='top center',
-                    hovertemplate=f"{point['label']} ({point['type']})<br>Coords: ({point['coords'][0]}, {point['coords'][1]})"
-                ))
-        
-        fig.update_layout(
-            title=dict(text='3D Worker Distribution Over Time', x=0.5, font_size=24),
-            scene=dict(
-                xaxis_title='X (m)',
-                yaxis_title='Y (m)',
-                zaxis_title='Step',
-                xaxis=dict(range=[0, facility_size], backgroundcolor="#2D3748", gridcolor="#444"),
-                yaxis=dict(range=[0, facility_size], backgroundcolor="#2D3748", gridcolor="#444"),
-                zaxis=dict(backgroundcolor="#2D3748", gridcolor="#444")
-            ),
-            font=dict(color='#E6ECEF', size=16),
-            template='plotly_dark',
-            plot_bgcolor='#1A252F',
-            paper_bgcolor='#1A252F',
-            scene_camera=dict(eye=dict(x=1.5, y=1.5, z=1.5)),
-            legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
-            transition_duration=500
+    with st.expander("Simulation Controls", expanded=True):
+        team_size = st.slider(
+            "Team Size",
+            min_value=10, max_value=100, value=DEFAULT_CONFIG['TEAM_SIZE'],
+            help="Number of workers in the simulation."
         )
-    else:
-        fig = go.Figure()
         
-        shapes = []
-        colors = {'Assembly Line': 'rgba(59, 130, 246, 0.4)', 'Packaging Zone': 'rgba(16, 185, 129, 0.4)', 'Quality Control': 'rgba(236, 72, 153, 0.4)'}
-        for zone, area in config['WORK_AREAS'].items():
-            center_x, center_y = area['center']
-            shapes.append(dict(
-                type="rect",
-                x0=center_x - 15,
-                y0=center_y - 15,
-                x1=center_x + 15,
-                y1=center_y + 15,
-                fillcolor=colors[zone],
-                line=dict(color=colors[zone].replace('0.4', '1.0'), width=2),
-                opacity=0.4,
-                layer='below'
-            ))
-        
-        if show_production_lines:
-            for line in config['PRODUCTION_LINES']:
-                shapes.append(dict(
-                    type="line",
-                    x0=line['start'][0],
-                    y0=line['start'][1],
-                    x1=line['end'][0],
-                    y1=line['end'][1],
-                    line=dict(color='#FFFFFF', width=4, dash='dash'),
-                    layer='below'
-                ))
-        
-        for zone, area in config['WORK_AREAS'].items():
-            zone_df = positions_df[positions_df['zone'] == zone]
-            if selected_step is not None:
-                zone_df = zone_df[zone_df['step'] == selected_step]
-            for status in ['Normal', 'High', 'Critical']:
-                status_df = zone_df[zone_df['workload_status'] == status]
-                color = '#10B981' if status == 'Normal' else '#FBBF24' if status == 'High' else '#EF4444'
-                fig.add_trace(go.Scatter(
-                    x=status_df['x'],
-                    y=status_df['y'],
-                    mode='markers',
-                    name=f"{area['label']} ({status})",
-                    marker=dict(size=10, color=color, opacity=0.8),
-                    text=[f"Worker: {w}<br>Zone: {z}<br>Workload: {wl:.2f} ({s})"
-                          for w, z, wl, s in zip(status_df['worker'], status_df['zone'], status_df['workload'], status_df['workload_status'])],
-                    hoverinfo='text'
-                ))
-        
-        if show_entry_exit:
-            for point in config['ENTRY_EXIT_POINTS']:
-                marker_color = '#00FF00' if point['type'] == 'Entry' else '#FF0000'
-                fig.add_trace(go.Scatter(
-                    x=[point['coords'][0]],
-                    y=[point['coords'][1]],
-                    mode='markers+text',
-                    name=point['label'],
-                    marker=dict(size=12, color=marker_color, symbol='diamond'),
-                    text=[point['label']],
-                    textposition='top center',
-                    hovertemplate=f"{point['label']} ({point['type']})<br>Coords: ({point['coords'][0]}, {point['coords'][1]})"
-                ))
-        
-        annotations = []
-        for zone, area in config['WORK_AREAS'].items():
-            zone_df = positions_df[positions_df['zone'] == zone]
-            if selected_step is not None:
-                zone_df = zone_df[zone_df['step'] == selected_step]
-            if len(zone_df) > area['workers'] * 1.5:
-                annotations.append(dict(
-                    x=area['center'][0],
-                    y=area['center'][1],
-                    text=f"Overcrowded: {len(zone_df)} workers<br>Reassign",
-                    showarrow=True,
-                    arrowhead=1,
-                    ax=20,
-                    ay=-30,
-                    font=dict(color='#EF4444', size=12)
-                ))
-        
-        if show_entry_exit:
-            for point in config['ENTRY_EXIT_POINTS']:
-                x, y = point['coords']
-                nearby_workers = positions_df[
-                    (positions_df['step'] == selected_step) &
-                    (np.sqrt((positions_df['x'] - x)**2 + (positions_df['y'] - y)**2) < 10)
-                ]
-                if len(nearby_workers) > 5:
-                    annotations.append(dict(
-                        x=x,
-                        y=y,
-                        text=f"High traffic: {len(nearby_workers)}<br>Monitor",
-                        showarrow=True,
-                        arrowhead=1,
-                        ax=20,
-                        ay=30,
-                        font=dict(color='#FBBF24', size=12)
-                    ))
-        
-        if show_production_lines:
-            for line in config['PRODUCTION_LINES']:
-                mid_x = (line['start'][0] + line['end'][0]) / 2
-                mid_y = (line['start'][1] + line['end'][1]) / 2
-                fig.add_annotation(
-                    x=mid_x,
-                    y=mid_y,
-                    text=line['label'],
-                    showarrow=False,
-                    font=dict(color='#FFFFFF', size=12),
-                    yshift=15
-                )
-        
-        fig.update_layout(
-            title=dict(text='Worker Distribution with Facility Layout', x=0.5, font_size=24),
-            xaxis_title='X (m)',
-            yaxis_title='Y (m)',
-            xaxis=dict(range=[0, facility_size], gridcolor="#444", zerolinecolor="#444"),
-            yaxis=dict(range=[0, facility_size], gridcolor="#444", zerolinecolor="#444"),
-            font=dict(color='#E6ECEF', size=16),
-            template='plotly_dark',
-            plot_bgcolor='#1A252F',
-            paper_bgcolor='#1A252F',
-            shapes=shapes,
-            annotations=annotations,
-            legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
-            height=600,
-            transition_duration=500
+        shift_duration = st.slider(
+            "Shift Duration (minutes)",
+            min_value=200, max_value=2000, value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'], step=2,
+            help="Shift duration in minutes (2-minute intervals)."
         )
-    return fig
+        
+        disruption_intervals = st.multiselect(
+            "Disruption Times (minutes)",
+            options=[i * 2 for i in range(shift_duration // 2)],
+            default=[i * 2 for i in DEFAULT_CONFIG['DISRUPTION_INTERVALS']],
+            help="Times (minutes) when disruptions occur."
+        )
+        
+        team_initiative = st.selectbox(
+            "Team Initiative",
+            options=["More frequent breaks", "Team recognition"],
+            index=0,
+            help="Strategy to improve well-being and psychological safety."
+        )
+        
+        run_simulation = st.button("Run Simulation", key="run_simulation")
+    
+    with st.expander("Visualization Settings"):
+        high_contrast = st.checkbox("High Contrast Mode", help="Enable high-contrast colors for accessibility.")
+        use_3d_distribution = st.checkbox("3D Team Distribution", help="Use 3D scatter plot with time slider for team distribution.")
+    
+    with st.expander("Data Management"):
+        load_data = st.button("Load Saved Data", key="load_data")
+        if st.button("Download PDF Report", key="download_report") and 'simulation_results' in st.session_state:
+            try:
+                summary_df = pd.DataFrame({
+                    'step': range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS']),
+                    'time_minutes': [i * 2 for i in range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS'])],
+                    'task_compliance': st.session_state.simulation_results[1]['data'],
+                    'collaboration_proximity': st.session_state.simulation_results[2]['data'],
+                    'operational_recovery': st.session_state.simulation_results[3],
+                    'worker_wellbeing': st.session_state.simulation_results[6]['scores'],
+                    'psychological_safety': st.session_state.simulation_results[7],
+                    'productivity_loss': st.session_state.simulation_results[5],
+                    'downtime_minutes': st.session_state.simulation_results[9],
+                    'task_completion_rate': st.session_state.simulation_results[10]
+                })
+                generate_pdf_report(summary_df)
+                st.success("PDF report generated as 'workplace_report.tex'. Compile with LaTeX to view.")
+            except Exception as e:
+                logger.error(f"Failed to generate report: {str(e)}")
+                st.error(f"Failed to generate report: {str(e)}")
+    
+    if st.button("Help", key="help_button"):
+        st.markdown("""
+            ### Help
+            Monitor workplace performance with professional visualizations:
+            - **Key Metrics Summary**: Gauge charts for Task Compliance, Collaboration Proximity, Worker Well-Being, and Downtime.
+            - **Operational Metrics**: Trends for task compliance, collaboration, operational recovery, and efficiency.
+            - **Worker Distribution**: 2D/3D worker positions and density heatmap.
+            - **Worker Well-Being & Safety**: Well-Being Index and Psychological Safety Score.
+            - **Downtime Analysis**: Downtime trends with investigation prompts.
+            - **Glossary**: Definitions of all metrics and terms.
+            
+            Use the sidebar to adjust parameters, load saved data, or download a PDF report.
+            Contact support@xai.com for assistance.
+        """, unsafe_allow_html=True)
 
-def plot_worker_density_heatmap(positions_df, facility_size, config, show_entry_exit=True, show_production_lines=True):
-    """
-    Plot worker density heatmap with enhanced graphics and annotations.
-    """
-    x_bins = np.linspace(0, facility_size, config['DENSITY_GRID_SIZE'])
-    y_bins = np.linspace(0, facility_size, config['DENSITY_GRID_SIZE'])
-    heatmap, xedges, yedges = np.histogram2d(positions_df['x'], positions_df['y'], bins=[x_bins, y_bins])
+# Main content
+st.title("Workplace Shift Monitoring Dashboard")
+
+# Initialize session state
+if 'simulation_results' not in st.session_state:
+    st.session_state.simulation_results = None
+
+# Precompute minutes for efficiency
+if st.session_state.simulation_results:
+    num_steps = len(st.session_state.simulation_results[0]['step'].unique())
+    minutes = [i * 2 for i in range(num_steps)]
+else:
+    minutes = [i * 2 for i in range(DEFAULT_CONFIG['SHIFT_DURATION_INTERVALS'])]
+
+# Run simulation
+if run_simulation:
+    try:
+        config = DEFAULT_CONFIG.copy()
+        config['TEAM_SIZE'] = team_size
+        config['SHIFT_DURATION_MINUTES'] = shift_duration
+        config['SHIFT_DURATION_INTERVALS'] = shift_duration // 2
+        config['DISRUPTION_INTERVALS'] = [t // 2 for t in disruption_intervals]
+        
+        # Update WORK_AREAS worker counts to match new TEAM_SIZE
+        total_current_workers = sum(zone['workers'] for zone in config['WORK_AREAS'].values())
+        if total_current_workers != team_size:
+            ratio = team_size / total_current_workers
+            for zone in config['WORK_AREAS'].values():
+                zone['workers'] = int(zone['workers'] * ratio)
+            # Adjust for rounding errors
+            current_sum = sum(zone['workers'] for zone in config['WORK_AREAS'].values())
+            if current_sum != team_size:
+                diff = team_size - current_sum
+                config['WORK_AREAS']['Assembly Line']['workers'] += diff
+        
+        validate_config(config)
+        logger.info("Running simulation with team_size=%d, shift_duration=%d min", team_size, shift_duration)
+        simulation_results = simulate_workplace_operations(
+            num_team_members=team_size,
+            num_steps=shift_duration // 2,
+            disruption_intervals=[t // 2 for t in disruption_intervals],
+            team_initiative=team_initiative,
+            config=config
+        )
+        
+        st.session_state.simulation_results = simulation_results
+        save_simulation_data(*simulation_results)
+        st.success("Simulation completed successfully!")
+    except Exception as e:
+        logger.error(f"Simulation failed: {str(e)}")
+        st.error(f"Simulation failed: {str(e)}. Check dashboard.log.")
+
+# Load saved data
+if load_data:
+    try:
+        st.session_state.simulation_results = load_simulation_data()
+        st.success("Loaded saved simulation data!")
+    except Exception as e:
+        logger.error(f"Failed to load data: {str(e)}")
+        st.error(f"Failed to load data: {str(e)}. Check dashboard.log.")
+
+# Display results
+if st.session_state.simulation_results:
+    (team_positions_df, task_compliance, collaboration_proximity, operational_recovery,
+     efficiency_metrics_df, productivity_loss, worker_wellbeing, psychological_safety,
+     feedback_impact, downtime_minutes, task_completion_rate) = st.session_state.simulation_results
     
-    fig = go.Figure(data=go.Heatmap(
-        z=heatmap.T,
-        x=xedges,
-        y=yedges,
-        colorscale=sequential.Plasma,
-        showscale=True,
-        colorbar=dict(title="Workers", tickfont=dict(size=14)),
-        hovertemplate='X: %{x} m<br>Y: %{y} m<br>Workers: %{z}<extra></extra>'
-    ))
+    # Time range slider for overall trends
+    time_range = st.slider(
+        "Select Time Range (minutes)",
+        min_value=0,
+        max_value=DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2,
+        value=(0, DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - 2),
+        step=2,
+        key="time_range"
+    )
+    time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
+
+    # Section 1: Key Metrics Summary (Permanent, at the top)
+    st.header("Key Metrics Summary")
+    st.markdown('<div class="tooltip">Overview<span class="tooltiptext">Key metrics for Task Compliance, Collaboration Proximity, Worker Well-Being, and Downtime with actionable recommendations.</span></div>', unsafe_allow_html=True)
     
-    shapes = []
-    colors = {'Assembly Line': 'rgba(59, 130, 246, 0.4)', 'Packaging Zone': 'rgba(16, 185, 129, 0.4)', 'Quality Control': 'rgba(236, 72, 153, 0.4)'}
-    for zone, area in config['WORK_AREAS'].items():
-        center_x, center_y = area['center']
-        shapes.append(dict(
-            type="rect",
-            x0=center_x - 15,
-            y0=center_y - 15,
-            x1=center_x + 15,
-            y1=center_y + 15,
-            fillcolor=colors[zone],
-            line=dict(color=colors[zone].replace('0.4', '1.0'), width=2),
-            opacity=0.4,
-            layer='below'
-        ))
+    # Calculate averages for gauges
+    compliance_mean = np.mean(task_compliance['data'])
+    proximity_mean = np.mean(collaboration_proximity['data'])
+    wellbeing_mean = np.mean(worker_wellbeing['scores']) if worker_wellbeing['scores'] else 0
+    total_downtime = np.sum(downtime_minutes)
     
-    if show_production_lines:
-        for line in config['PRODUCTION_LINES']:
-            shapes.append(dict(
-                type="line",
-                x0=line['start'][0],
-                y0=line['start'][1],
-                x1=line['end'][0],
-                y1=line['end'][1],
-                line=dict(color='#FFFFFF', width=4, dash='dash'),
-                layer='below'
-            ))
+    # Display 2x2 grid of gauges
+    col1, col2, col3, col4 = st.columns(4)
+    summary_figs = plot_key_metrics_summary(compliance_mean, proximity_mean, wellbeing_mean, total_downtime)
     
-    if show_entry_exit:
-        for point in config['ENTRY_EXIT_POINTS']:
-            marker_color = '#00FF00' if point['type'] == 'Entry' else '#FF0000'
-            fig.add_trace(go.Scatter(
-                x=[point['coords'][0]],
-                y=[point['coords'][1]],
-                mode='markers+text',
-                name=point['label'],
-                marker=dict(size=12, color=marker_color, symbol='diamond'),
-                text=[point['label']],
-                textposition='top center',
-                hovertemplate=f"{point['label']} ({point['type']})<br>Coords: ({point['coords'][0]}, {point['coords'][1]})"
-            ))
+    with col1:
+        st.plotly_chart(summary_figs[0], use_container_width=True)
+    with col2:
+        st.plotly_chart(summary_figs[1], use_container_width=True)
+    with col3:
+        st.plotly_chart(summary_figs[2], use_container_width=True)
+        if wellbeing_mean < DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100:
+            if st.button("Suggest Break Schedule", key="break_schedule"):
+                st.info("Suggested break schedule: Add 10-minute breaks every 60 minutes.")
+    with col4:
+        st.plotly_chart(summary_figs[3], use_container_width=True)
+
+    # Section 2: Operational Metrics
+    st.header("Operational Metrics")
+    st.markdown('<div class="tooltip">Performance Trends<span class="tooltiptext">Trends for task compliance, collaboration, operational recovery, and efficiency metrics.</span></div>', unsafe_allow_html=True)
     
-    if show_production_lines:
-        for line in config['PRODUCTION_LINES']:
-            mid_x = (line['start'][0] + line['end'][0]) / 2
-            mid_y = (line['start'][1] + line['end'][1]) / 2
-            fig.add_annotation(
-                x=mid_x,
-                y=mid_y,
-                text=line['label'],
-                showarrow=False,
-                font=dict(color='#FFFFFF', size=12),
-                yshift=15
+    # Task Compliance
+    filtered_compliance = task_compliance['data'][time_indices[0]:time_indices[1]]
+    filtered_z_scores = task_compliance['z_scores'][time_indices[0]:time_indices[1]]
+    filtered_forecast = task_compliance['forecast'][time_indices[0]:time_indices[1]] if task_compliance['forecast'] is not None else None
+    filtered_disruptions = [t for t in DEFAULT_CONFIG['DISRUPTION_INTERVALS'] if time_indices[0] <= t < time_indices[1]]
+    compliance_fig = plot_task_compliance_score(filtered_compliance, filtered_disruptions, filtered_forecast, filtered_z_scores)
+    st.plotly_chart(compliance_fig, use_container_width=True)
+
+    # Collaboration Proximity
+    filtered_collab = collaboration_proximity['data'][time_indices[0]:time_indices[1]]
+    filtered_forecast = collaboration_proximity['forecast'][time_indices[0]:time_indices[1]] if collaboration_proximity['forecast'] is not None else None
+    collaboration_fig = plot_collaboration_proximity_index(filtered_collab, filtered_disruptions, filtered_forecast)
+    st.plotly_chart(collaboration_fig, use_container_width=True)
+
+    # Operational Recovery
+    filtered_recovery = operational_recovery[time_indices[0]:time_indices[1]]
+    filtered_loss = productivity_loss[time_indices[0]:time_indices[1]]
+    resilience_fig = plot_operational_recovery(filtered_recovery, filtered_loss)
+    st.plotly_chart(resilience_fig, use_container_width=True)
+
+    # Operational Efficiency
+    selected_metrics = st.multiselect(
+        "Select Efficiency Metrics",
+        options=['uptime', 'throughput', "quality", 'oee'],
+        default=['uptime', 'throughput', "quality", 'oee'],
+        key="efficiency_metrics"
+    )
+    filtered_df = efficiency_metrics_df.iloc[time_indices[0]:time_indices[1]]
+    efficiency_fig = plot_operational_efficiency(filtered_df, selected_metrics)
+    st.plotly_chart(efficiency_fig, use_container_width=True)
+
+    # Section 3: Worker Distribution
+    st.header("Worker Distribution")
+    st.markdown('<div class="tooltip">Worker Positions<span class="tooltiptext">2D layout or 3D scatter with time slider showing worker locations in meters, color-coded by workload status, with entry/exit points and production lines.</span></div>', unsafe_allow_html=True)
+    
+    zone_filter = st.selectbox("Filter by Zone", options=["All"] + list(DEFAULT_CONFIG['WORK_AREAS'].keys()))
+    filtered_df = team_positions_df if zone_filter == "All" else team_positions_df[team_positions_df['zone'] == zone_filter]
+    filtered_df = filtered_df[(filtered_df['step'] >= time_indices[0]) & (filtered_df['step'] < time_indices[1])]
+    
+    show_entry_exit = st.checkbox("Show Entry/Exit Points", value=True, key="show_entry_exit")
+    show_production_lines = st.checkbox("Show Production Lines", value=True, key="show_production_lines")
+    
+    col_dist1, col_dist2 = st.columns(2)
+    with col_dist1:
+        if use_3d_distribution:
+            selected_step = st.slider(
+                "Select Time Step (3D)",
+                min_value=int(time_indices[0]),
+                max_value=int(time_indices[1] - 1),
+                value=int(time_indices[0]),
+                key="team_distribution_step_3d"
             )
-    
-    annotations = []
-    for zone, area in config['WORK_AREAS'].items():
-        zone_df = positions_df[positions_df['zone'] == zone]
-        if len(zone_df) > area['workers'] * 1.5:
-            annotations.append(dict(
-                x=area['center'][0],
-                y=area['center'][1],
-                text=f"High density: {len(zone_df)}<br>Reassign",
-                showarrow=True,
-                arrowhead=1,
-                ax=20,
-                ay=-30,
-                font=dict(color='#EF4444', size=12)
-            ))
-    
-    if show_entry_exit:
-        for point in config['ENTRY_EXIT_POINTS']:
-            x, y = point['coords']
-            nearby_workers = positions_df[
-                (np.sqrt((positions_df['x'] - x)**2 + (positions_df['y'] - y)**2) < 10)
-            ]
-            if len(nearby_workers) > 5:
-                annotations.append(dict(
-                    x=x,
-                    y=y,
-                    text=f"High traffic: {len(nearby_workers)}<br>Monitor",
-                    showarrow=True,
-                    arrowhead=1,
-                    ax=20,
-                    ay=30,
-                    font=dict(color='#FBBF24', size=12)
-                ))
-    
-    fig.update_layout(
-        title=dict(text='Worker Density Heatmap', x=0.5, font_size=24),
-        xaxis_title='X (m)',
-        yaxis_title='Y (m)',
-        xaxis=dict(range=[0, facility_size], gridcolor="#444", zerolinecolor="#444"),
-        yaxis=dict(range=[0, facility_size], gridcolor="#444", zerolinecolor="#444"),
-        font=dict(color='#E6ECEF', size=16),
-        template='plotly_dark',
-        plot_bgcolor='#1A252F',
-        paper_bgcolor='#1A252F',
-        shapes=shapes,
-        annotations=annotations,
-        height=600,
-        transition_duration=500
-    )
-    return fig
-
-def plot_worker_wellbeing(wellbeing_scores, triggers):
-    """
-    Plot worker well-being with animated transitions and alerts.
-    """
-    minutes = [i * 2 for i in range(len(wellbeing_scores))]
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=minutes,
-        y=wellbeing_scores,
-        mode='lines+markers',
-        name='Well-Being',
-        line=dict(color='#10B981', width=3),
-        marker=dict(size=8),
-        hovertemplate='Time: %{x} min<br>Well-Being: %{y:.1f}%<extra></extra>'
-    ))
-    
-    threshold = DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100
-    fig.add_hline(
-        y=threshold,
-        line_dash="dash",
-        line_color="#EF4444",
-        annotation_text=f"Threshold ({threshold}%)",
-        annotation_position="bottom right",
-        annotation_font_size=12
-    )
-    
-    annotations = []
-    y_offset = 5
-    for trigger_type, times in triggers.items():
-        if trigger_type == 'work_area':
-            for zone, zone_times in times.items():
-                for t in zone_times:
-                    if 0 <= t < len(minutes):
-                        score = wellbeing_scores[t]
-                        annotations.append(dict(
-                            x=minutes[t],
-                            y=score + y_offset,
-                            text=f"{DEFAULT_CONFIG['WORK_AREAS'][zone]['label']} Alert<br>Check workload",
-                            showarrow=True,
-                            arrowhead=1,
-                            ax=20,
-                            ay=-30,
-                            font=dict(color='#EF4444', size=12)
-                        ))
-                        y_offset += 5 if y_offset < 20 else -15
+            distribution_fig_3d = plot_worker_distribution(
+                filtered_df, 
+                DEFAULT_CONFIG['FACILITY_SIZE'], 
+                DEFAULT_CONFIG, 
+                use_3d=True, 
+                selected_step=selected_step,
+                show_entry_exit=show_entry_exit,
+                show_production_lines=show_production_lines
+            )
+            st.plotly_chart(distribution_fig_3d, use_container_width=True)
         else:
-            for t in times:
-                if 0 <= t < len(minutes):
-                    score = wellbeing_scores[t]
-                    text = f"{trigger_type.capitalize()} Alert"
-                    if trigger_type == 'threshold':
-                        text += "<br>Schedule break"
-                    elif trigger_type == 'trend':
-                        text += "<br>Monitor closely"
-                    annotations.append(dict(
-                        x=minutes[t],
-                        y=score + y_offset,
-                        text=text,
-                        showarrow=True,
-                        arrowhead=1,
-                        ax=20,
-                        ay=-30,
-                        font=dict(color='#EF4444', size=12)
-                    ))
-                    y_offset += 5 if y_offset < 20 else -15
+            selected_step = st.slider(
+                "Select Time Step (2D)",
+                min_value=int(time_indices[0]),
+                max_value=int(time_indices[1] - 1),
+                value=int(time_indices[0]),
+                key="team_distribution_step_2d"
+            )
+            distribution_fig_2d = plot_worker_distribution(
+                filtered_df, 
+                DEFAULT_CONFIG['FACILITY_SIZE'], 
+                DEFAULT_CONFIG, 
+                use_3d=False, 
+                selected_step=selected_step,
+                show_entry_exit=show_entry_exit,
+                show_production_lines=show_production_lines
+            )
+            st.plotly_chart(distribution_fig_2d, use_container_width=True)
     
-    fig.update_layout(
-        title=dict(text='Worker Well-Being Index', x=0.5, font_size=24),
-        xaxis_title='Time (minutes)',
-        yaxis_title='Score (%)',
-        yaxis=dict(range=[0, 100], gridcolor="#444"),
-        font=dict(color='#E6ECEF', size=16),
-        template='plotly_dark',
-        plot_bgcolor='#1A252F',
-        paper_bgcolor='#1A252F',
-        hovermode='x unified',
-        legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
-        annotations=annotations[:5],
-        transition_duration=500
-    )
-    return fig
+    with col_dist2:
+        heatmap_fig = plot_worker_density_heatmap(
+            filtered_df, 
+            DEFAULT_CONFIG['FACILITY_SIZE'], 
+            DEFAULT_CONFIG,
+            show_entry_exit=show_entry_exit,
+            show_production_lines=show_production_lines
+        )
+        st.plotly_chart(heatmap_fig, use_container_width=True)
 
-def plot_psychological_safety(safety_scores):
-    """
-    Plot psychological safety with enhanced visualization.
-    """
-    minutes = [i * 2 for i in range(len(safety_scores))]
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=minutes,
-        y=safety_scores,
-        mode='lines+markers',
-        name='Psychological Safety',
-        line=dict(color='#EC4899', width=3),
-        marker=dict(size=8),
-        hovertemplate='Time: %{x} min<br>Safety: %{y:.1f}%<extra></extra>'
-    ))
+    # Section 4: Worker Well-Being and Safety
+    st.header("Worker Well-Being and Safety")
+    st.markdown('<div class="tooltip">Well-Being & Safety<span class="tooltiptext">Worker Well-Being Index and Psychological Safety Score with actionable alerts.</span></div>', unsafe_allow_html=True)
     
-    threshold = DEFAULT_CONFIG['SAFETY_THRESHOLD'] * 100
-    fig.add_hline(
-        y=threshold,
-        line_dash="dash",
-        line_color="#EF4444",
-        annotation_text=f"Threshold ({threshold}%)",
-        annotation_position="bottom right",
-        annotation_font_size=12
-    )
+    col_well1, col_well2 = st.columns(2)
+    with col_well1:
+        filtered_scores = worker_wellbeing['scores'][time_indices[0]:time_indices[1]]
+        filtered_triggers = {
+            'threshold': [t for t in worker_wellbeing['triggers']['threshold'] if time_indices[0] <= t < time_indices[1]],
+            'trend': [t for t in worker_wellbeing['triggers']['trend'] if time_indices[0] <= t < time_indices[1]],
+            'work_area': {k: [t for t in v if time_indices[0] <= t < time_indices[1]] for k, v in worker_wellbeing['triggers']['work_area'].items()},
+            'disruption': [t for t in worker_wellbeing['triggers']['disruption'] if time_indices[0] <= t < time_indices[1]]
+        }
+        wellbeing_fig = plot_worker_wellbeing(filtered_scores, filtered_triggers)
+        st.plotly_chart(wellbeing_fig, use_container_width=True)
+        with st.expander("Well-Being Triggers"):
+            st.write(f"**Threshold Alerts (Score < {DEFAULT_CONFIG['WELLBEING_THRESHOLD']*100}%):** {filtered_triggers['threshold']}")
+            st.write(f"**Trend Alerts (Declining):** {filtered_triggers['trend']}")
+            st.write("**Work Area Alerts:**")
+            for zone, triggers in filtered_triggers['work_area'].items():
+                st.write(f"{zone}: {triggers}")
+            st.write(f"**Disruption Alerts:** {filtered_triggers['disruption']}")
     
-    annotations = []
-    y_offset = 5
-    for i, (time, score) in enumerate(zip(minutes, safety_scores)):
-        if score < threshold:
-            annotations.append(dict(
-                x=time,
-                y=score + y_offset,
-                text=f"Low safety: {score:.1f}%<br>Enhance training",
-                showarrow=True,
-                arrowhead=1,
-                ax=20,
-                ay=-30,
-                font=dict(color='#EF4444', size=12)
-            ))
-            y_offset += 5 if y_offset < 20 else -15
-    
-    fig.update_layout(
-        title=dict(text='Psychological Safety Score', x=0.5, font_size=24),
-        xaxis_title='Time (minutes)',
-        yaxis_title='Score (%)',
-        yaxis=dict(range=[0, 100], gridcolor="#444"),
-        font=dict(color='#E6ECEF', size=16),
-        template='plotly_dark',
-        plot_bgcolor='#1A252F',
-        paper_bgcolor='#1A252F',
-        hovermode='x unified',
-        legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
-        annotations=annotations[:5],
-        transition_duration=500
-    )
-    return fig
+    with col_well2:
+        filtered_safety = psychological_safety[time_indices[0]:time_indices[1]]
+        safety_fig = plot_psychological_safety(filtered_safety)
+        st.plotly_chart(safety_fig, use_container_width=True)
 
-def plot_downtime_trend(downtime_minutes, threshold):
-    """
-    Plot downtime trend with enhanced alerts.
-    """
-    minutes = [i * 2 for i in range(len(downtime_minutes))]
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=minutes,
-        y=downtime_minutes,
-        mode='lines+markers',
-        name='Downtime',
-        line=dict(color='#EF4444', width=3),
-        marker=dict(size=8),
-        hovertemplate='Time: %{x} min<br>Downtime: %{y:.1f} min<extra></extra>'
-    ))
-    
-    fig.add_hline(
-        y=threshold,
-        line_dash="dash",
-        line_color="#FBBF24",
-        annotation_text=f"Threshold ({threshold} min)",
-        annotation_position="bottom right",
-        annotation_font_size=12
-    )
-    
-    annotations = []
-    y_offset = 2
-    for i, (time, downtime) in enumerate(zip(minutes, downtime_minutes)):
-        if downtime > threshold:
-            annotations.append(dict(
-                x=time,
-                y=downtime + y_offset,
-                text=f"High downtime: {downtime:.1f} min<br>Investigate",
-                showarrow=True,
-                arrowhead=1,
-                ax=20,
-                ay=-30,
-                font=dict(color='#FBBF24', size=12)
-            ))
-            y_offset += 2 if y_offset < 10 else -5
-    
-    fig.update_layout(
-        title=dict(text='Downtime Trend', x=0.5, font_size=24),
-        xaxis_title='Time (minutes)',
-        yaxis_title='Downtime (minutes)',
-        yaxis=dict(gridcolor="#444"),
-        font=dict(color='#E6ECEF', size=16),
-        template='plotly_dark',
-        plot_bgcolor='#1A252F',
-        paper_bgcolor='#1A252F',
-        hovermode='x unified',
-        legend=dict(orientation='h', yanchor='top', y=1.1, xanchor='right', x=1),
-        annotations=annotations[:5],
-        transition_duration=500
-    )
-    return fig
+    # Section 5: Downtime Analysis
+    st.header("Downtime Analysis")
+    st.markdown('<div class="tooltip">Downtime<span class="tooltiptext">Downtime in minutes with alerts for high values.</span></div>', unsafe_allow_html=True)
+    filtered_downtime = downtime_minutes[time_indices[0]:time_indices[1]]
+    downtime_fig = plot_downtime_trend(filtered_downtime, DEFAULT_CONFIG['DOWNTIME_THRESHOLD'])
+    st.plotly_chart(downtime_fig, use_container_width=True)
+
+    # Section 6: Glossary
+    st.header("Glossary")
+    st.markdown("""
+        ### Metric Definitions
+        - **Task Compliance Score**: Percentage of tasks completed correctly (0–100%).
+        - **Collaboration Proximity Index**: Percentage of workers within 5 meters of colleagues (0–100%).
+        - **Operational Recovery Score**: Ability to maintain production output after disruptions (0–100%).
+        - **Worker Well-Being Index**: Measure of worker fatigue, stress, and satisfaction (0–100%).
+        - **Psychological Safety Score**: Workers’ comfort in reporting issues (0–100%).
+        - **Uptime**: Percentage of time equipment is operational (0–100%).
+        - **Throughput**: Percentage of maximum production rate achieved (0–100%).
+        - **Quality**: Percentage of products meeting quality standards (0–100%).
+        - **OEE**: Combined metric of uptime, throughput, and quality (0–100%).
+        - **Productivity Loss**: Percentage of potential output lost due to disruptions (0–100%).
+        - **Downtime**: Total minutes of unplanned equipment or process stops.
+        - **Task Completion Rate**: Percentage of assigned tasks completed per interval (0–100%).
+        - **Feedback Impact**: Estimated improvement in well-being or team cohesion from initiatives.
+        
+        ### Terms
+        - **Disruption**: An event (e.g., equipment failure) causing a temporary drop in performance.
+        - **Team Initiative**: Strategies like "More frequent breaks" or "Team recognition".
+        - **Anomaly**: A statistically significant deviation (z-score > 2.0) in metrics.
+    """)
+
+else:
+    st.info("Run a simulation or load saved data using the sidebar controls to view results.")
+
+# High-contrast mode
+if high_contrast:
+    st.markdown("""
+        <style>
+            .main { 
+                background-color: #000000; 
+                color: #FFFFFF; 
+            }
+            h1, h2, h3 { 
+                color: #FFFFFF; 
+            }
+            .stButton>button { 
+                background-color: #FFFFFF; 
+                color: #000000; 
+                border: 2px solid #FFFFFF; 
+            }
+            .stButton>button:hover { 
+                background-color: #19D3F3; 
+                color: #000000; 
+            }
+            .stSelectbox, .stSlider, .stMultiSelect { 
+                background-color: #333333; 
+                color: #FFFFFF; 
+            }
+            [data-testid="stSidebar"] { 
+                background-color: #111111; 
+                color: #FFFFFF; 
+            }
+            .stMetric, .stExpander { 
+                background-color: #333333; 
+            }
+            .recommendation {
+                color: #19D3F3;
+            }
+        </style>
+    """, unsafe_allow_html=True)
