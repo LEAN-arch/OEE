@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 """
 visualizations.py
 Advanced visualization functions for the Industrial Workplace Shift Monitoring Dashboard.
-Generates sophisticated, interactive Plotly charts with statistical insights.
+Generates professional, interactive Plotly charts with actionable insights.
 """
 
 import logging
@@ -14,87 +13,86 @@ from config import DEFAULT_CONFIG
 
 logger = logging.getLogger(__name__)
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     filename='dashboard.log'
 )
 
-# Plotly template for dark theme
 PLOTLY_TEMPLATE = "plotly_dark"
 
-# Refined color scheme (colorblind-friendly, high contrast)
 COLOR_SCHEME = {
-    'background': '#1E2A44',  # Dark navy
-    'text': '#F5F6F5',        # Soft white
-    'primary': '#636EFA',     # Bright blue
-    'secondary': '#EF553B',   # Coral
-    'accent': '#00CC96',      # Teal
-    'danger': '#F15C80',      # Pink-red
-    'purple': '#AB63FA',      # Purple
-    'orange': '#FFA15A',      # Orange
-    'cyan': '#19D3F3'         # Cyan
+    'background': '#1A252F',  # Dark navy
+    'text': '#E6ECEF',        # Soft white
+    'primary': '#3B82F6',     # Vibrant blue
+    'secondary': '#EC4899',   # Bold magenta
+    'accent': '#10B981',      # Emerald green
+    'warning': '#F59E0B',     # Amber
+    'danger': '#EF4444',      # Strong red
+    'neutral': '#6B7280'      # Gray
 }
 
-def plot_task_compliance_trend(compliance_data: list, disruption_intervals: list, forecast: list = None, z_scores: list = None) -> go.Figure:
+def plot_task_compliance_score(compliance_data: list, disruption_intervals: list, forecast: list = None, z_scores: list = None) -> go.Figure:
     """
-    Plot task compliance with rolling average, anomalies, and confidence interval.
+    Plot task compliance score with rolling average, anomalies, and forecast.
     """
-    logger.info("Defining plot_task_compliance_trend")
+    logger.info("Defining plot_task_compliance_score")
     try:
+        minutes = [i * 2 for i in range(len(compliance_data))]
         fig = go.Figure()
         
-        # Rolling average
         rolling_avg = pd.Series(compliance_data).rolling(window=10, min_periods=1).mean()
         
-        # Main compliance line
         fig.add_trace(go.Scatter(
-            x=list(range(len(compliance_data))),
+            x=minutes,
             y=compliance_data,
             mode='lines',
-            name='Compliance Entropy',
+            name='Task Compliance Score',
             line=dict(color=COLOR_SCHEME['primary'], width=2),
-            hovertemplate='Interval: %{x}<br>Entropy: %{y:.2f}'
+            hovertemplate='Time: %{x} min<br>Score: %{y:.1f}%'
         ))
         
-        # Rolling average
         fig.add_trace(go.Scatter(
-            x=list(range(len(compliance_data))),
+            x=minutes,
             y=rolling_avg,
             mode='lines',
-            name='Rolling Avg',
-            line=dict(color=COLOR_SCHEME['orange'], width=3, dash='dot'),
-            hovertemplate='Interval: %{x}<br>Rolling Avg: %{y:.2f}'
+            name='Rolling Average',
+            line=dict(color=COLOR_SCHEME['warning'], width=3, dash='dot'),
+            hovertemplate='Time: %{x} min<br>Average: %{y:.1f}%'
         ))
         
-        # Anomalies
         if z_scores is not None:
             anomalies = [i for i, z in enumerate(z_scores) if abs(z) > DEFAULT_CONFIG['ANOMALY_THRESHOLD']]
             fig.add_trace(go.Scatter(
-                x=anomalies,
+                x=[minutes[i] for i in anomalies],
                 y=[compliance_data[i] for i in anomalies],
                 mode='markers',
                 name='Anomalies',
                 marker=dict(color=COLOR_SCHEME['danger'], size=10, symbol='x'),
-                hovertemplate='Interval: %{x}<br>Entropy: %{y:.2f}<br>Z-Score: %{text:.2f}',
+                hovertemplate='Time: %{x} min<br>Score: %{y:.1f}%<br>Z-Score: %{text:.2f}',
                 text=[z_scores[i] for i in anomalies]
             ))
+            for i in anomalies:
+                fig.add_annotation(
+                    x=minutes[i], y=compliance_data[i],
+                    text="Low compliance; review tasks",
+                    showarrow=True, arrowhead=1, ax=20, ay=-30,
+                    font=dict(color=COLOR_SCHEME['danger'])
+                )
         
-        # Forecast with confidence interval
         if forecast is not None:
             forecast_series = pd.Series(forecast)
             ci = 1.96 * forecast_series.std() / np.sqrt(len(forecast))
             fig.add_trace(go.Scatter(
-                x=list(range(len(forecast))),
+                x=minutes,
                 y=forecast,
                 mode='lines',
                 name='Forecast',
                 line=dict(color=COLOR_SCHEME['secondary'], width=2, dash='dash'),
-                hovertemplate='Interval: %{x}<br>Forecast: %{y:.2f}'
+                hovertemplate='Time: %{x} min<br>Forecast: %{y:.1f}%'
             ))
             fig.add_trace(go.Scatter(
-                x=list(range(len(forecast))),
+                x=minutes,
                 y=forecast_series + ci,
                 mode='lines',
                 line=dict(color=COLOR_SCHEME['secondary'], width=1, dash='dot'),
@@ -102,25 +100,24 @@ def plot_task_compliance_trend(compliance_data: list, disruption_intervals: list
                 hoverinfo='skip'
             ))
             fig.add_trace(go.Scatter(
-                x=list(range(len(forecast))),
+                x=minutes,
                 y=forecast_series - ci,
                 mode='lines',
                 line=dict(color=COLOR_SCHEME['secondary'], width=1, dash='dot'),
                 fill='tonexty',
-                fillcolor='rgba(239, 85, 59, 0.1)',
+                fillcolor='rgba(236, 72, 153, 0.1)',
                 showlegend=False,
                 hoverinfo='skip'
             ))
         
-        # Disruption markers
         for t in disruption_intervals:
-            fig.add_vline(x=t, line_dash="dash", line_color=COLOR_SCHEME['danger'], opacity=0.7,
+            fig.add_vline(x=t*2, line_dash="dash", line_color=COLOR_SCHEME['danger'], opacity=0.7,
                           annotation_text="Disruption", annotation_position="top left")
         
         fig.update_layout(
-            title=dict(text='Task Compliance Variability (Advanced)', x=0.5, font_size=22),
-            xaxis_title='Shift Interval (2-min)',
-            yaxis_title='Compliance Entropy',
+            title=dict(text='Task Compliance Score Over Time', x=0.5, font_size=22),
+            xaxis_title='Time (minutes)',
+            yaxis_title='Compliance Score (%)',
             font=dict(color=COLOR_SCHEME['text'], size=14),
             template=PLOTLY_TEMPLATE,
             hovermode='x unified',
@@ -131,55 +128,53 @@ def plot_task_compliance_trend(compliance_data: list, disruption_intervals: list
         )
         return fig
     except Exception as e:
-        logger.error(f"Error in plot_task_compliance_trend: {str(e)}")
+        logger.error(f"Error in plot_task_compliance_score: {str(e)}")
         raise
 
-def plot_worker_collaboration_trend(collab_data: list, disruption_intervals: list, forecast: list = None) -> go.Figure:
+def plot_collaboration_proximity_index(collab_data: list, disruption_intervals: list, forecast: list = None) -> go.Figure:
     """
-    Plot collaboration index with bar overlay for disruptions.
+    Plot collaboration proximity index with disruption bars.
     """
-    logger.info("Defining plot_worker_collaboration_trend")
+    logger.info("Defining plot_collaboration_proximity_index")
     try:
+        minutes = [i * 2 for i in range(len(collab_data))]
         fig = go.Figure()
         
-        # Collaboration line
         fig.add_trace(go.Scatter(
-            x=list(range(len(collab_data))),
+            x=minutes,
             y=collab_data,
             mode='lines+markers',
-            name='Collaboration Strength',
+            name='Collaboration Proximity',
             line=dict(color=COLOR_SCHEME['accent'], width=3),
             marker=dict(size=8, line=dict(width=1, color=COLOR_SCHEME['text'])),
-            hovertemplate='Interval: %{x}<br>Strength: %{y:.2f}'
+            hovertemplate='Time: %{x} min<br>Proximity: %{y:.1f}%'
         ))
         
-        # Disruption bars
         disruption_values = [1 if i in disruption_intervals else 0 for i in range(len(collab_data))]
         fig.add_trace(go.Bar(
-            x=list(range(len(collab_data))),
+            x=minutes,
             y=disruption_values,
             name='Disruptions',
             marker_color=COLOR_SCHEME['danger'],
             opacity=0.3,
             yaxis='y2',
-            hovertemplate='Interval: %{x}<br>Disruption: %{y}'
+            hovertemplate='Time: %{x} min<br>Disruption: %{y}'
         ))
         
-        # Forecast
         if forecast is not None:
             fig.add_trace(go.Scatter(
-                x=list(range(len(forecast))),
+                x=minutes,
                 y=forecast,
                 mode='lines',
                 name='Forecast',
-                line=dict(color=COLOR_SCHEME['cyan'], width=2, dash='dot'),
-                hovertemplate='Interval: %{x}<br>Forecast: %{y:.2f}'
+                line=dict(color=COLOR_SCHEME['neutral'], width=2, dash='dot'),
+                hovertemplate='Time: %{x} min<br>Forecast: %{y:.1f}%'
             ))
         
         fig.update_layout(
-            title=dict(text='Worker Collaboration Index (Advanced)', x=0.5, font_size=22),
-            xaxis_title='Shift Interval (2-min)',
-            yaxis_title='Collaboration Strength',
+            title=dict(text='Collaboration Proximity Index', x=0.5, font_size=22),
+            xaxis_title='Time (minutes)',
+            yaxis_title='Proximity Index (%)',
             yaxis2=dict(title='Disruption Events', overlaying='y', side='right', showgrid=False, range=[0, 1.5]),
             font=dict(color=COLOR_SCHEME['text'], size=14),
             template=PLOTLY_TEMPLATE,
@@ -190,44 +185,43 @@ def plot_worker_collaboration_trend(collab_data: list, disruption_intervals: lis
         )
         return fig
     except Exception as e:
-        logger.error(f"Error in plot_worker_collaboration_trend: {str(e)}")
+        logger.error(f"Error in plot_collaboration_proximity_index: {str(e)}")
         raise
 
-def plot_operational_resilience(resilience: list, productivity_loss: list) -> go.Figure:
+def plot_operational_recovery(recovery: list, productivity_loss: list) -> go.Figure:
     """
-    Plot resilience with productivity loss on secondary axis.
+    Plot operational recovery with productivity loss.
     """
-    logger.info("Defining plot_operational_resilience")
+    logger.info("Defining plot_operational_recovery")
     try:
+        minutes = [i * 2 for i in range(len(recovery))]
         fig = go.Figure()
         
-        # Resilience filled area
         fig.add_trace(go.Scatter(
-            x=list(range(len(resilience))),
-            y=resilience,
+            x=minutes,
+            y=recovery,
             mode='lines',
-            name='Resilience Score',
-            line=dict(color=COLOR_SCHEME['cyan'], width=3),
+            name='Recovery Score',
+            line=dict(color=COLOR_SCHEME['accent'], width=3),
             fill='tozeroy',
-            fillcolor='rgba(25, 211, 243, 0.2)',
-            hovertemplate='Interval: %{x}<br>Resilience: %{y:.2f}'
+            fillcolor='rgba(16, 185, 129, 0.2)',
+            hovertemplate='Time: %{x} min<br>Score: %{y:.1f}%'
         ))
         
-        # Productivity loss
         fig.add_trace(go.Scatter(
-            x=list(range(len(productivity_loss))),
+            x=minutes,
             y=productivity_loss,
             mode='lines',
-            name='Productivity Loss (%)',
+            name='Productivity Loss',
             line=dict(color=COLOR_SCHEME['danger'], width=2),
             yaxis='y2',
-            hovertemplate='Interval: %{x}<br>Loss: %{y:.2f}%'
+            hovertemplate='Time: %{x} min<br>Loss: %{y:.1f}%'
         ))
         
         fig.update_layout(
-            title=dict(text='Operational Resilience vs Productivity Loss', x=0.5, font_size=22),
-            xaxis_title='Shift Interval (2-min)',
-            yaxis_title='Resilience Score',
+            title=dict(text='Operational Recovery vs Productivity Loss', x=0.5, font_size=22),
+            xaxis_title='Time (minutes)',
+            yaxis_title='Recovery Score (%)',
             yaxis2=dict(title='Productivity Loss (%)', overlaying='y', side='right', showgrid=False),
             font=dict(color=COLOR_SCHEME['text'], size=14),
             template=PLOTLY_TEMPLATE,
@@ -237,7 +231,7 @@ def plot_operational_resilience(resilience: list, productivity_loss: list) -> go
         )
         return fig
     except Exception as e:
-        logger.error(f"Error in plot_operational_resilience: {str(e)}")
+        logger.error(f"Error in plot_operational_recovery: {str(e)}")
         raise
 
 def plot_operational_efficiency(efficiency_df: pd.DataFrame, selected_metrics: list = None) -> go.Figure:
@@ -246,44 +240,45 @@ def plot_operational_efficiency(efficiency_df: pd.DataFrame, selected_metrics: l
     """
     logger.info("Defining plot_operational_efficiency")
     try:
+        minutes = [i * 2 for i in range(len(efficiency_df))]
         metrics = selected_metrics or ['uptime', 'throughput', 'quality', 'oee']
-        colors = [COLOR_SCHEME['primary'], COLOR_SCHEME['secondary'], COLOR_SCHEME['accent'], COLOR_SCHEME['purple']]
+        colors = [COLOR_SCHEME['primary'], COLOR_SCHEME['secondary'], COLOR_SCHEME['accent'], COLOR_SCHEME['neutral']]
         
         fig = go.Figure()
         
         for metric, color in zip(metrics, colors):
             fig.add_trace(go.Scatter(
-                x=efficiency_df.index,
+                x=minutes,
                 y=efficiency_df[metric],
                 mode='lines+markers',
-                name=f'{metric.capitalize()} (Trend)',
+                name=f'{metric.capitalize()}',
                 line=dict(color=color, width=3),
                 marker=dict(size=6),
-                hovertemplate=f'{metric.capitalize()}: %{{y:.2f}}<br>Interval: %{{x}}'
+                hovertemplate=f'{metric.capitalize()}: %{{y:.1f}}%<br>Time: %{{x}} min'
             ))
             rolling_avg = efficiency_df[metric].rolling(window=10, min_periods=1).mean()
             fig.add_trace(go.Bar(
-                x=efficiency_df.index,
+                x=minutes,
                 y=rolling_avg,
                 name=f'{metric.capitalize()} (Avg)',
                 marker_color=color,
                 opacity=0.3,
-                hovertemplate=f'{metric.capitalize()} Avg: %{{y:.2f}}<br>Interval: %{{x}}'
+                hovertemplate=f'{metric.capitalize()} Avg: %{{y:.1f}}%<br>Time: %{{x}} min'
             ))
         
         stats = efficiency_df[metrics].mean().to_dict()
-        annotation_text = "<br>".join([f"{m.capitalize()}: {v:.2f}" for m, v in stats.items()])
+        annotation_text = "<br>".join([f"{m.capitalize()}: {v:.1f}%" for m, v in stats.items()])
         fig.add_annotation(
             x=0.05, y=0.95, xref="paper", yref="paper",
             text=f"Mean Metrics:<br>{annotation_text}",
             showarrow=False, font=dict(color=COLOR_SCHEME['text'], size=12),
-            bgcolor='rgba(0,0,0,0.5)', bordercolor=COLOR_SCHEME['text']
+            bgcolor=COLOR_SCHEME['background'], bordercolor=COLOR_SCHEME['text']
         )
         
         fig.update_layout(
-            title=dict(text='Operational Efficiency Metrics (Composite)', x=0.5, font_size=22),
-            xaxis_title='Shift Interval (2-min)',
-            yaxis_title='Efficiency',
+            title=dict(text='Operational Efficiency Metrics', x=0.5, font_size=22),
+            xaxis_title='Time (minutes)',
+            yaxis_title='Efficiency (%)',
             font=dict(color=COLOR_SCHEME['text'], size=14),
             template=PLOTLY_TEMPLATE,
             hovermode='x unified',
@@ -297,46 +292,6 @@ def plot_operational_efficiency(efficiency_df: pd.DataFrame, selected_metrics: l
         logger.error(f"Error in plot_operational_efficiency: {str(e)}")
         raise
 
-def plot_oee_gauge(oee: float, benchmark: float = 0.85) -> go.Figure:
-    """
-    Plot OEE gauge with dynamic needle.
-    """
-    logger.info("Defining plot_oee_gauge")
-    try:
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number+delta",
-            value=oee * 100,
-            delta={'reference': benchmark * 100, 'increasing': {'color': COLOR_SCHEME['accent']}, 'decreasing': {'color': COLOR_SCHEME['danger']}},
-            title={'text': "Overall Equipment Effectiveness (%)", 'font': {'size': 22}},
-            number={'font': {'size': 30, 'color': COLOR_SCHEME['text']}},
-            gauge={
-                'axis': {'range': [0, 100], 'tickcolor': COLOR_SCHEME['text'], 'tickfont': {'color': COLOR_SCHEME['text']}},
-                'bar': {'color': COLOR_SCHEME['accent'], 'line': {'color': COLOR_SCHEME['text'], 'width': 2}},
-                'steps': [
-                    {'range': [0, 60], 'color': COLOR_SCHEME['danger']},
-                    {'range': [60, 80], 'color': COLOR_SCHEME['orange']},
-                    {'range': [80, 100], 'color': COLOR_SCHEME['accent']}
-                ],
-                'threshold': {
-                    'line': {'color': COLOR_SCHEME['cyan'], 'width': 4},
-                    'thickness': 0.75,
-                    'value': benchmark * 100
-                },
-                'bgcolor': COLOR_SCHEME['background']
-            }
-        ))
-        
-        fig.update_layout(
-            font=dict(color=COLOR_SCHEME['text'], size=14),
-            template=PLOTLY_TEMPLATE,
-            plot_bgcolor=COLOR_SCHEME['background'],
-            paper_bgcolor=COLOR_SCHEME['background']
-        )
-        return fig
-    except Exception as e:
-        logger.error(f"Error in plot_oee_gauge: {str(e)}")
-        raise
-
 def plot_worker_distribution(team_positions_df: pd.DataFrame, workplace_size: float, config: dict, use_3d: bool = False) -> go.Figure:
     """
     Plot 3D or 2D animated scatter for team distribution.
@@ -348,15 +303,15 @@ def plot_worker_distribution(team_positions_df: pd.DataFrame, workplace_size: fl
             for zone in team_positions_df['zone'].unique():
                 df_zone = team_positions_df[team_positions_df['zone'] == zone]
                 fig.add_trace(go.Scatter3d(
-                    x=df_zone['x'], y=df_zone['y'], z=df_zone['step'],
+                    x=df_zone['x'], y=df_zone['y'], z=df_zone['step'] * 2,
                     mode='markers',
                     name=zone,
                     marker=dict(
                         size=5,
-                        color=COLOR_SCHEME['primary'] if zone == 'Assembly Line' else COLOR_SCHEME['secondary'] if zone == 'Packaging Zone' else COLOR_SCHEME['cyan'],
+                        color=COLOR_SCHEME['primary'] if zone == 'Assembly Line' else COLOR_SCHEME['secondary'] if zone == 'Packaging Zone' else COLOR_SCHEME['accent'],
                         opacity=0.7
                     ),
-                    hovertemplate='ID: %{text}<br>X: %{x:.1f}<br>Y: %{y:.1f}<br>Step: %{z}',
+                    hovertemplate='ID: %{text}<br>X: %{x:.1f} m<br>Y: %{y:.1f} m<br>Time: %{z} min',
                     text=df_zone['team_member_id']
                 ))
             
@@ -372,10 +327,10 @@ def plot_worker_distribution(team_positions_df: pd.DataFrame, workplace_size: fl
             fig.update_layout(
                 title=dict(text=f"Team Distribution (3D - {config['FACILITY_TYPE'].capitalize()})", x=0.5, font_size=22),
                 scene=dict(
-                    xaxis_title='X (m)', yaxis_title='Y (m)', zaxis_title='Step',
+                    xaxis_title='X (m)', yaxis_title='Y (m)', zaxis_title='Time (min)',
                     xaxis=dict(range=[0, workplace_size]),
                     yaxis=dict(range=[0, workplace_size]),
-                    zaxis=dict(range=[0, max(team_positions_df['step'])]),
+                    zaxis=dict(range=[0, max(team_positions_df['step']) * 2]),
                     bgcolor=COLOR_SCHEME['background']
                 ),
                 font=dict(color=COLOR_SCHEME['text'], size=14),
@@ -393,7 +348,7 @@ def plot_worker_distribution(team_positions_df: pd.DataFrame, workplace_size: fl
                 range_y=[0, workplace_size],
                 title=f"Team Distribution ({config['FACILITY_TYPE'].capitalize()} Workplace)",
                 template=PLOTLY_TEMPLATE,
-                color_discrete_sequence=[COLOR_SCHEME['primary'], COLOR_SCHEME['secondary'], COLOR_SCHEME['cyan']]
+                color_discrete_sequence=[COLOR_SCHEME['primary'], COLOR_SCHEME['secondary'], COLOR_SCHEME['accent']]
             )
             fig.update_traces(marker=dict(size=12, opacity=0.8, line=dict(width=1, color=COLOR_SCHEME['text'])))
             for zone, info in config['WORK_AREAS'].items():
@@ -407,6 +362,8 @@ def plot_worker_distribution(team_positions_df: pd.DataFrame, workplace_size: fl
                 )
             fig.update_layout(
                 title=dict(x=0.5, font_size=22),
+                xaxis_title='X (m)',
+                yaxis_title='Y (m)',
                 font=dict(color=COLOR_SCHEME['text'], size=14),
                 hovermode='closest',
                 showlegend=True,
@@ -440,7 +397,7 @@ def plot_worker_density_heatmap(team_positions_df: pd.DataFrame, workplace_size:
             z=heatmap_data,
             x=x_bins[:-1], y=y_bins[:-1],
             colorscale='Viridis',
-            hovertemplate='X: %{x:.1f}<br>Y: %{y:.1f}<br>Density: %{z}'
+            hovertemplate='X: %{x:.1f} m<br>Y: %{y:.1f} m<br>Density: %{z}'
         ))
         
         for zone, info in config['WORK_AREAS'].items():
@@ -468,46 +425,50 @@ def plot_worker_density_heatmap(team_positions_df: pd.DataFrame, workplace_size:
 
 def plot_worker_wellbeing(wellbeing_scores: list, triggers: dict) -> go.Figure:
     """
-    Plot well-being with trend line and trigger annotations.
+    Plot worker well-being index with triggers and recommendations.
     """
     logger.info("Defining plot_worker_wellbeing")
     try:
+        minutes = [i * 2 for i in range(len(wellbeing_scores))]
         fig = go.Figure()
         
-        # Well-being line
         fig.add_trace(go.Scatter(
-            x=list(range(len(wellbeing_scores))),
+            x=minutes,
             y=wellbeing_scores,
             mode='lines',
-            name='Well-Being Score',
-            line=dict(color=COLOR_SCHEME['purple'], width=3),
-            hovertemplate='Interval: %{x}<br>Score: %{y:.2f}'
+            name='Well-Being Index',
+            line=dict(color=COLOR_SCHEME['primary'], width=3),
+            hovertemplate='Time: %{x} min<br>Score: %{y:.1f}%'
         ))
         
-        # Trend line
         x = np.arange(len(wellbeing_scores))
         trend = np.polyval(np.polyfit(x, wellbeing_scores, 1), x)
         fig.add_trace(go.Scatter(
-            x=x, y=trend,
+            x=minutes, y=trend,
             mode='lines',
             name='Trend',
-            line=dict(color=COLOR_SCHEME['orange'], width=2, dash='dash'),
-            hovertemplate='Interval: %{x}<br>Trend: %{y:.2f}'
+            line=dict(color=COLOR_SCHEME['warning'], width=2, dash='dash'),
+            hovertemplate='Time: %{x} min<br>Trend: %{y:.1f}%'
         ))
         
-        # Threshold triggers
         for t in triggers['threshold']:
             fig.add_trace(go.Scatter(
-                x=[t], y=[wellbeing_scores[t]],
+                x=[minutes[t]], y=[wellbeing_scores[t]],
                 mode='markers',
-                name='Threshold Alert',
+                name='Low Well-Being',
                 marker=dict(color=COLOR_SCHEME['danger'], size=10, symbol='x'),
-                hovertemplate='Interval: %{x}<br>Score: %{y:.2f}',
+                hovertemplate='Time: %{x} min<br>Score: %{y:.1f}%',
                 showlegend=False
             ))
+            fig.add_annotation(
+                x=minutes[t], y=wellbeing_scores[t],
+                text="Recommend breaks",
+                showarrow=True, arrowhead=1, ax=20, ay=-30,
+                font=dict(color=COLOR_SCHEME['danger'])
+            )
         
         fig.add_hline(
-            y=DEFAULT_CONFIG['WELLBEING_THRESHOLD'],
+            y=DEFAULT_CONFIG['WELLBEING_THRESHOLD'] * 100,
             line_dash="dash",
             line_color=COLOR_SCHEME['danger'],
             annotation_text="Threshold",
@@ -515,9 +476,9 @@ def plot_worker_wellbeing(wellbeing_scores: list, triggers: dict) -> go.Figure:
         )
         
         fig.update_layout(
-            title=dict(text='Team Well-Being (Advanced)', x=0.5, font_size=22),
-            xaxis_title='Shift Interval (2-min)',
-            yaxis_title='Well-Being Score',
+            title=dict(text='Worker Well-Being Index', x=0.5, font_size=22),
+            xaxis_title='Time (minutes)',
+            yaxis_title='Well-Being Index (%)',
             font=dict(color=COLOR_SCHEME['text'], size=14),
             template=PLOTLY_TEMPLATE,
             hovermode='x unified',
@@ -531,48 +492,53 @@ def plot_worker_wellbeing(wellbeing_scores: list, triggers: dict) -> go.Figure:
 
 def plot_psychological_safety(safety_scores: list) -> go.Figure:
     """
-    Plot psychological safety with trend line and anomaly annotations.
+    Plot psychological safety score with anomalies and recommendations.
     """
     logger.info("Defining plot_psychological_safety")
     try:
+        minutes = [i * 2 for i in range(len(safety_scores))]
         fig = go.Figure()
         
-        # Safety line
         fig.add_trace(go.Scatter(
-            x=list(range(len(safety_scores))),
+            x=minutes,
             y=safety_scores,
             mode='lines',
-            name='Safety Score',
-            line=dict(color=COLOR_SCHEME['cyan'], width=3),
-            hovertemplate='Interval: %{x}<br>Score: %{y:.2f}'
+            name='Psychological Safety',
+            line=dict(color=COLOR_SCHEME['accent'], width=3),
+            hovertemplate='Time: %{x} min<br>Score: %{y:.1f}%'
         ))
         
-        # Trend line
         x = np.arange(len(safety_scores))
         trend = np.polyval(np.polyfit(x, safety_scores, 1), x)
         fig.add_trace(go.Scatter(
-            x=x, y=trend,
+            x=minutes, y=trend,
             mode='lines',
             name='Trend',
-            line=dict(color=COLOR_SCHEME['orange'], width=2, dash='dash'),
-            hovertemplate='Interval: %{x}<br>Trend: %{y:.2f}'
+            line=dict(color=COLOR_SCHEME['warning'], width=2, dash='dash'),
+            hovertemplate='Time: %{x} min<br>Trend: %{y:.1f}%'
         ))
         
-        # Anomaly detection
         z_scores = (safety_scores - np.mean(safety_scores)) / np.std(safety_scores)
         anomalies = [i for i, z in enumerate(z_scores) if abs(z) > DEFAULT_CONFIG['ANOMALY_THRESHOLD']]
         fig.add_trace(go.Scatter(
-            x=anomalies,
+            x=[minutes[i] for i in anomalies],
             y=[safety_scores[i] for i in anomalies],
             mode='markers',
             name='Anomalies',
             marker=dict(color=COLOR_SCHEME['danger'], size=10, symbol='x'),
-            hovertemplate='Interval: %{x}<br>Score: %{y:.2f}<br>Z-Score: %{text:.2f}',
+            hovertemplate='Time: %{x} min<br>Score: %{y:.1f}%<br>Z-Score: %{text:.2f}',
             text=[z_scores[i] for i in anomalies]
         ))
+        for i in anomalies:
+            fig.add_annotation(
+                x=minutes[i], y=safety_scores[i],
+                text="Enhance safety training",
+                showarrow=True, arrowhead=1, ax=20, ay=-30,
+                font=dict(color=COLOR_SCHEME['danger'])
+            )
         
         fig.add_hline(
-            y=DEFAULT_CONFIG['SAFETY_COMPLIANCE_THRESHOLD'],
+            y=DEFAULT_CONFIG['SAFETY_THRESHOLD'] * 100,
             line_dash="dash",
             line_color=COLOR_SCHEME['danger'],
             annotation_text="Threshold",
@@ -580,9 +546,9 @@ def plot_psychological_safety(safety_scores: list) -> go.Figure:
         )
         
         fig.update_layout(
-            title=dict(text='Psychological Safety (Advanced)', x=0.5, font_size=22),
-            xaxis_title='Shift Interval (2-min)',
-            yaxis_title='Safety Score',
+            title=dict(text='Psychological Safety Score', x=0.5, font_size=22),
+            xaxis_title='Time (minutes)',
+            yaxis_title='Safety Score (%)',
             font=dict(color=COLOR_SCHEME['text'], size=14),
             template=PLOTLY_TEMPLATE,
             hovermode='x unified',
@@ -592,4 +558,62 @@ def plot_psychological_safety(safety_scores: list) -> go.Figure:
         return fig
     except Exception as e:
         logger.error(f"Error in plot_psychological_safety: {str(e)}")
+        raise
+
+def plot_downtime_trend(downtime_minutes: list, threshold: float) -> go.Figure:
+    """
+    Plot downtime trend with threshold alerts.
+    """
+    logger.info("Defining plot_downtime_trend")
+    try:
+        minutes = [i * 2 for i in range(len(downtime_minutes))]
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=minutes,
+            y=downtime_minutes,
+            mode='lines',
+            name='Downtime',
+            line=dict(color=COLOR_SCHEME['danger'], width=3),
+            hovertemplate='Time: %{x} min<br>Downtime: %{y:.1f} min'
+        ))
+        
+        alerts = [i for i, d in enumerate(downtime_minutes) if d > threshold]
+        fig.add_trace(go.Scatter(
+            x=[minutes[i] for i in alerts],
+            y=[downtime_minutes[i] for i in alerts],
+            mode='markers',
+            name='High Downtime',
+            marker=dict(color=COLOR_SCHEME['danger'], size=10, symbol='x'),
+            hovertemplate='Time: %{x} min<br>Downtime: %{y:.1f} min'
+        ))
+        for i in alerts:
+            fig.add_annotation(
+                x=minutes[i], y=downtime_minutes[i],
+                text="Investigate downtime",
+                showarrow=True, arrowhead=1, ax=20, ay=-30,
+                font=dict(color=COLOR_SCHEME['danger'])
+            )
+        
+        fig.add_hline(
+            y=threshold,
+            line_dash="dash",
+            line_color=COLOR_SCHEME['danger'],
+            annotation_text="Threshold",
+            annotation_position="top left"
+        )
+        
+        fig.update_layout(
+            title=dict(text='Downtime Trend', x=0.5, font_size=22),
+            xaxis_title='Time (minutes)',
+            yaxis_title='Downtime (minutes)',
+            font=dict(color=COLOR_SCHEME['text'], size=14),
+            template=PLOTLY_TEMPLATE,
+            hovermode='x unified',
+            plot_bgcolor=COLOR_SCHEME['background'],
+            paper_bgcolor=COLOR_SCHEME['background']
+        )
+        return fig
+    except Exception as e:
+        logger.error(f"Error in plot_downtime_trend: {str(e)}")
         raise
