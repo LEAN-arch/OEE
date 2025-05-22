@@ -13,7 +13,7 @@ logging.basicConfig(
 
 def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score, downtime_minutes):
     """
-    Create a 2x2 grid of gauge charts with vibrant colors, gradients, and enhanced interactivity.
+    Create a 2x2 grid of gauge charts with vibrant colors and enhanced interactivity.
 
     Args:
         compliance_score (float): Average task compliance score (%).
@@ -108,7 +108,7 @@ def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score,
 
 def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None, colors=None):
     """
-    Create a gauge chart with gradients, glassmorphic design, and dynamic tooltips.
+    Create a gauge chart with vibrant colors, glassmorphic design, and dynamic tooltips.
 
     Args:
         value (float): Current value of the metric.
@@ -190,12 +190,7 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
                     'showticklabels': True
                 },
                 'bar': {
-                    'color': {
-                        'gradient': {
-                            'type': 'linear',
-                            'color': colors['gradient']
-                        }
-                    },
+                    'color': colors['gradient'][0],  # Use first gradient color
                     'thickness': 0.3,
                     'line': {'color': '#111827', 'width': 1}
                 },
@@ -582,7 +577,7 @@ def plot_operational_recovery(recovery_scores, productivity_loss):
             mode='lines+markers',
             name='Productivity Loss',
             line=dict(color='#F87171', width=3),
-            marker=dict(size=8, line=dict(width=1, color='#E ratings: []E7EB')),
+            marker=dict(size=8, line=dict(width=1, color='#E5E7EB')),
             hovertemplate='Time: %{x} min<br>Loss: %{y:.1f}%<extra></extra>',
             showlegend=True
         ))
