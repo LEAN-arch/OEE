@@ -1,12 +1,28 @@
-"""
-main.py
-Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
-Enhanced for professional visuals, seamless UX, accessibility, fixed tab rendering, debug mode, and error handling.
-"""
+# main.py
+# Streamlit dashboard for the Workplace Shift Monitoring Dashboard.
+# Enhanced for professional visuals, seamless UX, accessibility, fixed tab rendering, debug mode, and error handling for plot_task_compliance_score.
+# Fixed nesting issue in render_settings_sidebar to prevent StreamlitAPIException.
+
 import logging
 import streamlit as st
 import pandas as pd
 import numpy as np
+from config import DEFAULT_CONFIG, validate_config
+from visualizations import (
+    plot_key_metrics_summary,
+    plot_task_compliance_score,
+    plot_collaboration_proximity_index,
+    plot_operational_recovery,
+    plot_operational_efficiency,
+    plot_worker_distribution,
+    plot_worker_density_heatmap,
+    plot_worker_wellbeing,
+    plot_psychological_safety,
+    plot_downtime_trend
+)
+from simulation import simulate_workplace_operations
+from utils import save_simulation_data, load_simulation_data, generate_pdf_report
+from assets import LEAN_LOGO_BASE64
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -15,55 +31,6 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s - [User Action: %(user_action)s]',
     filename='dashboard.log'
 )
-
-# Attempt imports with error handling
-try:
-    from config import DEFAULT_CONFIG, validate_config
-except Exception as e:
-    logger.error(f"Failed to import config: {str(e)}", extra={'user_action': 'Import Config'})
-    st.error(f"Failed to import config: {str(e)}")
-    raise
-
-try:
-    from visualizations import (
-        plot_key_metrics_summary,
-        plot_task_compliance_score,
-        plot_collaboration_proximity_index,
-        plot_operational_recovery,
-        plot_operational_efficiency,
-        plot_worker_distribution,
-        plot_worker_density_heatmap,
-        plot_worker_wellbeing,
-        plot_psychological_safety,
-        plot_downtime_trend
-    )
-except Exception as e:
-    logger.error(f"Failed to import visualizations: {str(e)}", extra={'user_action': 'Import Visualizations'})
-    st.error(f"Failed to import visualizations: {str(e)}")
-    raise
-
-try:
-    from simulation import simulate_workplace_operations
-except Exception as e:
-    logger.error(f"Failed to import simulation: {str(e)}", extra={'user_action': 'Import Simulation'})
-    st.error(f"Failed to import simulation: {str(e)}")
-    raise
-
-try:
-    from utils import save_simulation_data, load_simulation_data, generate_pdf_report
-except Exception as e:
-    logger.error(f"Failed to import utils: {str(e)}", extra={'user_action': 'Import Utils'})
-    st.error(f"Failed to import utils: {str(e)}")
-    raise
-
-try:
-    from assets import LEAN_LOGO_BASE64
-except Exception as e:
-    logger.warning(f"Failed to import LEAN_LOGO_BASE64: {str(e)}, using empty string", extra={'user_action': 'Import Assets'})
-    LEAN_LOGO_BASE64 = ""
-
-# Diagnostic message
-st.write("All imports completed successfully")
 
 # Streamlit page config
 st.set_page_config(
@@ -218,6 +185,7 @@ st.markdown("""
             padding: 16px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
+        /* Enhanced Summary Cards */
         .summary-card {
             background-color: #2D3B55;
             border-radius: 8px;
@@ -244,6 +212,7 @@ st.markdown("""
             color: #FBBF24;
             margin: 0;
         }
+        /* Plot Container */
         .plot-container {
             background-color: #2D3B55;
             border-radius: 8px;
@@ -251,12 +220,14 @@ st.markdown("""
             margin: 16px 0;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
+        /* Data Table */
         .stDataFrame {
             background-color: #2D3B55;
             border-radius: 8px;
             padding: 16px;
             font-size: 0.875rem;
         }
+        /* Responsive Design */
         @media (max-width: 768px) {
             .main { padding: 16px; }
             h1 { font-size: 2rem; }
@@ -279,6 +250,7 @@ st.markdown("""
                 font-size: 0.875rem;
             }
         }
+        /* Loading Spinner */
         .spinner {
             display: flex;
             justify-content: center;
@@ -298,6 +270,7 @@ st.markdown("""
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        /* Onboarding Modal */
         .onboarding-modal {
             background-color: #2D3B55;
             border-radius: 8px;
@@ -326,18 +299,13 @@ def display_loading(message):
 # Sidebar for settings with fixed nesting issue
 def render_settings_sidebar():
     with st.sidebar:
-        if LEAN_LOGO_BASE64:
-            st.markdown(
-                f'<img src="{LEAN_LOGO_BASE64}" width="120" alt="Lean 2.0 Institute Logo" aria-label="Lean 2.0 Institute Logo" style="display: block; margin: 0 auto 16px;">',
-                unsafe_allow_html=True
-            )
-        else:
-            st.markdown(
-                '<p style="text-align: center; color: #F5F7FA;">Logo unavailable</p>',
-                unsafe_allow_html=True
-            )
+        st.markdown(
+            f'<img src="{LEAN_LOGO_BASE64}" width="120" alt="Lean 2.0 Institute Logo" aria-label="Lean 2.0 Institute Logo" style="display: block; margin: 0 auto 16px;">',
+            unsafe_allow_html=True
+        )
         st.header("⚙️ Settings", divider="grey")
 
+        # Simulation Controls
         with st.expander("🧪 Simulation", expanded=True):
             team_size = st.slider(
                 "Team Size",
@@ -372,6 +340,7 @@ def render_settings_sidebar():
                 type="primary"
             )
 
+        # Visualization Settings
         with st.expander("🎨 Visualizations"):
             high_contrast = st.checkbox(
                 "High Contrast Mode", 
@@ -389,6 +358,7 @@ def render_settings_sidebar():
                 key="debug_mode"
             )
 
+        # Data Management
         with st.expander("💾 Data"):
             load_data = st.button(
                 "Load Saved Data", 
@@ -419,6 +389,7 @@ def render_settings_sidebar():
                     logger.error(f"Failed to generate report: {str(e)}", extra={'user_action': 'Download PDF Report'})
                     st.error(f"Failed to generate report: {str(e)}.")
 
+        # Export Options (moved out of nested expander)
         with st.expander("📊 Export Options"):
             if 'simulation_results' in st.session_state:
                 if st.button("Export Plots as PNG", key="export_png"):
@@ -445,6 +416,7 @@ def render_settings_sidebar():
             else:
                 st.info("Run a simulation to enable export options.", icon="ℹ️")
 
+        # Debug Information
         if debug_mode:
             with st.expander("🛠️ Debug Info"):
                 st.write("**Entry/Exit Points:**")
@@ -452,6 +424,7 @@ def render_settings_sidebar():
                 st.write("**Work Areas:**")
                 st.write(DEFAULT_CONFIG.get('WORK_AREAS', "Not defined"))
 
+        # Navigation and Help
         st.header("📋 Navigation", divider="grey")
         tab_names = ["Overview", "Operational Metrics", "Worker Insights", "Downtime", "Glossary"]
         for i, tab in enumerate(tab_names):
@@ -611,11 +584,12 @@ def main():
                 (team_positions_df, task_compliance, collaboration_proximity, operational_recovery,
                  efficiency_metrics_df, productivity_loss, worker_wellbeing, psychological_safety,
                  feedback_impact, downtime_minutes, task_completion_rate) = st.session_state.simulation_results
-                compliance_mean = np.mean(task_compliance['data']) if task_compliance['data'] else 0
-                proximity_mean = np.mean(collaboration_proximity['data']) if collaboration_proximity['data'] else 0
+                compliance_mean = np.mean(task_compliance['data'])
+                proximity_mean = np.mean(collaboration_proximity['data'])
                 wellbeing_mean = np.mean(worker_wellbeing['scores']) if worker_wellbeing['scores'] else 0
-                total_downtime = np.sum(downtime_minutes) if downtime_minutes else 0
+                total_downtime = np.sum(downtime_minutes)
                 
+                # Enhanced Metrics Display
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("Task Compliance", f"{compliance_mean:.1f}%", delta=f"{compliance_mean - 75:.1f}%", delta_color="normal")
@@ -626,6 +600,7 @@ def main():
                 with col4:
                     st.metric("Downtime", f"{total_downtime:.1f} min", delta=f"{total_downtime - 30:.1f} min", delta_color="inverse")
                 
+                # Data Table
                 with st.expander("View Detailed Data", expanded=False):
                     summary_df = pd.DataFrame({
                         'Time (min)': [i * 2 for i in range(len(task_compliance['data']))],
@@ -636,6 +611,7 @@ def main():
                     })
                     st.dataframe(summary_df, use_container_width=True, height=300)
                 
+                # Gauge Charts
                 col1, col2 = st.columns(2)
                 summary_figs = plot_key_metrics_summary(compliance_mean, proximity_mean, wellbeing_mean, total_downtime)
                 for i, fig in enumerate(summary_figs):
@@ -854,27 +830,19 @@ def main():
                             'work_area': {k: [t for t in v if time_indices[0] <= t < time_indices[1]] for k, v in worker_wellbeing['triggers']['work_area'].items()},
                             'disruption': [t for t in worker_wellbeing['triggers']['disruption'] if time_indices[0] <= t < time_indices[1]]
                         }
-                        try:
-                            with st.container(border=True):
-                                st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
-                                wellbeing_fig = plot_worker_wellbeing(filtered_scores, filtered_triggers)
-                                st.plotly_chart(wellbeing_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
-                                st.markdown('</div>', unsafe_allow_html=True)
-                        except Exception as e:
-                            logger.error(f"Failed to plot well-being: {str(e)}", extra={'user_action': 'Render Worker Insights'})
-                            st.error(f"Error rendering well-being chart: {str(e)}.")
+                        with st.container(border=True):
+                            st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                            wellbeing_fig = plot_worker_wellbeing(filtered_scores, filtered_triggers)
+                            st.plotly_chart(wellbeing_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                            st.markdown('</div>', unsafe_allow_html=True)
                     with col_well2:
                         st.markdown("### Psychological Safety")
                         filtered_safety = psychological_safety[time_indices[0]:time_indices[1]]
-                        try:
-                            with st.container(border=True):
-                                st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
-                                safety_fig = plot_psychological_safety(filtered_safety)
-                                st.plotly_chart(safety_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
-                                st.markdown('</div>', unsafe_allow_html=True)
-                        except Exception as e:
-                            logger.error(f"Failed to plot psychological safety: {str(e)}", extra={'user_action': 'Render Worker Insights'})
-                            st.error(f"Error rendering psychological safety chart: {str(e)}.")
+                        with st.container(border=True):
+                            st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                            safety_fig = plot_psychological_safety(filtered_safety)
+                            st.plotly_chart(safety_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                            st.markdown('</div>', unsafe_allow_html=True)
                     st.markdown("### Well-Being Triggers")
                     st.write(f"**Threshold Alerts (< {DEFAULT_CONFIG['WELLBEING_THRESHOLD']*100}%):** {filtered_triggers['threshold']}")
                     st.write(f"**Trend Alerts (Declining):** {filtered_triggers['trend']}")
@@ -904,15 +872,11 @@ def main():
                 )
                 time_indices = (time_range[0] // 2, time_range[1] // 2 + 1)
                 filtered_downtime = downtime_minutes[time_indices[0]:time_indices[1]]
-                try:
-                    with st.container(border=True):
-                        st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
-                        downtime_fig = plot_downtime_trend(filtered_downtime, DEFAULT_CONFIG['DOWNTIME_THRESHOLD'])
-                        st.plotly_chart(downtime_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
-                        st.markdown('</div>', unsafe_allow_html=True)
-                except Exception as e:
-                    logger.error(f"Failed to plot downtime trend: {str(e)}", extra={'user_action': 'Render Downtime Analysis'})
-                    st.error(f"Error rendering downtime chart: {str(e)}.")
+                with st.container(border=True):
+                    st.markdown(f'<div class="plot-container">', unsafe_allow_html=True)
+                    downtime_fig = plot_downtime_trend(filtered_downtime, DEFAULT_CONFIG['DOWNTIME_THRESHOLD'])
+                    st.plotly_chart(downtime_fig, use_container_width=True, config={'displayModeBar': True, 'toImageButtonOptions': {'format': 'png'}})
+                    st.markdown('</div>', unsafe_allow_html=True)
             else:
                 st.info("Run a simulation or load data to view analysis.", icon="ℹ️")
 
