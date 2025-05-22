@@ -38,15 +38,17 @@ def plot_key_metrics_summary(compliance_score, proximity_score, wellbeing_score,
     ]:
         if not isinstance(score, (int, float)) or score is None or np.isnan(score):
             logger.error(
-                f"Invalid input: {name}={score}",
+                f"Invalid input: {name}={score}, type={type(score)}",
                 extra={'user_action': 'Plot Key Metrics'}
             )
-            raise ValueError(f"Invalid input: {name} must be a number, got {score}")
+            raise ValueError(f"Invalid input: {name} must be a number, got {score} (type: {type(score)})")
 
-    # Log inputs
+    # Log inputs with types
     logger.info(
-        f"Inputs: compliance={compliance_score}, proximity={proximity_score}, "
-        f"wellbeing={wellbeing_score}, downtime={downtime_minutes}",
+        f"Inputs: compliance={compliance_score} (type={type(compliance_score)}), "
+        f"proximity={proximity_score} (type={type(proximity_score)}), "
+        f"wellbeing={wellbeing_score} (type={type(wellbeing_score)}), "
+        f"downtime={downtime_minutes} (type={type(downtime_minutes)})",
         extra={'user_action': 'Plot Key Metrics'}
     )
 
@@ -112,33 +114,34 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
     # Validate inputs
     if not isinstance(value, (int, float)) or value is None or np.isnan(value):
         logger.error(
-            f"Invalid value: {value} for title={title}",
+            f"Invalid value: {value}, type={type(value)} for title={title}",
             extra={'user_action': 'Plot Gauge Chart'}
         )
-        raise ValueError(f"Invalid value: must be a number, got {value}")
+        raise ValueError(f"Invalid value: must be a number, got {value} (type: {type(value)})")
     if not isinstance(threshold, (int, float)) or threshold is None or np.isnan(threshold):
         logger.error(
-            f"Invalid threshold: {threshold} for title={title}",
+            f"Invalid threshold: {threshold}, type={type(threshold)} for title={title}",
             extra={'user_action': 'Plot Gauge Chart'}
         )
-        raise ValueError(f"Invalid threshold: must be a number, got {threshold}")
+        raise ValueError(f"Invalid threshold: must be a number, got {threshold} (type: {type(threshold)})")
     if not isinstance(max_value, (int, float)) or max_value <= 0:
         logger.error(
-            f"Invalid max_value: {max_value} for title={title}",
+            f"Invalid max_value: {max_value}, type={type(max_value)} for title={title}",
             extra={'user_action': 'Plot Gauge Chart'}
         )
-        raise ValueError(f"Invalid max_value: must be a positive number, got {max_value}")
+        raise ValueError(f"Invalid max_value: must be a positive number, got {max_value} (type: {type(max_value)})")
     if recommendation is not None and not isinstance(recommendation, str):
         logger.error(
-            f"Invalid recommendation: {recommendation} for title={title}",
+            f"Invalid recommendation: {recommendation}, type={type(recommendation)} for title={title}",
             extra={'user_action': 'Plot Gauge Chart'}
         )
-        raise ValueError(f"Invalid recommendation: must be a string or None, got {recommendation}")
+        raise ValueError(f"Invalid recommendation: must be a string or None, got {recommendation} (type: {type(recommendation)})")
 
-    # Log parameters
+    # Log parameters with types
     logger.info(
-        f"Plotting gauge: title={title}, value={value}, threshold={threshold}, "
-        f"max_value={max_value}, recommendation={recommendation}",
+        f"Plotting gauge: title={title}, value={value} (type={type(value)}), "
+        f"threshold={threshold} (type={type(threshold)}), max_value={max_value} (type={type(max_value)}), "
+        f"recommendation={recommendation} (type={type(recommendation)})",
         extra={'user_action': 'Plot Gauge Chart'}
     )
 
@@ -205,6 +208,21 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
         }
     )
 
+    # Validate layout_params
+    for key, val in layout_params.items():
+        if val is None or (isinstance(val, (list, dict)) and not val):
+            logger.warning(
+                f"Empty or None value in layout_params: {key}={val} for title={title}",
+                extra={'user_action': 'Plot Gauge Chart'}
+            )
+        if isinstance(val, dict):
+            for sub_key, sub_val in val.items():
+                if sub_val is None:
+                    logger.warning(
+                        f"None value in layout_params[{key}][{sub_key}] for title={title}",
+                        extra={'user_action': 'Plot Gauge Chart'}
+                    )
+
     # Log layout parameters
     logger.info(
         f"Updating layout for {title}: {layout_params}",
@@ -217,6 +235,12 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
     except ValueError as e:
         logger.error(
             f"ValueError in update_layout for {title}: {str(e)}, params={layout_params}",
+            extra={'user_action': 'Plot Gauge Chart'}
+        )
+        raise
+    except Exception as e:
+        logger.error(
+            f"Unexpected error in update_layout for {title}: {str(e)}, params={layout_params}",
             extra={'user_action': 'Plot Gauge Chart'}
         )
         raise
@@ -998,7 +1022,7 @@ def plot_worker_wellbeing(scores, triggers):
 
     Args:
         scores (list): List of well-being scores (%).
-        triggers (dict): Dictionary of trigger events (threshold, trend, work_area posits, disruption).
+        triggers (dict): Dictionary of trigger events (threshold, trend, work_area, disruption).
 
     Returns:
         go.Figure: Plotly line chart figure.
