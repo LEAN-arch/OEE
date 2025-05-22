@@ -1,3 +1,4 @@
+# simulation.py
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -7,12 +8,12 @@ from sklearn.metrics.pairwise import euclidean_distances
 from config import CONFIG
 
 def simulate_workplace_operations(
-    num_team_members=51,
-    num_steps=240,
-    workplace_size=100,
-    adaptation_rate=0.05,
-    supervisor_influence=0.2,
-    disruption_steps=None,
+    num_team_members=None,
+    num_steps=None,
+    workplace_size=None,
+    adaptation_rate=None,
+    supervisor_influence=None,
+    disruption_intervals=None,
     team_initiative="More frequent breaks",
     skip_forecast=False,
     config=None
@@ -21,29 +22,52 @@ def simulate_workplace_operations(
     if config is None:
         config = CONFIG
     
-    if disruption_steps is None:
-        disruption_steps = config['DISRUPTION_STEPS']
+    # Use config defaults if parameters are None
+    num_team_members = num_team_members or config['TEAM_SIZE']
+    num_steps = num_steps or config['SHIFT_DURATION_INTERVALS']
+    workplace_size = workplace_size or config['FACILITY_SIZE']
+    adaptation_rate = adaptation_rate or config['ADAPTATION_RATE']
+    supervisor_influence = supervisor_influence or config['SUPERVISOR_INFLUENCE']
+    disruption_intervals = disruption_intervals or config['DISRUPTION_INTERVALS']
     
-    # Initialize team positions
-    positions = np.random.uniform(0, workplace_size, (num_steps, num_team_members, 2))
+    # Assign workers to zones
+    zone_assignments = []
+    worker_ids = np.arange(num_team_members)
+    start_idx = 0
+    for zone, zone_info in config['WORK_AREAS'].items():
+        num_zone_workers = zone_info['workers']
+        zone_assignments.extend([zone] * num_zone_workers)
+        start_idx += num_zone_workers
+    zone_assignments = np.array(zone_assignments)
+    
+    # Initialize team positions near zone centers
+    positions = np.zeros((num_steps, num_team_members, 2))
+    for i, zone in enumerate(zone_assignments):
+        center = config['WORK_AREAS'][zone]['center']
+        positions[:, i, :] = np.random.normal(center, workplace_size / 10, (num_steps, 2))
+        positions[:, i, :] = np.clip(positions[:, i, :], 0, workplace_size)
+    
     compliance = np.random.uniform(0.6, 1.0, (num_steps, num_team_members))
     wellbeing = np.ones((num_steps, num_team_members)) * 0.8
-    safety = np.ones(num_steps) * config['SAFETY_THRESHOLD']
+    safety = np.ones(num_steps) * config['SAFETY_COMPLIANCE_THRESHOLD']
     efficiency = {'uptime': [], 'throughput': [], 'quality': [], 'oee': []}
     productivity_loss = np.zeros(num_steps)
     collaboration_index = {'data': [], 'z_scores': [], 'forecast': None}
     
     # Simulate disruptions and team initiatives
     for t in range(num_steps):
-        if t in disruption_steps:
+        if t in disruption_intervals:
             compliance[t] *= np.random.uniform(0.7, 0.9)
             wellbeing[t] *= np.random.uniform(0.6, 0.8)
+            safety[t] *= np.random.uniform(0.6, 0.8)
             productivity_loss[t] = np.random.uniform(5, 15)
         
-        if team_initiative == "More frequent breaks" and t % config['BREAK_INTERVAL'] == 0:
+        if team_initiative == "More frequent breaks" and t % config['BREAK_FREQUENCY_INTERVALS'] == 0:
             wellbeing[t] = np.minimum(wellbeing[t] + 0.1, 1.0)
+            safety[t] = np.minimum(safety[t] + 0.05, 1.0)
         
         compliance[t] = np.clip(compliance[t] + adaptation_rate * supervisor_influence, 0, 1)
+        safety[t] = np.clip(safety[t] + 0.01 * np.mean(compliance[t]), 0, 1)
         
         uptime = np.random.uniform(0.85, 0.95)
         throughput = np.random.uniform(0.80, 0.90)
@@ -54,16 +78,22 @@ def simulate_workplace_operations(
         efficiency['quality'].append(quality)
         efficiency['oee'].append(oee)
         
-        distances = euclidean_distances(positions[t])
-        collab = np.mean(distances < workplace_size / 4)
+        # Zone-based collaboration
+        collab = 0
+        for zone in config['WORK_AREAS']:
+            zone_workers = zone_assignments == zone
+            if np.sum(zone_workers) > 1:
+                distances = euclidean_distances(positions[t, zone_workers])
+                collab += np.mean(distances < workplace_size / 10) * np.sum(zone_workers) / num_team_members
         collaboration_index['data'].append(collab)
     
     # Convert to DataFrame
     team_positions_df = pd.DataFrame({
         'step': np.repeat(np.arange(num_steps), num_team_members),
-        'team_member_id': np.tile(np.arange(num_team_members), num_steps),
+        'team_member_id': np.tile(worker_ids, num_steps),
         'x': positions[:, :, 0].flatten(),
-        'y': positions[:, :, 1].flatten()
+        'y': positions[:, :, 1].flatten(),
+        'zone': np.tile(zone_assignments, num_steps)
     })
     
     efficiency_metrics_df = pd.DataFrame(efficiency)
@@ -86,20 +116,23 @@ def simulate_workplace_operations(
     
     # Operational resilience
     operational_resilience = np.ones(num_steps)
-    for t in disruption_steps:
-        operational_resilience[t:t+config['WELLBEING_DISRUPTION_WINDOW']] *= np.linspace(0.6, 1.0, config['WELLBEING_DISRUPTION_WINDOW'])
+    for t in disruption_intervals:
+        operational_resilience[t:t+config['DISRUPTION_RECOVERY_WINDOW']] *= np.linspace(0.6, 1.0, config['DISRUPTION_RECOVERY_WINDOW'])
     
     # Well-being triggers
     triggers = {
         'threshold': [t for t in range(num_steps) if np.mean(wellbeing[t]) < config['WELLBEING_THRESHOLD']],
         'trend': [
-            t for t in range(config['WELLBEING_TREND_LENGTH'], num_steps)
-            if all(wellbeing[t-i] < wellbeing[t-i-1] for i in range(config['WELLBEING_TREND_LENGTH']))
+            t for t in range(config['WELLBEING_TREND_WINDOW'], num_steps)
+            if all(wellbeing[t-i] < wellbeing[t-i-1] for i in range(config['WELLBEING_TREND_WINDOW']))
         ],
-        'work_area': {ws: [] for ws in config['WORK_AREAS']},
+        'work_area': {
+            zone: [t for t in range(num_steps) if np.mean(wellbeing[t, zone_assignments == zone]) < config['WELLBEING_THRESHOLD']]
+            for zone in config['WORK_AREAS']
+        },
         'disruption': [
             t for t in range(num_steps) if any(
-                abs(t - d) <= config['WELLBEING_DISRUPTION_WINDOW'] for d in disruption_steps
+                abs(t - d) <= config['DISRUPTION_RECOVERY_WINDOW'] for d in disruption_intervals
             )
         ]
     }
@@ -123,45 +156,47 @@ def simulate_workplace_operations(
         feedback_impact
     )
 
-def plot_task_compliance_trend(compliance_data, disruption_steps, forecast=None):
-    fig, ax = plt.subplots()
-    ax.plot(compliance_data, label='Compliance Variability')
-    for t in disruption_steps:
-        ax.axvline(t, color='red', linestyle='--', alpha=0.5)
+def plot_task_compliance_trend(compliance_data, disruption_intervals, forecast=None):
+    fig = px.line(
+        x=range(len(compliance_data)),
+        y=compliance_data,
+        labels={'x': 'Shift Interval (2-min)', 'y': 'Compliance Entropy'},
+        title='Task Compliance Variability'
+    )
+    for t in disruption_intervals:
+        fig.add_vline(x=t, line_dash="dash", line_color="red", opacity=0.5)
     if forecast is not None:
-        ax.plot(forecast, label='Forecast', linestyle='--')
-    ax.set_xlabel('Shift Interval (2-min)')
-    ax.set_ylabel('Compliance Entropy')
-    ax.legend()
+        fig.add_scatter(x=range(len(forecast)), y=forecast, name='Forecast', line=dict(dash='dash'))
     return fig
 
 def plot_worker_collaboration_trend(collab_data, forecast=None):
-    fig, ax = plt.subplots()
-    ax.plot(collab_data, label='Collaboration Index')
+    fig = px.line(
+        x=range(len(collab_data)),
+        y=collab_data,
+        labels={'x': 'Shift Interval (2-min)', 'y': 'Collaboration Strength'},
+        title='Worker Collaboration Index'
+    )
     if forecast is not None:
-        ax.plot(forecast, label='Forecast', linestyle='--')
-    ax.set_xlabel('Shift Interval (2-min)')
-    ax.set_ylabel('Collaboration Strength')
-    ax.legend()
+        fig.add_scatter(x=range(len(forecast)), y=forecast, name='Forecast', line=dict(dash='dash'))
     return fig
 
 def plot_operational_resilience(resilience):
-    fig, ax = plt.subplots()
-    ax.plot(resilience, label='Resilience')
-    ax.set_xlabel('Shift Interval (2-min)')
-    ax.set_ylabel('Resilience Score')
-    ax.legend()
+    fig = px.line(
+        x=range(len(resilience)),
+        y=resilience,
+        labels={'x': 'Shift Interval (2-min)', 'y': 'Resilience Score'},
+        title='Operational Resilience'
+    )
     return fig
 
 def plot_operational_efficiency(efficiency_df):
-    fig, ax = plt.subplots()
-    ax.plot(efficiency_df['uptime'], label='Uptime')
-    ax.plot(efficiency_df['throughput'], label='Throughput')
-    ax.plot(efficiency_df['quality'], label='Quality')
-    ax.plot(efficiency_df['oee'], label='OEE', linewidth=2)
-    ax.set_xlabel('Shift Interval (2-min)')
-    ax.set_ylabel('Efficiency')
-    ax.legend()
+    fig = px.line(
+        efficiency_df,
+        x=efficiency_df.index,
+        y=['uptime', 'throughput', 'quality', 'oee'],
+        labels={'value': 'Efficiency', 'index': 'Shift Interval (2-min)'},
+        title='Operational Efficiency Metrics'
+    )
     return fig
 
 def plot_worker_distribution(team_positions_df, workplace_size, config, use_plotly=True):
@@ -170,41 +205,52 @@ def plot_worker_distribution(team_positions_df, workplace_size, config, use_plot
             team_positions_df,
             x='x', y='y',
             animation_frame='step',
-            color='team_member_id',
+            color='zone',
+            hover_data=['team_member_id'],
             range_x=[0, workplace_size],
             range_y=[0, workplace_size],
-            title=f"Team Distribution ({config['WORKPLACE_TYPE'].capitalize()} Workplace)"
+            title=f"Team Distribution ({config['FACILITY_TYPE'].capitalize()} Workplace)"
         )
+        for zone, info in config['WORK_AREAS'].items():
+            fig.add_scatter(x=[info['center'][0]], y=[info['center'][1]], mode='markers+text',
+                            text=[info['label']], marker=dict(size=15, color='red'), name=zone)
         return fig
     else:
         fig, ax = plt.subplots()
         hb = ax.hexbin(
             team_positions_df['x'],
             team_positions_df['y'],
-            gridsize=config['HEXBIN_GRIDSIZE'],
+            gridsize=config['DENSITY_GRID_SIZE'],
             cmap='Blues',
             mincnt=1
         )
-        ax.scatter(team_positions_df['x'], team_positions_df['y'], c='red', s=10, alpha=0.5)
+        for zone, info in config['WORK_AREAS'].items():
+            ax.scatter(info['center'][0], info['center'][1], c='red', s=100, label=info['label'])
+            ax.text(info['center'][0], info['center'][1], info['label'], fontsize=10)
         ax.set_xlim(0, workplace_size)
         ax.set_ylim(0, workplace_size)
         ax.set_xlabel('X (meters)')
         ax.set_ylabel('Y (meters)')
         fig.colorbar(hb, ax=ax, label='Team Member Count')
+        ax.legend()
         return fig
 
 def plot_worker_wellbeing(wellbeing_scores):
-    fig, ax = plt.subplots()
-    ax.plot(wellbeing_scores, label='Well-Being')
-    ax.set_xlabel('Shift Interval (2-min)')
-    ax.set_ylabel('Well-Being Score')
-    ax.legend()
+    fig = px.line(
+        x=range(len(wellbeing_scores)),
+        y=wellbeing_scores,
+        labels={'x': 'Shift Interval (2-min)', 'y': 'Well-Being Score'},
+        title='Team Well-Being'
+    )
+    fig.add_hline(y=CONFIG['WELLBEING_THRESHOLD'], line_dash="dash", line_color="red", annotation_text="Threshold")
     return fig
 
 def plot_psychological_safety(safety_scores):
-    fig, ax = plt.subplots()
-    ax.plot(safety_scores, label='Psychological Safety')
-    ax.set_xlabel('Shift Interval (2-min)')
-    ax.set_ylabel('Safety Score')
-    ax.legend()
+    fig = px.line(
+        x=range(len(safety_scores)),
+        y=safety_scores,
+        labels={'x': 'Shift Interval (2-min)', 'y': 'Safety Score'},
+        title='Psychological Safety'
+    )
+    fig.add_hline(y=CONFIG['SAFETY_COMPLIANCE_THRESHOLD'], line_dash="dash", line_color="red", annotation_text="Threshold")
     return fig
