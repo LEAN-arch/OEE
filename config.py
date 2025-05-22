@@ -6,8 +6,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG = {
     'TEAM_SIZE': 30, 
-    'SHIFT_DURATION_MINUTES': 480,  # 8 hours 
-    'DISRUPTION_TIMES_MINUTES': [120, 300], 
+    'SHIFT_DURATION_MINUTES': 480,
+    'DISRUPTION_TIMES_MINUTES': [120, 300], # This key is read by render_settings_sidebar
+                                           # simulation.py will use DISRUPTION_EVENT_STEPS derived in main.py
     
     # --- TARGETS for Actionable Insights & Plotting ---
     'TARGET_COMPLIANCE': 85.0,
@@ -16,8 +17,8 @@ DEFAULT_CONFIG = {
     'DOWNTIME_THRESHOLD_TOTAL_SHIFT_PERCENTAGE': 0.05, 
     'WELLBEING_CRITICAL_THRESHOLD_PERCENT_OF_TARGET': 0.85, 
     'TARGET_PSYCH_SAFETY': 70.0, 
-    'TARGET_TEAM_COHESION': 70.0, # New target for Team Cohesion (%)
-    'TARGET_PERCEIVED_WORKLOAD': 6.5, # Target on a 0-10 scale (lower is better)
+    'TARGET_TEAM_COHESION': 70.0, 
+    'TARGET_PERCEIVED_WORKLOAD': 6.5, 
 
     'FACILITY_SIZE': (100, 80),
     'WORK_AREAS': { 
@@ -30,7 +31,7 @@ DEFAULT_CONFIG = {
     },
     'ENTRY_EXIT_POINTS': [{'name': 'Main Entrance', 'coords': (0, 40), 'type': 'entry_exit'}, {'name': 'Loading Dock', 'coords': (100, 60), 'type': 'exit_only'}],
     
-    'PERCEIVED_WORKLOAD_THRESHOLD_HIGH': 7.5, 'PERCEIVED_WORKLOAD_THRESHOLD_VERY_HIGH': 8.5,
+    'PERCEIVED_WORKLOAD_THRESHOLD_HIGH': 7.5, 'PERCEIVED_WORKLOAD_THRESHOLD_VERY_HIGH': 8.5, # For insights
     'STRESS_FROM_HIGH_WORKLOAD_FACTOR': 0.05, 'STRESS_FROM_LOW_CONTROL_FACTOR': 0.02,  
     'ISOLATION_IMPACT_ON_WELLBEING': 0.1,   'TEAM_COHESION_BASELINE': 0.7,        
     'TEAM_COHESION_IMPACT_ON_PSYCH_SAFETY': 0.15, 
@@ -43,7 +44,7 @@ DEFAULT_CONFIG = {
     'DISRUPTION_COMPLIANCE_REDUCTION_FACTOR': 0.5, 'DISRUPTION_WELLBEING_DROP': 0.2, 
     'RECOVERY_HALFLIFE_INTERVALS': 10, 
     'WELLBEING_BASELINE': 0.80, 'WELLBEING_FATIGUE_RATE_PER_INTERVAL': 0.002, 
-    'WELLBEING_RECOVERY_AT_BREAK_ABS': 0.15, 'WELLBEING_ALERT_THRESHOLD': 0.60, 
+    'WELLBEING_RECOVERY_AT_BREAK_ABS': 0.15, 'WELLBEING_ALERT_THRESHOLD': 60.0, # As percentage (0-100) for easier use
     'PSYCH_SAFETY_BASELINE': 0.75, 'PSYCH_SAFETY_EROSION_RATE_PER_INTERVAL': 0.0005, 
     'PSYCH_SAFETY_BOOST_FROM_RECOGNITION_ABS': 0.1, 'FEEDBACK_POSITIVE_IMPACT_ON_PSYCH_SAFETY': 0.05, 
     'THEORETICAL_MAX_THROUGHPUT_UNITS_PER_INTERVAL': 100, 'BASE_QUALITY_DEFECT_RATE': 0.02,
@@ -71,6 +72,6 @@ def validate_config(config):
     total_workers_in_zones = sum(zone.get('workers', 0) for zone in config['WORK_AREAS'].values() if isinstance(zone, dict))
     if total_workers_in_zones != config['TEAM_SIZE'] and config['TEAM_SIZE'] > 0 and total_workers_in_zones == 0: logger.info(f"Config Validation: Initial workers in zones is 0. Sim logic will distribute TEAM_SIZE={config['TEAM_SIZE']}.")
     elif total_workers_in_zones != config['TEAM_SIZE']: logger.warning(f"Config Validation: Sum of workers in WORK_AREAS ({total_workers_in_zones}) != TEAM_SIZE ({config['TEAM_SIZE']}). Sim logic will reconcile.")
-    if not isinstance(config['DISRUPTION_TIMES_MINUTES'], list): logger.warning(f"Config Validation: DISRUPTION_TIMES_MINUTES is not a list. Ensure UI passes list.")
+    if not isinstance(config['DISRUPTION_TIMES_MINUTES'], list): logger.warning(f"Config Validation: DISRUPTION_TIMES_MINUTES is {type(config['DISRUPTION_TIMES_MINUTES'])}. Should be list.")
     logger.info("Configuration structure partially validated.", extra={'user_action': 'System Check'})
     return True
