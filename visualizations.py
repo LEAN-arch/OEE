@@ -1,7 +1,3 @@
-# visualizations.py
-# Enhanced Plotly visualizations for the Workplace Shift Monitoring Dashboard with professional fonts, actionable data rendering, and high-quality visuals.
-# Fixed syntax error in plot_operational_efficiency (yaxis tickfont).
-
 import logging
 import plotly.graph_objects as go
 import numpy as np
