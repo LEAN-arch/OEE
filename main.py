@@ -22,6 +22,7 @@ from visualizations import (
 )
 from simulation import simulate_workplace_operations
 from utils import save_simulation_data, load_simulation_data, generate_pdf_report
+from streamlit.runtime.media_file_storage import MediaFileStorageError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -136,8 +137,8 @@ with st.sidebar:
     elif DEFAULT_CONFIG['COMPANY_LOGO_PATH']:
         try:
             st.image(DEFAULT_CONFIG['COMPANY_LOGO_PATH'], width=150)
-        except FileNotFoundError:
-            st.warning("Default logo not found. Please upload a logo.")
+        except (FileNotFoundError, MediaFileStorageError) as e:
+            st.warning(f"Default logo not found or inaccessible: {str(e)}. Please upload a logo.")
     
     with st.expander("Simulation Controls", expanded=True):
         team_size = st.slider(
