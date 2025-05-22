@@ -4,12 +4,20 @@ Streamlit dashboard for the Industrial Workplace Shift Monitoring Dashboard.
 Provides an interactive UI for simulation results with tabs and controls.
 """
 
+import logging
 import streamlit as st
 import pandas as pd
 from simulation import simulate_workplace_operations
-from visualizations import plot_task_compliance_trend, plot_worker_collaboration_trend, \
-    plot_operational_resilience, plot_operational_efficiency, plot_oee_gauge, \
-    plot_worker_distribution, plot_worker_wellbeing, plot_psychological_safety
+from visualizations import (
+    plot_task_compliance_trend,
+    plot_worker_collaboration_trend,
+    plot_operational_resilience,
+    plot_operational_efficiency,
+    plot_oee_gauge,
+    plot_worker_distribution,
+    plot_worker_wellbeing,
+    plot_psychological_safety
+)
 from utils import save_simulation_data, logger
 from config import DEFAULT_CONFIG
 
@@ -121,6 +129,7 @@ if run_simulation:
         config['SHIFT_DURATION_INTERVALS'] = shift_duration
         config['DISRUPTION_INTERVALS'] = disruption_intervals
         
+        logger.info("Running simulation with team_size=%d, shift_duration=%d", team_size, shift_duration)
         simulation_results = simulate_workplace_operations(
             num_team_members=team_size,
             num_steps=shift_duration,
@@ -130,7 +139,12 @@ if run_simulation:
         )
         
         st.session_state.simulation_results = simulation_results
-        save_simulation_data(*simulation_results)
+        logger.info("Calling save_simulation_data")
+        try:
+            save_simulation_data(*simulation_results)
+        except NameError as ne:
+            logger.error(f"NameError in save_simulation_data call: {str(ne)}")
+            raise
         st.success("Simulation completed successfully!")
     except Exception as e:
         logger.error(f"Simulation failed: {str(e)}")
