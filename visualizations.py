@@ -347,6 +347,18 @@ def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, 
                     line=dict(color='#FFFFFF', width=4, dash='dash'),
                     hovertemplate=f"{line['label']}<br>Start: ({line['start'][0]}, {line['start'][1]})<br>End: ({line['end'][0]}, {line['end'][1]})"
                 ))
+                # Add annotation for production line label
+                mid_x = (line['start'][0] + line['end'][0]) / 2
+                mid_y = (line['start'][1] + line['end'][1]) / 2
+                fig.add_annotation(
+                    x=mid_x,
+                    y=mid_y,
+                    z=selected_step,
+                    text=line['label'],
+                    showarrow=False,
+                    font=dict(color='#FFFFFF', size=10),
+                    yshift=10
+                )
         
         # Add entry/exit points
         if show_entry_exit:
@@ -412,7 +424,7 @@ def plot_worker_distribution(positions_df, facility_size, config, use_3d=False, 
                     line=dict(color='#FFFFFF', width=4, dash='dash'),
                     layer='below'
                 ))
-                # Add label for production line
+                # Add annotation for production line label
                 mid_x = (line['start'][0] + line['end'][0]) / 2
                 mid_y = (line['start'][1] + line['end'][1]) / 2
                 fig.add_annotation(
@@ -549,18 +561,17 @@ def plot_worker_density_heatmap(positions_df, facility_size, config, show_entry_
                 line=dict(color='#FFFFFF', width=4, dash='dash'),
                 layer='below'
             ))
-            # Add label for production line
+            # Add annotation for production line label
             mid_x = (line['start'][0] + line['end'][0]) / 2
             mid_y = (line['start'][1] + line['end'][1]) / 2
-            shapes.append(dict(
-                type="text",
+            fig.add_annotation(
                 x=mid_x,
                 y=mid_y,
                 text=line['label'],
                 showarrow=False,
                 font=dict(color='#FFFFFF', size=10),
                 yshift=10
-            ))
+            )
     
     # Create heatmap
     fig = go.Figure(data=go.Heatmap(
