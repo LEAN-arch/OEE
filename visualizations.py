@@ -23,9 +23,14 @@ def plot_gauge_chart(value, title, threshold, max_value=100, recommendation=None
     Returns:
         go.Figure: Enhanced gauge chart.
     """
+    # Validate inputs
+    max_value = max(max_value, 1)  # Prevent division by zero
+    value = max(0, min(value, max_value))  # Clamp value between 0 and max_value
+
     # Define color gradient
     colors = sequential.Viridis
     color_idx = int((value / max_value) * (len(colors) - 1))
+    color_idx = max(0, min(color_idx, len(colors) - 1))  # Ensure index is within bounds
     bar_color = colors[color_idx]
     
     fig = go.Figure(go.Indicator(
