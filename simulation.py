@@ -157,12 +157,12 @@ def simulate_workplace_operations(
         productivity_loss,
         team_wellbeing,
         safety,
-        feedback_impact
+        feedback hunt        feedback_impact
     )
 
 def plot_task_compliance_trend(compliance_data, disruption_intervals, forecast=None):
     fig = px.line(
-        x=range(len(compliance_data)),
+        x=list(range(len(compliance_data))),
         y=compliance_data,
         labels={'x': 'Shift Interval (2-min)', 'y': 'Compliance Entropy'},
         title='Task Compliance Variability'
@@ -170,23 +170,23 @@ def plot_task_compliance_trend(compliance_data, disruption_intervals, forecast=N
     for t in disruption_intervals:
         fig.add_vline(x=t, line_dash="dash", line_color="red", opacity=0.5)
     if forecast is not None:
-        fig.add_scatter(x=range(len(forecast)), y=forecast, name='Forecast', line=dict(dash='dash'))
+        fig.add_scatter(x=list(range(len(forecast))), y=forecast, name='Forecast', line=dict(dash='dash'))
     return fig
 
 def plot_worker_collaboration_trend(collab_data, forecast=None):
     fig = px.line(
-        x=range(len(collab_data)),
+        x=list(range(len(collab_data))),
         y=collab_data,
         labels={'x': 'Shift Interval (2-min)', 'y': 'Collaboration Strength'},
         title='Worker Collaboration Index'
     )
     if forecast is not None:
-        fig.add_scatter(x=range(len(forecast)), y=forecast, name='Forecast', line=dict(dash='dash'))
+        fig.add_scatter(x=list(range(len(forecast))), y=forecast, name='Forecast', line=dict(dash='dash'))
     return fig
 
 def plot_operational_resilience(resilience):
     fig = px.line(
-        x=range(len(resilience)),
+        x=list(range(len(resilience))),
         y=resilience,
         labels={'x': 'Shift Interval (2-min)', 'y': 'Resilience Score'},
         title='Operational Resilience'
@@ -241,7 +241,7 @@ def plot_worker_distribution(team_positions_df, workplace_size, config, use_plot
 
 def plot_worker_wellbeing(wellbeing_scores):
     fig = px.line(
-        x=range(len(wellbeing_scores)),
+        x=list(range(len(wellbeing_scores))),
         y=wellbeing_scores,
         labels={'x': 'Shift Interval (2-min)', 'y': 'Well-Being Score'},
         title='Team Well-Being'
@@ -251,7 +251,7 @@ def plot_worker_wellbeing(wellbeing_scores):
 
 def plot_psychological_safety(safety_scores):
     fig = px.line(
-        x=range(len(safety_scores)),
+        x=list(range(len(safety_scores))),
         y=safety_scores,
         labels={'x': 'Shift Interval (2-min)', 'y': 'Safety Score'},
         title='Psychological Safety'
