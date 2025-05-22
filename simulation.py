@@ -4,11 +4,14 @@ Core simulation logic for the Industrial Workplace Shift Monitoring Dashboard.
 Simulates team positions, compliance, well-being, and efficiency metrics.
 """
 
+import logging
 import numpy as np
 import pandas as pd
 from scipy.stats import entropy
 from sklearn.metrics.pairwise import euclidean_distances
 from config import DEFAULT_CONFIG, validate_config
+
+logger = logging.getLogger(__name__)
 
 def simulate_workplace_operations(
     num_team_members: int = None,
@@ -109,15 +112,25 @@ def simulate_workplace_operations(
         collaboration_index['data'].append(collab)
 
     # DataFrames
-    team_positions_df = pd.DataFrame({
-        'step': np.repeat(np.arange(num_steps), num_team_members),
-        'team_member_id': np.tile(worker_ids, num_steps),
-        'x': positions[:, :, 0].flatten(),
-        'y': positions[:, :, 1].flatten(),
-        'zone': np.tile(zone_assignments, num_steps)
-    })
+    try:
+        logger.info("Creating team_positions_df")
+        team_positions_df = pd.DataFrame({
+            'step': np.repeat(np.arange(num_steps), num_team_members),
+            'team_member_id': np.tile(worker_ids, num_steps),
+            'x': positions[:, :, 0].flatten(),
+            'y': positions[:, :, 1].flatten(),
+            'zone': np.tile(zone_assignments, num_steps)
+        })
+    except NameError as ne:
+        logger.error(f"NameError creating team_positions_df: {str(ne)}")
+        raise
 
-    efficiency_metrics_df = pd.DataFrame(efficiency)
+    try:
+        logger.info("Creating efficiency_metrics_df")
+        efficiency_metrics_df = pd.DataFrame(efficiency)
+    except NameError as ne:
+        logger.error(f"NameError creating efficiency_metrics_df: {str(ne)}")
+        raise
 
     # Compliance variability
     compliance_entropy = [entropy(compliance[t]) for t in range(num_steps)]
