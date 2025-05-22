@@ -1,4 +1,3 @@
-# simulation.py
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -29,6 +28,10 @@ def simulate_workplace_operations(
     adaptation_rate = adaptation_rate or config['ADAPTATION_RATE']
     supervisor_influence = supervisor_influence or config['SUPERVISOR_INFLUENCE']
     disruption_intervals = disruption_intervals or config['DISRUPTION_INTERVALS']
+    
+    # Validate inputs
+    if num_team_members < sum(zone['workers'] for zone in config['WORK_AREAS'].values()):
+        raise ValueError("Number of team members must match sum of workers in WORK_AREAS")
     
     # Assign workers to zones
     zone_assignments = []
@@ -120,11 +123,12 @@ def simulate_workplace_operations(
         operational_resilience[t:t+config['DISRUPTION_RECOVERY_WINDOW']] *= np.linspace(0.6, 1.0, config['DISRUPTION_RECOVERY_WINDOW'])
     
     # Well-being triggers
+    wellbeing_means = np.mean(wellbeing, axis=1)  # Compute mean well-being per step
     triggers = {
-        'threshold': [t for t in range(num_steps) if np.mean(wellbeing[t]) < config['WELLBEING_THRESHOLD']],
+        'threshold': [t for t in range(num_steps) if wellbeing_means[t] < config['WELLBEING_THRESHOLD']],
         'trend': [
             t for t in range(config['WELLBEING_TREND_WINDOW'], num_steps)
-            if all(wellbeing[t-i] < wellbeing[t-i-1] for i in range(config['WELLBEING_TREND_WINDOW']))
+            if all(wellbeing_means[t-i] < wellbeing_means[t-i-1] for i in range(1, config['WELLBEING_TREND_WINDOW'] + 1))
         ],
         'work_area': {
             zone: [t for t in range(num_steps) if np.mean(wellbeing[t, zone_assignments == zone]) < config['WELLBEING_THRESHOLD']]
@@ -136,7 +140,7 @@ def simulate_workplace_operations(
             )
         ]
     }
-    team_wellbeing = {'scores': np.mean(wellbeing, axis=1), 'triggers': triggers}
+    team_wellbeing = {'scores': wellbeing_means, 'triggers': triggers}
     
     # Team feedback impact
     feedback_impact = {
