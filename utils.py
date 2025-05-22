@@ -40,6 +40,10 @@ def save_simulation_data(
         productivity_loss (list): Productivity loss values.
     """
     try:
+        # Defensive import to handle Streamlit reloading
+        import pandas as pd
+        logger.info("Starting save_simulation_data with pandas imported")
+        
         team_positions_df.to_csv('team_positions.csv', index=False)
         efficiency_metrics_df.to_csv('efficiency_metrics.csv', index=False)
         pd.DataFrame({
