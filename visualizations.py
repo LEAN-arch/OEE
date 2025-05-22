@@ -36,7 +36,7 @@ def plot_key_metrics_summary(compliance, proximity, wellbeing, downtime, high_co
             delta={'reference': float(target), 'increasing': {'color': delta_increasing_color}, 'decreasing': {'color': delta_decreasing_color}, 'font': {'size': 12}},
             title={'text': title, 'font': {'size': 12, 'color': n_c}}, number={'suffix': suffix, 'font': {'size': 18, 'color': p_c if high_contrast else "#FFFFFF"}},
             gauge={'axis': {'range': [0, 100 if suffix == "%" else max(target * 1.5, value * 1.2, 10)], 'tickwidth': 1, 'tickcolor': n_c}, 'bar': {'color': bar_color, 'thickness': 0.65}, 'bgcolor': "#2a3447" if not high_contrast else "#222222", 'borderwidth': 0.5, 'bordercolor': n_c,
-                   'steps': [{'range': [0, target * (0.8 if not lower_is_better else 1.2) ], 'color': cr_c if not lower_is_better else pos_c }, {'range': [target * (0.8 if not lower_is_better else 1.2), target * (0.9 if not lower_is_better else 2.5)], 'color': a_c if not lower_is_better else cr_c}],
+                   'steps': [{'range': [0, target * (0.8 if not lower_is_better else 1.2) ], 'color': cr_c if not lower_is_better else pos_c }, {'range': [target * (0.8 if not lower_is_better else 1.2), target * (0.9 if not lower_is_better else 2.5)], 'color': a_c if not lower_is_better else cr_c}], # Corrected one step range condition
                    'threshold': {'line': {'color': p_c if high_contrast else "white", 'width': 2.5}, 'thickness': 0.8, 'value': target}}))
         fig.update_layout(height=180, margin=dict(l=10,r=10,t=30,b=10), paper_bgcolor="rgba(0,0,0,0)", font=dict(color=p_c if high_contrast else "#D1D5DB")); figs.append(fig)
     return figs
@@ -92,24 +92,10 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
 
 def plot_worker_density_heatmap(team_positions_df, facility_size, config, show_entry_exit=True, show_prod_lines=True, high_contrast=False):
     if team_positions_df.empty: 
-        fig = go.Figure()
-        _apply_common_layout_settings(fig, "Aggregated Worker Density (No Data)", high_contrast)
-        fig.add_annotation(text="No worker data available for heatmap in the selected range.", showarrow=False, font=dict(size=14))
-        return fig
-
-    facility_width, facility_height = facility_size
-    p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast)
-
-    fig = go.Figure(go.Histogram2dContour(
-        x=team_positions_df['x'], y=team_positions_df['y'],
-        colorscale='Blues' if not high_contrast else 'Greys', 
-        reversescale=high_contrast, showscale=True, 
-        line=dict(width=0.2, color=n_c if high_contrast else "#444"), 
-        contours=dict(coloring='heatmap', showlabels=False),
-        xbins=dict(start=0, end=facility_width, size=facility_width/20), 
-        ybins=dict(start=0, end=facility_height, size=facility_height/20),
-        colorbar=dict(title='Density', thickness=15, len=0.75, y=0.5, tickfont_size=9, x=1.05) # Move colorbar slightly to right
-    ))
+        fig = go.Figure(); _apply_common_layout_settings(fig, "Aggregated Worker Density (No Data)", high_contrast)
+        fig.add_annotation(text="No worker data available for heatmap in the selected range.", showarrow=False, font=dict(size=14)); return fig
+    facility_width, facility_height = facility_size; p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast)
+    fig = go.Figure(go.Histogram2dContour(x=team_positions_df['x'], y=team_positions_df['y'], colorscale='Blues' if not high_contrast else 'Greys', reversescale=high_contrast, showscale=True, line=dict(width=0.2, color=n_c if high_contrast else "#444"), contours=dict(coloring='heatmap', showlabels=False), xbins=dict(start=0, end=facility_width, size=facility_width/20), ybins=dict(start=0, end=facility_height, size=facility_height/20), colorbar=dict(title='Density', thickness=15, len=0.75, y=0.5, tickfont_size=9, x=1.05)))
     shapes = [go.layout.Shape(type="rect", x0=0, y0=0, x1=facility_width, y1=facility_height, line=dict(color=n_c, width=1.5), layer="below")]; annotations = []
     if show_entry_exit and 'ENTRY_EXIT_POINTS' in config:
         for point in config['ENTRY_EXIT_POINTS']: shapes.append(go.layout.Shape(type="circle", x0=point['coords'][0]-1, y0=point['coords'][1]-1, x1=point['coords'][0]+1, y1=point['coords'][1]+1, fillcolor=a_c, line_color="white", opacity=0.5, layer="above"))
@@ -117,10 +103,7 @@ def plot_worker_density_heatmap(team_positions_df, facility_size, config, show_e
          for area_name, area_details in config['WORK_AREAS'].items():
             if 'coords' in area_details and ('Assembly' in area_name or 'Packing' in area_name or 'Quality' in area_name):
                 (x0,y0), (x1,y1) = area_details['coords']; shapes.append(go.layout.Shape(type="rect", x0=min(x0,x1), y0=min(y0,y1), x1=max(x0,x1), y1=max(y0,y1), line=dict(color=s_c, dash="dot", width=0.8), fillcolor="rgba(0,0,0,0)", layer="above"))
-    _apply_common_layout_settings(fig, "Aggregated Worker Density Heatmap", high_contrast, yaxis_title="Y Coordinate (m)", xaxis_title="X Coordinate (m)")
-    fig.update_layout(xaxis_range=[0, facility_width], yaxis_range=[0, facility_height], shapes=shapes, annotations=annotations, autosize=True)
-    fig.update_xaxes(constrain="domain", scaleanchor="y", scaleratio=1); fig.update_yaxes(constrain="domain")
-    return fig
+    _apply_common_layout_settings(fig, "Aggregated Worker Density Heatmap", high_contrast, yaxis_title="Y Coordinate (m)", xaxis_title="X Coordinate (m)"); fig.update_layout(xaxis_range=[0, facility_width], yaxis_range=[0, facility_height], shapes=shapes, annotations=annotations, autosize=True); fig.update_xaxes(constrain="domain", scaleanchor="y", scaleratio=1); fig.update_yaxes(constrain="domain"); return fig
 
 def plot_worker_wellbeing(scores, triggers, high_contrast=False):
     p_c, s_c, a_c, cr_c, h_c, n_c, pos_c = _get_colors(high_contrast); fig = go.Figure(); x_vals = list(range(len(scores)))
