@@ -22,16 +22,16 @@ if not logger.handlers:
                         filemode='a')
 logger.info("Main.py: Startup. Light theme adjustments.", extra={'user_action': 'System Startup'})
 
-st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.10\nInsights for operational excellence & psychosocial well-being."})
+st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.11\nInsights for operational excellence & psychosocial well-being."})
 
 # --- Light Theme Color Constants for CSS and Streamlit Elements ---
-COLOR_PAGE_BACKGROUND_LIGHT = "#F0F2F6"     # e.g., Streamlit's default light theme background
-COLOR_SIDEBAR_BACKGROUND_LIGHT = "#EAEBED"  # Slightly different for sidebar
-COLOR_CONTENT_BACKGROUND_LIGHT = "#FFFFFF"  # For cards, plot areas if distinct
+COLOR_PAGE_BACKGROUND_LIGHT = "#F0F2F6"
+COLOR_SIDEBAR_BACKGROUND_LIGHT = "#EAEBED"
+COLOR_CONTENT_BACKGROUND_LIGHT = "#FFFFFF"
 
-COLOR_PRIMARY_TEXT_DARK = "#262730"         # Default dark text
-COLOR_SECONDARY_TEXT_DARK = "#5E6474"       # Lighter dark text for captions, less important info
-COLOR_ACCENT_TEXT_DARK = "#0052CC"          # A contrasting blue for links or special text
+COLOR_PRIMARY_TEXT_DARK = "#262730"
+COLOR_SECONDARY_TEXT_DARK = "#5E6474"
+COLOR_ACCENT_TEXT_DARK = "#0052CC"
 
 COLOR_CRITICAL_RED_BORDER = "#D62728"
 COLOR_WARNING_AMBER_BORDER = "#FF7F0E"
@@ -48,7 +48,7 @@ COLOR_BORDER_DARKER_LIGHT = "#A0AEC0"
 
 COLOR_ACCENT_UI_LIGHT_THEME = "#0063BF" 
 COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME = "#0052A3" 
-COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT = "#2CA02C" # Positive Green for default sidebar action
+COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT = "#2CA02C"
 COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT = "#228B22"
 COLOR_BUTTON_SECONDARY_BG_LIGHT = "#E0E0E0"
 COLOR_BUTTON_SECONDARY_HOVER_BG_LIGHT = "#BDBDBD"
@@ -61,8 +61,10 @@ def safe_get(data_dict, path_str, default_val=None):
     is_list_like_path = False
     if isinstance(path_str, str):
         is_list_like_path = path_str.endswith(('.data', '.scores', '.triggers', '_log', 'events_list'))
+    
     if default_val is None: default_return = [] if is_list_like_path else None
     else: default_return = default_val
+
     if not isinstance(path_str, str): return default_return
     if not isinstance(data_dict, dict):
         if path_str: logger.debug(f"safe_get: data_dict not dict for path '{path_str}'. Type: {type(data_dict)}.")
@@ -231,7 +233,6 @@ st.markdown(f"""
             font-size: 1.75rem !important; font-weight: 600 !important; line-height: 1.3 !important; 
             margin: 1.2rem 0 1rem 0 !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
             /* Streamlit's divider argument handles the line color based on THEMED_DIVIDER_COLOR */
-            /* If custom color is needed, it's more complex CSS to target the <hr> */
             padding-bottom: 0.6rem !important; text-align: left !important;
         }}
 
@@ -327,7 +328,7 @@ st.markdown(f"""
         [data-testid="stSidebar"] .stNumberInput button:hover {{ background-color: #B0BEC5 !important; }}
 
         /* Sidebar Buttons (specific overrides) */
-        [data-testid="stSidebar"] .stButton>button {{ 
+        [data-testid="stSidebar"] .stButton>button {{ /* Default for sidebar buttons */
             background-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT} !important; 
             color: #FFFFFF !important; border-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT} !important;
         }}
@@ -335,10 +336,10 @@ st.markdown(f"""
             background-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT} !important;
             border-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT} !important;
         }}
-         [data-testid="stSidebar"] .stButton button[kind="primary"] {{ 
+         [data-testid="stSidebar"] .stButton button[kind="primary"] {{ /* For Run Simulation in Sidebar */
              background-color: {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important;
              border-color: {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important;
-             color: #FFFFFF !important; /* Ensure text is white on this button */
+             color: #FFFFFF !important;
         }}
         [data-testid="stSidebar"] .stButton button[kind="primary"]:hover {{
              background-color: {COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME} !important;
@@ -351,7 +352,6 @@ st.markdown(f"""
          [data-testid="stSidebar"] .stButton button[kind="secondary"]:hover {{
              background-color: {COLOR_BUTTON_SECONDARY_HOVER_BG_LIGHT} !important;
         }}
-
 
         /* Metric Display */
         .stMetric {{ 
@@ -408,6 +408,7 @@ st.markdown(f"""
         .onboarding-modal {{ 
             background-color: {COLOR_CONTENT_BACKGROUND_LIGHT} !important; 
             border: 1px solid {COLOR_BORDER_DARKER_LIGHT} !important; 
+            color: {COLOR_PRIMARY_TEXT_DARK} !important; /* Ensure text inside modal is dark */
         }}
         .onboarding-modal h3 {{ color: {COLOR_PRIMARY_TEXT_DARK} !important; }}
         .onboarding-modal p, .onboarding-modal ul {{ color: {COLOR_SECONDARY_TEXT_DARK} !important; }}
@@ -421,7 +422,7 @@ st.markdown(f"""
         .alert-positive .insight-title, .alert-positive .insight-text,
         .alert-info .insight-title, .alert-info .insight-text {{ color: {COLOR_PRIMARY_TEXT_DARK} !important; }}
         
-        .event-item {{ background-color: #E8EAF6; }} 
+        .event-item {{ background-color: #E8EAF6; border: 1px solid {COLOR_BORDER_SUBTLE_LIGHT}; }} 
         .event-text {{ color: {COLOR_PRIMARY_TEXT_DARK} !important; }}
         .remove-event-btn button {{ 
             background-color: {COLOR_BUTTON_REMOVE_BG_LIGHT} !important; color: white !important; 
@@ -615,6 +616,7 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
         processed_events_sl.append(evt_sl_item)
     config_sl['SCHEDULED_EVENTS'] = processed_events_sl
     
+    # Worker Redistribution Logic
     if 'WORK_AREAS' in config_sl and isinstance(config_sl['WORK_AREAS'], dict) and config_sl['WORK_AREAS']:
         current_total_workers_in_cfg = sum(_get_config_value_sl_main(z_cfg, {}, 'workers', 0, data_type=int) for z_cfg in config_sl['WORK_AREAS'].values() if isinstance(z_cfg, dict))
         target_team_size_for_dist = config_sl['TEAM_SIZE']
@@ -677,7 +679,7 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
     save_simulation_data(simulation_output_dict_sl_final_run) 
     return simulation_output_dict_sl_final_run
 
-# Helper specifically for run_simulation_logic's config access (if needed for complex defaults)
+# Helper specifically for run_simulation_logic's config access
 def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_type=None):
     val = secondary_conf.get(key, primary_conf.get(key, default))
     if data_type:
@@ -692,9 +694,14 @@ def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int,
     start_time_key_ui = f"{tab_key_prefix}_start_time_min"
     end_time_key_ui = f"{tab_key_prefix}_end_time_min"
 
-    interval_duration_min_ui = float(interval_duration_min_ui) if isinstance(interval_duration_min_ui, (int,float)) and interval_duration_min_ui > 0 else 2.0
-    max_minutes_for_range_ui = float(max_minutes_for_range_ui) if isinstance(max_minutes_for_range_ui, (int,float)) and max_minutes_for_range_ui >=0 else 0.0
+    # Ensure interval_duration is positive float
+    if not isinstance(interval_duration_min_ui, (int, float)) or interval_duration_min_ui <= 0: interval_duration_min_ui = 2.0
+    else: interval_duration_min_ui = float(interval_duration_min_ui)
     
+    # Ensure max_minutes_for_range_ui is valid float
+    max_minutes_for_range_ui = float(max_minutes_for_range_ui) if isinstance(max_minutes_for_range_ui, (int, float)) and max_minutes_for_range_ui >=0 else 0.0
+
+    # Retrieve and clamp current values from session state, ensuring they are floats
     current_start_ui_val = float(st.session_state.get(start_time_key_ui, 0.0))
     current_end_ui_val = float(st.session_state.get(end_time_key_ui, max_minutes_for_range_ui))
     current_start_ui_val = max(0.0, min(current_start_ui_val, max_minutes_for_range_ui))
@@ -708,20 +715,20 @@ def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int,
     new_start_time_val_ui_widget = cols_ui_time_range[0].number_input( "Start Time (min)", min_value=0.0, max_value=max_minutes_for_range_ui, value=current_start_ui_val, step=interval_duration_min_ui, key=f"widget_num_input_{start_time_key_ui}", help=f"Range: 0 to {int(max_minutes_for_range_ui)} min.")
     st.session_state[start_time_key_ui] = float(new_start_time_val_ui_widget)
     
-    end_time_min_for_widget_val_ui = st.session_state[start_time_key_ui]
+    end_time_min_for_widget_val_ui = st.session_state[start_time_key_ui] # This will be float
     new_end_time_val_ui_widget = cols_ui_time_range[1].number_input("End Time (min)", min_value=end_time_min_for_widget_val_ui, max_value=max_minutes_for_range_ui, value=current_end_ui_val, step=interval_duration_min_ui, key=f"widget_num_input_{end_time_key_ui}", help=f"Range: {int(end_time_min_for_widget_val_ui)} to {int(max_minutes_for_range_ui)} min.")
     st.session_state[end_time_key_ui] = float(new_end_time_val_ui_widget)
 
     if st.session_state[end_time_key_ui] < st.session_state[start_time_key_ui]: st.session_state[end_time_key_ui] = st.session_state[start_time_key_ui]
     
     if abs(prev_start_ui_val_state - st.session_state[start_time_key_ui]) > 1e-6 or \
-       abs(prev_end_ui_val_state - st.session_state[end_time_key_ui]) > 1e-6:
+       abs(prev_end_ui_val_state - st.session_state[end_time_key_ui]) > 1e-6: # Compare floats with tolerance
         st.rerun()
         
-    return int(st.session_state[start_time_key_ui]), int(st.session_state[end_time_key_ui])
+    return int(st.session_state[start_time_key_ui]), int(st.session_state[end_time_key_ui]) # Return as int for indexing
 ```
 ---
-**`main.py` (Chunk 4 of 4 - Indentation Verified)**
+**`main.py` (Chunk 4 of 4 - Indentation Triple-Checked & Slider Logic Refined)**
 ```python
 # --- MAIN APPLICATION FUNCTION ---
 def main():
@@ -980,7 +987,7 @@ def main():
                     current_plot_col_tab_final = plot_columns_tab_final[num_plots_in_row_tab_final % 2]
                     with current_plot_col_tab_final:
                         st.markdown(f"<h6>{plot_cfg_tab_item_final['title']}</h6>", unsafe_allow_html=True)
-                        with st.container(border=True): # Border for each plot
+                        with st.container(border=True):
                             plot_data_to_render_final = None; plot_kwargs_final = {"high_contrast": current_high_contrast_main_app_val}
                             try:
                                 if plot_cfg_tab_item_final.get("is_oee"):
@@ -1019,14 +1026,14 @@ def main():
                                     if plot_cfg_tab_item_final.get("is_event_based_aggregation"):
                                         num_steps_in_range_agg_final = end_idx_tab_final_loop - start_idx_tab_final_loop
                                         aggregated_data_agg_final = [0.0] * num_steps_in_range_agg_final if num_steps_in_range_agg_final > 0 else []
-                                        for evt_agg_final in raw_plot_data_tab_final: # raw_plot_data_tab_final is downtime_events_log
+                                        for evt_agg_final in raw_plot_data_tab_final:
                                             if isinstance(evt_agg_final,dict) and start_idx_tab_final_loop <= evt_agg_final.get('step',-1) < end_idx_tab_final_loop:
                                                 rel_step_agg_final = evt_agg_final['step'] - start_idx_tab_final_loop
                                                 if 0 <= rel_step_agg_final < num_steps_in_range_agg_final: aggregated_data_agg_final[rel_step_agg_final] += evt_agg_final.get('duration',0)
                                         plot_data_to_render_final = aggregated_data_agg_final
                                     elif plot_cfg_tab_item_final.get("is_event_based_filtering"):
                                         plot_data_to_render_final = [evt_filt_final for evt_filt_final in raw_plot_data_tab_final if isinstance(evt_filt_final,dict) and start_idx_tab_final_loop <= evt_filt_final.get('step',-1) < end_idx_tab_final_loop]
-                                        if "disruption_points" in plot_kwargs_final: del plot_kwargs_final["disruption_points"] # Pie doesn't use disruption lines
+                                        if "disruption_points" in plot_kwargs_final: del plot_kwargs_final["disruption_points"]
                                     elif isinstance(raw_plot_data_tab_final, list): plot_data_to_render_final = raw_plot_data_tab_final[start_idx_tab_final_loop:min(end_idx_tab_final_loop, len(raw_plot_data_tab_final))] if start_idx_tab_final_loop < len(raw_plot_data_tab_final) else []
                                     elif isinstance(raw_plot_data_tab_final, pd.DataFrame): plot_data_to_render_final = _slice_dataframe_by_step_indices(raw_plot_data_tab_final, start_idx_tab_final_loop, end_idx_tab_final_loop)
                                     
@@ -1062,7 +1069,7 @@ def main():
                                     alert_class_final = "alert-critical" if alert_type_final == "threshold" else "alert-warning" if alert_type_final == "trend" else "alert-info"
                                     alert_title_text_final = alert_type_final.replace("_", " ").title()
                                     st.markdown(f"<div class='{alert_class_final} insight-text'><strong>{alert_title_text_final} Alerts ({len(alert_steps_in_range_final)}x):</strong> Steps {alert_steps_in_range_final}.</div>", unsafe_allow_html=True); insights_count_wb_final += 1
-                        if insights_count_wb_final == 0: st.markdown(f"<p class='insight-text' style='color: {COLOR_POSITIVE_GREEN_BORDER};'>✅ No specific well-being alerts triggered in selected period.</p>", unsafe_allow_html=True) # Use a defined color
+                        if insights_count_wb_final == 0: st.markdown(f"<p class='insight-text' style='color: {COLOR_POSITIVE_GREEN_BORDER};'>✅ No specific well-being alerts triggered in selected period.</p>", unsafe_allow_html=True) # Changed from CSS var
                 if tab_def_main_final_loop.get("insights_html"): st.markdown(tab_def_main_final_loop["insights_html"], unsafe_allow_html=True) 
             else: st.info(f"ℹ️ Run simulation or load data to view {tab_def_main_final_loop['name']}.", icon="📊")
 
