@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from config import DEFAULT_CONFIG, validate_config
-from visualizations import (
+from visualizations import ( # visualizations.py should already be adapted for a light theme
     plot_key_metrics_summary, plot_task_compliance_score, plot_collaboration_proximity_index,
     plot_operational_recovery, plot_operational_efficiency, plot_worker_distribution,
     plot_worker_density_heatmap, plot_worker_wellbeing, plot_psychological_safety,
@@ -22,62 +22,45 @@ if not logger.handlers:
                         filemode='a')
 logger.info("Main.py: Startup. Light theme adjustments.", extra={'user_action': 'System Startup'})
 
-st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.8\nInsights for operational excellence & psychosocial well-being."})
+st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.9\nInsights for operational excellence & psychosocial well-being."})
 
-# --- Light Theme Color Constants for CSS ---
-# Base Backgrounds
-COLOR_PAGE_BACKGROUND_LIGHT = "#F0F2F6"
-COLOR_SIDEBAR_BACKGROUND_LIGHT = "#EAEBED"
-COLOR_CONTENT_BACKGROUND_LIGHT = "#FFFFFF" # For plots, metrics, expanders if they need distinct bg
+# --- Light Theme Color Constants for CSS and Streamlit Elements ---
+COLOR_PAGE_BACKGROUND_LIGHT = "#F0F2F6"     # e.g., Streamlit's default light theme background
+COLOR_SIDEBAR_BACKGROUND_LIGHT = "#EAEBED"  # Slightly different for sidebar
+COLOR_CONTENT_BACKGROUND_LIGHT = "#FFFFFF"  # For cards, plot areas if distinct
 
-# Text Colors
-COLOR_PRIMARY_TEXT_DARK = "#262730"
-COLOR_SECONDARY_TEXT_DARK = "#5E6474"
-COLOR_ACCENT_TEXT_DARK = "#0052CC" # A darker blue for accents
+COLOR_PRIMARY_TEXT_DARK = "#262730"         # Default dark text
+COLOR_SECONDARY_TEXT_DARK = "#5E6474"       # Lighter dark text for captions, less important info
+COLOR_ACCENT_TEXT_DARK = "#0052CC"          # A contrasting blue for links or special text
 
-# Semantic Colors (for borders or very light backgrounds of alerts)
-# Text on these backgrounds should be COLOR_PRIMARY_TEXT_DARK
-COLOR_CRITICAL_RED_BORDER = "#D62728" # From visualizations.py
+COLOR_CRITICAL_RED_BORDER = "#D62728"       # For alert borders
 COLOR_WARNING_AMBER_BORDER = "#FF7F0E"
 COLOR_POSITIVE_GREEN_BORDER = "#2CA02C"
 COLOR_INFO_BLUE_BORDER = "#1F77B4"
 
-# Backgrounds for Alerts (light shades)
-COLOR_CRITICAL_RED_BG_LIGHT = "rgba(214, 39, 40, 0.1)" # Lighter version of border color
-COLOR_WARNING_AMBER_BG_LIGHT = "rgba(255, 127, 14, 0.1)"
-COLOR_POSITIVE_GREEN_BG_LIGHT = "rgba(44, 160, 44, 0.1)"
-COLOR_INFO_BLUE_BG_LIGHT = "rgba(31, 119, 180, 0.1)"
+COLOR_CRITICAL_RED_BG_LIGHT = "rgba(214, 39, 40, 0.1)"   # Light background for critical alert
+COLOR_WARNING_AMBER_BG_LIGHT = "rgba(255, 127, 14, 0.1)" # Light background for warning alert
+COLOR_POSITIVE_GREEN_BG_LIGHT = "rgba(44, 160, 44, 0.1)" # Light background for positive alert
+COLOR_INFO_BLUE_BG_LIGHT = "rgba(31, 119, 180, 0.1)"   # Light background for info alert
 
-# Border / Separator Colors
-COLOR_BORDER_SUBTLE_LIGHT = "#D1D5DB"
-COLOR_BORDER_DARKER_LIGHT = "#A0AEC0"
+COLOR_BORDER_SUBTLE_LIGHT = "#D1D5DB"       # For subtle borders
+COLOR_BORDER_DARKER_LIGHT = "#A0AEC0"       # For more prominent borders
 
-# Accent Color for UI elements like active tab underline, some buttons
-COLOR_ACCENT_UI_LIGHT_THEME = "#0063BF" # A good contrast blue (was COLOR_ACCENT_INDIGO_CSS)
+COLOR_ACCENT_BUTTON_LIGHT_THEME = "#0063BF" # Primary button color
+COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME = "#0052A3" # Darker shade for hover
+COLOR_ACCENT_TAB_UNDERLINE_LIGHT = COLOR_ACCENT_BUTTON_LIGHT_THEME # For active tab
 
-# Specific Button Colors
-COLOR_BUTTON_PRIMARY_BG_LIGHT = COLOR_ACCENT_UI_LIGHT_THEME
-COLOR_BUTTON_PRIMARY_HOVER_BG_LIGHT = "#0052A3" # Darker shade of accent
-COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT = COLOR_POSITIVE_GREEN_BORDER # Green for sidebar primary actions
-COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT = "#228B22" # Darker Green
-COLOR_BUTTON_SECONDARY_BG_LIGHT = "#E0E0E0"
-COLOR_BUTTON_SECONDARY_HOVER_BG_LIGHT = "#BDBDBD"
-COLOR_BUTTON_REMOVE_BG_LIGHT = COLOR_CRITICAL_RED_BORDER
-
-# Themed color for Streamlit dividers (st.header, st.subheader)
-THEMED_DIVIDER_COLOR_LIGHT = "gray"
+# Themed color for Streamlit dividers (st.header, st.subheader) - MUST be a Streamlit theme color name
+THEMED_DIVIDER_COLOR = "gray" # "gray", "blue", "green", "orange", "red", "violet", "rainbow"
 
 
 def safe_get(data_dict, path_str, default_val=None):
-    # ... (safe_get function as provided previously) ...
     current = data_dict
     is_list_like_path = False
     if isinstance(path_str, str):
         is_list_like_path = path_str.endswith(('.data', '.scores', '.triggers', '_log', 'events_list'))
-    
     if default_val is None: default_return = [] if is_list_like_path else None
     else: default_return = default_val
-
     if not isinstance(path_str, str): return default_return
     if not isinstance(data_dict, dict):
         if path_str: logger.debug(f"safe_get: data_dict not dict for path '{path_str}'. Type: {type(data_dict)}.")
@@ -99,7 +82,6 @@ def safe_get(data_dict, path_str, default_val=None):
         return default_return
 
 def safe_stat(data_list, stat_func, default_val=0.0):
-    # ... (safe_stat function as provided previously) ...
     if not isinstance(data_list, (list, np.ndarray, pd.Series)): return default_val
     if isinstance(data_list, pd.Series):
         valid_data = pd.to_numeric(data_list, errors='coerce').dropna().tolist()
@@ -115,20 +97,14 @@ def safe_stat(data_list, stat_func, default_val=0.0):
         return default_val if isinstance(result, (float, np.floating)) and np.isnan(result) else result
     except Exception: return default_val
 
-
 def _get_config_value_main(primary_conf, secondary_conf, key, default):
-    # ... (_get_config_value_main function as provided previously) ...
     return secondary_conf.get(key, primary_conf.get(key, default))
 
-
 def get_actionable_insights(sim_data, current_config_dict_main):
-    # ... (get_actionable_insights function as provided previously, ensure it uses the new light theme constants for CSS classes if generating HTML directly) ...
-    # This function returns dicts for markdown, so it's mostly fine. The markdown CSS classes will handle colors.
     insights = []
     if not sim_data or not isinstance(sim_data, dict): 
         logger.warning("get_actionable_insights: sim_data is None or not a dict.", extra={'user_action': 'Insights - Invalid Input'})
         return insights
-    
     sim_cfg_params_insights_main = sim_data.get('config_params', {})
     def _get_insight_cfg(key, default): return _get_config_value_main(current_config_dict_main, sim_cfg_params_insights_main, key, default)
 
@@ -251,7 +227,7 @@ st.markdown(f"""
         div[data-testid="stTabs"] section[role="tabpanel"] > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div > h2 {{ 
             font-size: 1.75rem !important; font-weight: 600 !important; line-height: 1.3 !important; 
             margin: 1.2rem 0 1rem 0 !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
-            border-bottom: 2px solid {COLOR_ACCENT_UI_LIGHT_THEME} !important; /* Use a defined accent */
+            border-bottom: 2px solid {COLOR_ACCENT_UI_LIGHT_THEME} !important; 
             padding-bottom: 0.6rem !important; text-align: left !important;
         }}
 
@@ -306,14 +282,14 @@ st.markdown(f"""
 
         /* Buttons */
         .stButton>button {{ 
-            background-color: {COLOR_BUTTON_PRIMARY_BG_LIGHT} !important; color: #FFFFFF !important; 
+            background-color: {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important; color: #FFFFFF !important; 
             border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.95rem; font-weight: 500; 
-            transition: all 0.2s ease-in-out; border: 1px solid {COLOR_BUTTON_PRIMARY_BG_LIGHT} !important; /* Added border */
+            transition: all 0.2s ease-in-out; border: 1px solid {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
         }}
         .stButton>button:hover, .stButton>button:focus {{ 
-            background-color: {COLOR_BUTTON_PRIMARY_HOVER_BG_LIGHT} !important; 
-            border-color: {COLOR_BUTTON_PRIMARY_HOVER_BG_LIGHT} !important;
+            background-color: {COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME} !important; 
+            border-color: {COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME} !important;
             transform: translateY(-1px); box-shadow: 0 3px 7px rgba(0,0,0,0.2); outline: none; 
         }}
         .stButton>button:disabled {{ 
@@ -347,7 +323,7 @@ st.markdown(f"""
         [data-testid="stSidebar"] .stNumberInput button:hover {{ background-color: #B0BEC5 !important; }}
 
         /* Sidebar Buttons (specific overrides) */
-        [data-testid="stSidebar"] .stButton>button {{ /* Default for sidebar buttons */
+        [data-testid="stSidebar"] .stButton>button {{ 
             background-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT} !important; 
             color: #FFFFFF !important; border-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT} !important;
         }}
@@ -355,21 +331,22 @@ st.markdown(f"""
             background-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT} !important;
             border-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT} !important;
         }}
-         [data-testid="stSidebar"] .stButton button[kind="primary"] {{ /* For Run Simulation in Sidebar */
-             background-color: {COLOR_ACCENT_UI_LIGHT_THEME} !important; /* Match main accent */
-             border-color: {COLOR_ACCENT_UI_LIGHT_THEME} !important;
+         [data-testid="stSidebar"] .stButton button[kind="primary"] {{ 
+             background-color: {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important;
+             border-color: {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important;
         }}
         [data-testid="stSidebar"] .stButton button[kind="primary"]:hover {{
-             background-color: {COLOR_BUTTON_PRIMARY_HOVER_BG_LIGHT} !important;
-             border-color: {COLOR_BUTTON_PRIMARY_HOVER_BG_LIGHT} !important;
+             background-color: {COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME} !important;
+             border-color: {COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME} !important;
         }}
-        [data-testid="stSidebar"] .stButton button[kind="secondary"] {{ /* For Clear, Remove (non-event) buttons in sidebar */
+        [data-testid="stSidebar"] .stButton button[kind="secondary"] {{ 
              background-color: {COLOR_BUTTON_SECONDARY_BG_LIGHT} !important; color: {COLOR_PRIMARY_TEXT_DARK} !important;
              border: 1px solid {COLOR_BORDER_DARKER_LIGHT} !important;
         }}
          [data-testid="stSidebar"] .stButton button[kind="secondary"]:hover {{
              background-color: {COLOR_BUTTON_SECONDARY_HOVER_BG_LIGHT} !important;
         }}
+
 
         /* Metric Display */
         .stMetric {{ 
@@ -385,8 +362,7 @@ st.markdown(f"""
             font-size: 2.2rem !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
             font-weight: 700 !important; line-height: 1.1 !important;
         }} 
-        /* stMetricDelta color is handled by Streamlit based on value (positive/negative) */
-
+        
         /* Expanders and Tabs */
         .stExpander {{ 
             background-color: {COLOR_CONTENT_BACKGROUND_LIGHT} !important; 
@@ -395,7 +371,7 @@ st.markdown(f"""
         .stExpander header {{ font-size: 1rem; font-weight: 500; color: {COLOR_PRIMARY_TEXT_DARK} !important; padding: 0.5rem 1rem; }}
         
         .stTabs [data-baseweb="tab-list"] {{ 
-            background-color: {COLOR_SIDEBAR_BACKGROUND_LIGHT} !important; /* Slightly different bg for tab bar */
+            background-color: {COLOR_SIDEBAR_BACKGROUND_LIGHT} !important; 
             border-radius: 8px; padding: 0.5rem; display: flex; justify-content: center; 
             gap: 0.5rem; border-bottom: 2px solid {COLOR_BORDER_DARKER_LIGHT} !important;
         }}
@@ -412,13 +388,7 @@ st.markdown(f"""
             background-color: #CFD8DC !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
         }}
 
-        /* Plot Containers (if used explicitly) & DataFrames */
-        .plot-container {{
-            background-color: {COLOR_CONTENT_BACKGROUND_LIGHT} !important; 
-            border-radius: 8px; padding: 1rem; margin: 1rem 0; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid {COLOR_BORDER_SUBTLE_LIGHT} !important;
-        }}
-        .stPlotlyChart {{ border-radius: 6px; }} /* Usually inherits plot_bgcolor from layout */
+        .stPlotlyChart {{ border-radius: 6px; }} 
         .stDataFrame {{ 
             border-radius: 8px; font-size: 0.875rem; border: 1px solid {COLOR_BORDER_SUBTLE_LIGHT} !important; 
             background-color: {COLOR_CONTENT_BACKGROUND_LIGHT} !important;
@@ -429,10 +399,7 @@ st.markdown(f"""
         .stDataFrame tbody tr:nth-child(even) {{ background-color: #FAFAFA !important; }}
         .stDataFrame tbody tr:hover {{ background-color: #E0E0E0 !important; }}
 
-        /* Spinner */
         .spinner::after {{ border: 4px solid #CFD8DC; border-top: 4px solid {COLOR_ACCENT_UI_LIGHT_THEME}; }}
-
-        /* Onboarding Modal */
         .onboarding-modal {{ 
             background-color: {COLOR_CONTENT_BACKGROUND_LIGHT} !important; 
             border: 1px solid {COLOR_BORDER_DARKER_LIGHT} !important; 
@@ -440,7 +407,6 @@ st.markdown(f"""
         .onboarding-modal h3 {{ color: {COLOR_PRIMARY_TEXT_DARK} !important; }}
         .onboarding-modal p, .onboarding-modal ul {{ color: {COLOR_SECONDARY_TEXT_DARK} !important; }}
 
-        /* Alert Boxes - ensure text inside is dark now */
         .alert-critical {{ border-left: 5px solid {COLOR_CRITICAL_RED_BORDER}; background-color: {COLOR_CRITICAL_RED_BG_LIGHT}; }} 
         .alert-warning {{ border-left: 5px solid {COLOR_WARNING_AMBER_BORDER}; background-color: {COLOR_WARNING_AMBER_BG_LIGHT}; }}
         .alert-positive {{ border-left: 5px solid {COLOR_POSITIVE_GREEN_BORDER}; background-color: {COLOR_POSITIVE_GREEN_BG_LIGHT}; }}
@@ -450,7 +416,6 @@ st.markdown(f"""
         .alert-positive .insight-title, .alert-positive .insight-text,
         .alert-info .insight-title, .alert-info .insight-text {{ color: {COLOR_PRIMARY_TEXT_DARK} !important; }}
         
-        /* Event Item in Sidebar */
         .event-item {{ background-color: #E8EAF6; }} 
         .event-text {{ color: {COLOR_PRIMARY_TEXT_DARK} !important; }}
         .remove-event-btn button {{ 
@@ -640,7 +605,8 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
         evt_sl_item = event_sl_ui_item.copy() 
         if 'step' not in evt_sl_item and 'Start Time (min)' in evt_sl_item:
             start_time_min_evt = _get_config_value_sl_main(evt_sl_item, {}, 'Start Time (min)', 0, data_type=float)
-            evt_sl_item['step'] = int(start_time_min_evt // mpi_sl)
+            if mpi_sl > 0 : evt_sl_item['step'] = int(start_time_min_evt // mpi_sl)
+            else: evt_sl_item['step'] = 0 # Fallback if mpi is somehow still zero
         processed_events_sl.append(evt_sl_item)
     config_sl['SCHEDULED_EVENTS'] = processed_events_sl
     
@@ -706,7 +672,6 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
     save_simulation_data(simulation_output_dict_sl_final_run) 
     return simulation_output_dict_sl_final_run
 
-# Helper specifically for run_simulation_logic's config access
 def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_type=None):
     val = secondary_conf.get(key, primary_conf.get(key, default))
     if data_type:
@@ -716,24 +681,18 @@ def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_t
         except (ValueError, TypeError): return default
     return val
 
-# --- TIME RANGE INPUT WIDGETS ---
 def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int, st_col_obj = st, interval_duration_min_ui: int = 2):
     start_time_key_ui = f"{tab_key_prefix}_start_time_min"
     end_time_key_ui = f"{tab_key_prefix}_end_time_min"
-
-    # Ensure interval_duration is positive float
     if not isinstance(interval_duration_min_ui, (int, float)) or interval_duration_min_ui <= 0: interval_duration_min_ui = 2.0
     else: interval_duration_min_ui = float(interval_duration_min_ui)
     
-    # Ensure max_minutes_for_range_ui is valid float
     max_minutes_for_range_ui = float(max_minutes_for_range_ui) if isinstance(max_minutes_for_range_ui, (int, float)) and max_minutes_for_range_ui >=0 else 0.0
 
-    # Retrieve and clamp current values from session state, ensuring they are floats
     current_start_ui_val = float(st.session_state.get(start_time_key_ui, 0.0))
     current_end_ui_val = float(st.session_state.get(end_time_key_ui, max_minutes_for_range_ui))
     current_start_ui_val = max(0.0, min(current_start_ui_val, max_minutes_for_range_ui))
     current_end_ui_val = max(current_start_ui_val, min(current_end_ui_val, max_minutes_for_range_ui))
-    
     st.session_state[start_time_key_ui], st.session_state[end_time_key_ui] = current_start_ui_val, current_end_ui_val
     
     prev_start_ui_val_state, prev_end_ui_val_state = current_start_ui_val, current_end_ui_val
@@ -753,6 +712,10 @@ def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int,
         st.rerun()
         
     return int(st.session_state[start_time_key_ui]), int(st.session_state[end_time_key_ui])
+```
+---
+**`main.py` (Chunk 4 of 4 - Indentation Triple-Checked & Slider Logic Refined)**
+```python
 # --- MAIN APPLICATION FUNCTION ---
 def main():
     st.title("Workplace Shift Optimization Dashboard")
@@ -852,7 +815,7 @@ def main():
         if st.session_state.simulation_results and isinstance(st.session_state.simulation_results, dict):
             sim_data_ov_final = st.session_state.simulation_results
             sim_cfg_ov_final = sim_data_ov_final.get('config_params', DEFAULT_CONFIG)
-            effective_cfg_ov_final = {**DEFAULT_CONFIG, **sim_cfg_ov_final}
+            effective_cfg_ov_final = {**DEFAULT_CONFIG, **sim_cfg_ov_final} # Prioritize sim_cfg over DEFAULT_CONFIG
             target_compliance_ov_final = float(effective_cfg_ov_final.get('TARGET_COMPLIANCE', 75.0))
             target_collab_ov_final = float(effective_cfg_ov_final.get('TARGET_COLLABORATION', 65.0))
             target_wellbeing_ov_final = float(effective_cfg_ov_final.get('TARGET_WELLBEING', 75.0))
@@ -893,13 +856,13 @@ def main():
                     df_data_ov_table_final['Well-Being (%)'] = _prepare_timeseries_for_export(safe_get(sim_data_ov_final, 'worker_wellbeing.scores', []), num_steps_ov_table_final)
                     downtime_log_ov_table_final = safe_get(sim_data_ov_final, 'downtime_events_log', [])
                     df_data_ov_table_final['Downtime (min/interval)'] = aggregate_downtime_by_step(downtime_log_ov_table_final, num_steps_ov_table_final)
-                    st.dataframe(pd.DataFrame(df_data_ov_table_final).style.format("{:.1f}", na_rep="-").set_table_styles([{'selector': 'th', 'props': [('background-color', '#E8EAF6'), ('color', COLOR_PRIMARY_TEXT_DARK)]}]), use_container_width=True, height=300) # Adjusted table header for light theme
+                    st.dataframe(pd.DataFrame(df_data_ov_table_final).style.format("{:.1f}", na_rep="-").set_table_styles([{'selector': 'th', 'props': [('background-color', '#E8EAF6'), ('color', COLOR_PRIMARY_TEXT_DARK)]}]), use_container_width=True, height=300)
                 else: st.caption("No detailed overview data available (0 simulation steps).")
         else: st.info("ℹ️ Run a simulation or load data to view the Overview & Insights.", icon="📊")
     
     op_insights_html_main_final = "<div class='alert-info insight-text' style='margin-top:1rem;'><p class='insight-title'>Review Operational Bottlenecks:</p><ul><li><b>Low Compliance/OEE:</b> Investigate root causes for low Task Compliance or OEE components.</li><li><b>Recovery Performance:</b> Slow recovery post-disruption may need better contingency plans.</li><li><b>Collaboration Impact:</b> Low Collaboration Metric might indicate communication issues.</li></ul><p class='insight-title'>Strategic Considerations:</p><p>Use 'Operational Initiative' to simulate changes and compare against baseline.</p></div>"
-    ww_static_insights_html_main_final = "<h6 style='margin-top:1.5rem;'>💡 Considerations for Psychosocial Well-being:</h6><ul style='font-size:0.9rem; color: #5E6474; padding-left:20px; margin-bottom:0;'><li><strong>Monitor Risk Factors:</strong> Review Well-being, Psych. Safety, Cohesion, Workload.</li><li><strong>Spatial Awareness:</strong> Correlate density/isolation with well-being.</li><li><strong>Evaluate Initiatives:</strong> Test strategies via 'Operational Initiative'.</li><li><strong>Empowerment & Control:</strong> Assess 'Increased Autonomy' impact.</li><li><strong>Prevent Burnout:</strong> Address sustained high workload/low well-being.</li></ul>" 
-    dt_insights_html_main_final = "<div class='alert-info insight-text' style='margin-top:1rem;'><p class='insight-title'>Focus Areas for Downtime Reduction:</p><ul><li><strong>Prioritize by Cause:</strong> Use pie chart to find primary downtime reasons.</li><li><strong>Analyze Trend for Patterns:</strong> Look for recurring high downtime in trend plot.</li><li><strong>Incident Frequency vs. Severity:</strong> Address both systemic minor issues and major ones.</li><li><strong>Disruption Correlation:</strong> Check if downtime spikes correlate with operational metric drops.</li></ul></div>"
+    ww_static_insights_html_main_final = f"<h6 style='margin-top:1.5rem; color:{COLOR_PRIMARY_TEXT_DARK};'>💡 Considerations for Psychosocial Well-being:</h6><ul style='font-size:0.9rem; color: {COLOR_SECONDARY_TEXT_DARK}; padding-left:20px; margin-bottom:0;'><li><strong>Monitor Risk Factors:</strong> Review Well-being, Psych. Safety, Cohesion, Workload.</li><li><strong>Spatial Awareness:</strong> Correlate density/isolation with well-being.</li><li><strong>Evaluate Initiatives:</strong> Test strategies via 'Operational Initiative'.</li><li><strong>Empowerment & Control:</strong> Assess 'Increased Autonomy' impact.</li><li><strong>Prevent Burnout:</strong> Address sustained high workload/low well-being.</li></ul>" 
+    dt_insights_html_main_final = f"<div class='alert-info insight-text' style='margin-top:1rem;'><p class='insight-title'>Focus Areas for Downtime Reduction:</p><ul><li><strong>Prioritize by Cause:</strong> Use pie chart to find primary downtime reasons.</li><li><strong>Analyze Trend for Patterns:</strong> Look for recurring high downtime in trend plot.</li><li><strong>Incident Frequency vs. Severity:</strong> Address both systemic minor issues and major ones.</li><li><strong>Disruption Correlation:</strong> Check if downtime spikes correlate with operational metric drops.</li></ul></div>"
 
     tab_configs_main_final_app = [
         {"name": "📈 Operational Metrics", "key_prefix": "op", "plots": [
@@ -1092,7 +1055,7 @@ def main():
                                     alert_class_final = "alert-critical" if alert_type_final == "threshold" else "alert-warning" if alert_type_final == "trend" else "alert-info"
                                     alert_title_text_final = alert_type_final.replace("_", " ").title()
                                     st.markdown(f"<div class='{alert_class_final} insight-text'><strong>{alert_title_text_final} Alerts ({len(alert_steps_in_range_final)}x):</strong> Steps {alert_steps_in_range_final}.</div>", unsafe_allow_html=True); insights_count_wb_final += 1
-                        if insights_count_wb_final == 0: st.markdown(f"<p class='insight-text' style='color: {COLOR_POSITIVE_GREEN_CSS};'>✅ No specific well-being alerts triggered in selected period.</p>", unsafe_allow_html=True)
+                        if insights_count_wb_final == 0: st.markdown(f"<p class='insight-text' style='color: {COLOR_POSITIVE_GREEN_CSS};'>✅ No specific well-being alerts triggered in selected period.</p>", unsafe_allow_html=True) # Use CSS var for color
                 if tab_def_main_final_loop.get("insights_html"): st.markdown(tab_def_main_final_loop["insights_html"], unsafe_allow_html=True) 
             else: st.info(f"ℹ️ Run simulation or load data to view {tab_def_main_final_loop['name']}.", icon="📊")
 
