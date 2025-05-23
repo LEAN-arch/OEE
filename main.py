@@ -11,10 +11,8 @@ from visualizations import (
     plot_downtime_trend, plot_team_cohesion, plot_perceived_workload,
     plot_downtime_causes_pie
 )
-# Ensure simulation and utils are imported correctly
 from simulation import simulate_workplace_operations
 from utils import save_simulation_data, load_simulation_data, generate_pdf_report
-
 
 logger = logging.getLogger(__name__)
 if not logger.handlers:
@@ -36,21 +34,16 @@ COLOR_ACCENT_INDIGO = "#4F46E5"
 # --- UTILITY FUNCTIONS (DEFINED GLOBALLY BEFORE MAIN) ---
 def safe_get(data_dict, path_str, default_val=None):
     current = data_dict
-    # Ensure default_return is an empty list if default_val is None and path implies sequence
-    # For paths not implying sequence, default_val might be 0, None, etc.
     default_return_list = [] if default_val is None else default_val
     default_return_scalar = None if default_val is None else default_val
 
-
     if not isinstance(path_str, str):
         logger.warning(f"safe_get: path_str is not a string: {path_str}. Returning default.")
-        # Decide default based on if the last part of path might imply a list (e.g. 'data')
-        return default_return_list if (path_str and isinstance(path_str, str) and path_str.endswith('.data')) or default_val == [] else default_return_scalar
-
+        return default_return_list if (path_str and isinstance(path_str, str) and path_str.endswith(('.data', 'scores', 'triggers'))) or default_val == [] else default_return_scalar
 
     if not isinstance(data_dict, dict):
         logger.warning(f"safe_get: data_dict is not a dictionary for path '{path_str}'. Type: {type(data_dict)}. Returning default.")
-        return default_return_list if path_str.endswith('.data') or default_val == [] else default_return_scalar
+        return default_return_list if path_str.endswith(('.data', 'scores', 'triggers')) or default_val == [] else default_return_scalar
 
     try:
         keys = path_str.split('.')
@@ -66,17 +59,16 @@ def safe_get(data_dict, path_str, default_val=None):
                 break
         
         if current is None:
-            # If None, return list default if path suggests list, else scalar default
-            return default_return_list if keys[-1] == 'data' or path_str.endswith('scores') or path_str.endswith('triggers') or default_val == [] else default_return_scalar
+            return default_return_list if keys[-1] in ['data', 'scores', 'triggers'] or path_str.endswith('minutes') or default_val == [] else default_return_scalar
         return current
     except (ValueError, IndexError, TypeError) as e:
         logger.debug(f"safe_get failed for path '{path_str}': {e}. Returning default.")
-        return default_return_list if path_str.endswith('.data') or default_val == [] else default_return_scalar
+        return default_return_list if path_str.endswith(('.data', 'scores', 'triggers')) or default_val == [] else default_return_scalar
 
 
 def safe_stat(data_list, stat_func, default_val=0.0):
     log_data_list_repr = str(data_list)
-    if len(log_data_list_repr) > 200:
+    if len(log_data_list_repr) > 200: 
         log_data_list_repr = log_data_list_repr[:197] + "..."
     logger.debug(f"safe_stat: Input data (preview): {log_data_list_repr}, func: {stat_func.__name__}, default: {default_val}")
 
@@ -93,7 +85,7 @@ def safe_stat(data_list, stat_func, default_val=0.0):
     
     try:
         result = stat_func(valid_data)
-        if isinstance(result, float) and np.isnan(result): # Check for NaN result from stat_func itself
+        if isinstance(result, float) and np.isnan(result): 
             logger.debug(f"safe_stat: stat_func returned NaN. Returning default_val: {default_val}")
             return default_val
         logger.debug(f"safe_stat: stat_func returned: {result}. Type: {type(result)}")
@@ -102,7 +94,7 @@ def safe_stat(data_list, stat_func, default_val=0.0):
         logger.warning(f"safe_stat: Error in stat_func {stat_func.__name__}: {e}. Returning default_val: {default_val}", exc_info=True)
         return default_val
 
-# --- CSS --- (same as previous)
+# CSS
 st.markdown(f"""
     <style>
         /* Base Styles */
@@ -110,8 +102,11 @@ st.markdown(f"""
         h1 {{ font-size: 2.4rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; text-align: center; margin-bottom: 2rem; color: #FFFFFF; }}
         h2 {{ /* Tab Headers */ font-size: 1.75rem; font-weight: 600; line-height: 1.3; margin: 1.5rem 0 1rem; color: #D0D0D0; border-bottom: 1px solid #4A5568; padding-bottom: 0.5rem;}}
         h3 {{ /* Expander Titles / Section Subtitles */ font-size: 1.3rem; font-weight: 500; line-height: 1.4; margin-bottom: 0.75rem; color: #C0C0C0;}}
-        h5 {{ /* Plot Titles inside containers */ font-size: 1.05rem; font-weight: 500; line-height: 1.3; margin: 0.25rem 0 0.75rem; color: #B0B0B0; text-align: center;}}
+        h5 {{ /* Plot Titles inside containers OR Sidebar sub-subheaders */ font-size: 1.05rem; font-weight: 500; line-height: 1.3; margin: 0.25rem 0 0.75rem; color: #B0B0B0; text-align: center;}}
+        [data-testid="stSidebar"] h5 {{text-align: left; margin-bottom: 0.2rem;}}
         h6 {{ /* Sub-notes or trigger list titles */ font-size: 0.9rem; font-weight: 500; line-height: 1.3; margin: 0.75rem 0 0.25rem; color: #A0A0A0;}}
+        [data-testid="stSidebar"] h6 {{text-align: left; margin-top: 0.5rem; margin-bottom: 0.2rem;}}
+
         .stButton>button {{ background-color: {COLOR_ACCENT_INDIGO}; color: #FFFFFF; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.95rem; font-weight: 500; transition: all 0.2s ease-in-out; border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
         .stButton>button:hover, .stButton>button:focus {{ background-color: #6366F1; transform: translateY(-1px); box-shadow: 0 3px 7px rgba(0,0,0,0.2); outline: none; }}
         .stButton>button:disabled {{ background-color: #374151; color: #9CA3AF; cursor: not-allowed; box-shadow: none; }}
@@ -120,7 +115,7 @@ st.markdown(f"""
             color: #EAEAEA !important; 
             border-radius: 6px !important; 
             padding: 0.5rem !important; 
-            /* margin-bottom: 1rem !important; */ 
+            margin-bottom: 0.5rem !important; 
             font-size: 0.95rem !important; 
             border: 1px solid #374151 !important; 
         }}
@@ -174,14 +169,13 @@ st.markdown(f"""
         .insight-text {{ font-size: 0.9rem; color: #D1D5DB;}}
         .event-item {{padding: 0.3rem 0.5rem; margin-bottom: 0.3rem; background-color: #2a3447; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;}}
         .event-text {{font-size: 0.85rem;}}
-        .remove-event-btn button {{background-color: #E53E3E !important; color: white !important; padding: 0.1rem 0.4rem !important; font-size: 0.75rem !important; line-height: 1 !important; border-radius: 3px !important; min-height: auto !important;}}
-
+        .remove-event-btn button {{background-color: #E53E3E !important; color: white !important; padding: 0.1rem 0.4rem !important; font-size: 0.75rem !important; line-height: 1 !important; border-radius: 3px !important; min-height: auto !important; margin-left: 0.5rem !important;}}
     </style>
 """, unsafe_allow_html=True)
 
-def render_settings_sidebar(): # As per the previous version with new event scheduling
+def render_settings_sidebar():
     with st.sidebar:
-        st.markdown("<h3 style='text-align: center; margin-bottom: 1.5rem; color: #A0A0A0;'>LEAN 2.0 Institute</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align: center; margin-bottom: 1.5rem; color: #A0A0A0;'>Workplace Optimizer</h3>", unsafe_allow_html=True)
         st.markdown("## ⚙️ Simulation Controls")
         with st.expander("🧪 Simulation Parameters", expanded=True):
             if 'sb_team_size_num' not in st.session_state:
@@ -192,7 +186,8 @@ def render_settings_sidebar(): # As per the previous version with new event sche
                 key="widget_sb_team_size_num",
                 help="Adjust the number of workers in the simulated shift."
             )
-            st.session_state.sb_team_size_num = team_size
+            if team_size != st.session_state.sb_team_size_num : 
+                 st.session_state.sb_team_size_num = team_size
 
             if 'sb_shift_duration_num' not in st.session_state:
                 st.session_state.sb_shift_duration_num = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']
@@ -202,25 +197,37 @@ def render_settings_sidebar(): # As per the previous version with new event sche
                 key="widget_sb_shift_duration_num",
                 help="Set the total length of the simulated work shift in minutes."
             )
-            st.session_state.sb_shift_duration_num = shift_duration
+            if shift_duration != st.session_state.sb_shift_duration_num:
+                 st.session_state.sb_shift_duration_num = shift_duration
 
             st.markdown("---")
-            st.markdown("##### 🗓️ Schedule Shift Events")
-            st.caption("Define disruptions, breaks, or other timed events. Start times are relative to the beginning of the shift.")
+            st.markdown("<h5 style='margin-bottom: 0.2rem;'>🗓️ Schedule Shift Events</h5>", unsafe_allow_html=True)
+            st.caption("Define disruptions, breaks, or other timed events. Start times are relative to the beginning of the shift (0 minutes).")
 
             if 'sb_scheduled_events_list' not in st.session_state:
                 st.session_state.sb_scheduled_events_list = list(DEFAULT_CONFIG.get('DEFAULT_SCHEDULED_EVENTS', []))
             
-            event_types = ["Major Disruption", "Minor Disruption", "Scheduled Break", "Short Pause", "Team Meeting", "Maintenance"]
+            event_types = ["Major Disruption", "Minor Disruption", "Scheduled Break", "Short Pause", "Team Meeting", "Maintenance", "Custom Event"]
             
-            cols_event_input = st.columns([2,1,1])
-            new_event_type = cols_event_input[0].selectbox("Event Type", event_types, key="sb_new_event_type", index=0)
-            new_event_start = cols_event_input[1].number_input("Start (min)", min_value=0, max_value=max(0,shift_duration -1), step=1, value=0, key="sb_new_event_start", help=f"Minutes from shift start (0 to {max(0,shift_duration-1)})")
-            new_event_duration = cols_event_input[2].number_input("Duration (min)", min_value=1, step=1, value=10, key="sb_new_event_duration")
+            with st.container():
+                st.markdown("<p style='font-size:0.9rem; margin-bottom:0.1rem; color: #B0B0B0;'>Add New Event:</p>", unsafe_allow_html=True)
+                new_event_type = st.selectbox("Type", event_types, key="sb_new_event_type_select", index=0, label_visibility="collapsed")
+                
+                col_time1, col_time2 = st.columns(2)
+                with col_time1:
+                    new_event_start = st.number_input("Start (min)", min_value=0, max_value=max(0, shift_duration -1), step=1, value=st.session_state.get("sb_new_event_start_val",0), key="sb_new_event_start_num", help=f"Minutes from shift start (0 to {max(0,shift_duration-1)})")
+                    st.session_state.sb_new_event_start_val = new_event_start 
+                with col_time2:
+                    new_event_duration = st.number_input("Duration (min)", min_value=1,max_value=shift_duration, step=1, value=st.session_state.get("sb_new_event_duration_val",10), key="sb_new_event_duration_num")
+                    st.session_state.sb_new_event_duration_val = new_event_duration
 
-            if st.button("➕ Add Event", key="sb_add_event_btn", use_container_width=True):
+            if st.button("➕ Add Event", key="sb_add_event_btn", use_container_width=True, type="primary"):
                 if new_event_start + new_event_duration > shift_duration:
-                    st.warning(f"Event (start {new_event_start} + duration {new_event_duration}) exceeds shift duration ({shift_duration} min). Please adjust.")
+                    st.warning(f"Event end time ({new_event_start + new_event_duration} min) exceeds shift duration ({shift_duration} min). Please adjust.")
+                elif new_event_start < 0 :
+                    st.warning("Event start time cannot be negative.")
+                elif new_event_duration < 1:
+                    st.warning("Event duration must be at least 1 minute.")
                 else:
                     st.session_state.sb_scheduled_events_list.append({
                         "Event Type": new_event_type,
@@ -228,20 +235,21 @@ def render_settings_sidebar(): # As per the previous version with new event sche
                         "Duration (min)": new_event_duration
                     })
                     st.session_state.sb_scheduled_events_list.sort(key=lambda x: x.get("Start Time (min)", 0))
-                    st.rerun() 
+                    st.rerun()
 
             st.markdown("###### Current Scheduled Events:")
             if not st.session_state.sb_scheduled_events_list:
                 st.caption("No events scheduled yet.")
             else:
-                for i, event in enumerate(st.session_state.sb_scheduled_events_list):
-                    event_col1, event_col2 = st.columns([0.85, 0.15])
-                    with event_col1:
-                        st.markdown(f"<div class='event-item'><span class='event-text'><b>{event['Event Type']}</b> at {event['Start Time (min)']} min (lasts {event['Duration (min)']} min)</span></div>", unsafe_allow_html=True)
-                    with event_col2:
-                        if st.button("✖", key=f"remove_event_{i}", help="Remove this event", type="secondary"):
-                            st.session_state.sb_scheduled_events_list.pop(i)
-                            st.rerun()
+                with st.container(height=200): 
+                    for i, event in enumerate(st.session_state.sb_scheduled_events_list):
+                        event_col1, event_col2 = st.columns([0.85, 0.15])
+                        with event_col1:
+                            st.markdown(f"<div class='event-item'><span class='event-text'><b>{event['Event Type']}</b> at {event['Start Time (min)']} min (lasts {event['Duration (min)']} min)</span></div>", unsafe_allow_html=True)
+                        with event_col2:
+                            if st.button("✖", key=f"remove_event_{i}", help="Remove this event", type="secondary", use_container_width=True):
+                                st.session_state.sb_scheduled_events_list.pop(i)
+                                st.rerun()
             
             if st.session_state.sb_scheduled_events_list:
                 if st.button("Clear All Events", key="sb_clear_events_btn", type="secondary", use_container_width=True):
@@ -253,7 +261,7 @@ def render_settings_sidebar(): # As per the previous version with new event sche
             current_initiative = st.session_state.get('sb_team_initiative_selectbox', team_initiative_opts[0])
             team_initiative_idx = team_initiative_opts.index(current_initiative) if current_initiative in team_initiative_opts else 0
             team_initiative = st.selectbox("Operational Initiative", team_initiative_opts, index=team_initiative_idx, key="sb_team_initiative_selectbox", help="Apply an operational strategy to observe its impact on metrics.")
-            run_simulation_button = st.button("🚀 Run New Simulation", key="sb_run_simulation_button", type="primary", use_container_width=True)
+            run_simulation_button = st.button("🚀 Run Simulation", key="sb_run_simulation_button_main", type="primary", use_container_width=True)
         
         with st.expander("🎨 Visualization Options"):
             st.checkbox("High Contrast Plots", st.session_state.get('sb_high_contrast_checkbox', False), key="sb_high_contrast_checkbox", help="Applies a high-contrast color theme to all charts for better accessibility.")
@@ -382,7 +390,6 @@ def run_simulation_logic(team_size, shift_duration_minutes, scheduled_events_lis
     validate_config(config)
     logger.info(f"Running simulation with: Team Size={team_size}, Duration={shift_duration_minutes}min, Scheduled Events: {len(scheduled_events_list_of_dicts)} events, Initiative: {team_initiative_selected}", extra={'user_action': 'Run Simulation - Start'})
     
-    # IMPORTANT: Ensure simulate_workplace_operations in simulation.py accepts 'scheduled_events'
     sim_results_tuple = simulate_workplace_operations(
         num_team_members=team_size,
         num_steps=config['SHIFT_DURATION_INTERVALS'],
@@ -416,77 +423,7 @@ def run_simulation_logic(team_size, shift_duration_minutes, scheduled_events_lis
     save_simulation_data(simulation_output_dict)
     return simulation_output_dict
 
-def get_actionable_insights(sim_data, current_config): # Same as previous
-    insights = []
-    if not sim_data or not isinstance(sim_data, dict): return insights
-    
-    compliance_data = safe_get(sim_data, 'task_compliance.data', [])
-    target_compliance_from_config = float(current_config.get('TARGET_COMPLIANCE', 75.0))
-    compliance_avg = safe_stat(compliance_data, np.mean, default_val=target_compliance_from_config)
-
-    if compliance_avg < target_compliance_from_config * 0.9:
-        insights.append({"type": "critical", "title": "Low Task Compliance", "text": f"Avg. Task Compliance ({compliance_avg:.1f}%) significantly below target ({target_compliance_from_config:.0f}%). Review disruption impacts, task complexities, and training."})
-    elif compliance_avg < target_compliance_from_config:
-        insights.append({"type": "warning", "title": "Suboptimal Task Compliance", "text": f"Avg. Task Compliance at {compliance_avg:.1f}%. Identify intervals or areas with lowest compliance for process review."})
-
-    wellbeing_scores = safe_get(sim_data, 'worker_wellbeing.scores', [])
-    target_wellbeing_from_config = float(current_config.get('TARGET_WELLBEING', 70.0))
-    wellbeing_avg = safe_stat(wellbeing_scores, np.mean, default_val=target_wellbeing_from_config)
-    
-    wellbeing_critical_threshold_factor = float(current_config.get('WELLBEING_CRITICAL_THRESHOLD_PERCENT_OF_TARGET', 0.85))
-    if wellbeing_avg < target_wellbeing_from_config * wellbeing_critical_threshold_factor:
-        insights.append({"type": "critical", "title": "Critical Worker Well-being", "text": f"Avg. Well-being ({wellbeing_avg:.1f}%) critically low (target {target_wellbeing_from_config:.0f}%). Urgent review of work conditions, load, and stress factors needed."})
-    
-    threshold_triggers = safe_get(sim_data, 'worker_wellbeing.triggers.threshold', [])
-    if wellbeing_scores and len(threshold_triggers) > max(2, len(wellbeing_scores) * 0.1):
-        insights.append({"type": "warning", "title": "Frequent Low Well-being Alerts", "text": f"{len(threshold_triggers)} instances of well-being dropping below threshold. Investigate specific triggers."})
-
-    downtime_events_list = safe_get(sim_data, 'downtime_minutes', [])
-    downtime_durations = [event.get('duration', 0.0) for event in downtime_events_list if isinstance(event, dict)]
-    total_downtime = safe_stat(downtime_durations, np.sum, default_val=0.0)
-    
-    sim_cfg_params = sim_data.get('config_params', {})
-    shift_mins = float(sim_cfg_params.get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']))
-    dt_thresh_total_shift = float(current_config.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', shift_mins * 0.05))
-    
-    if total_downtime > dt_thresh_total_shift:
-        insights.append({"type": "critical", "title": "Excessive Total Shift Downtime", "text": f"Total shift downtime is {total_downtime:.0f} minutes, exceeding the guideline of {dt_thresh_total_shift:.0f} min. Deep dive into disruption causes, equipment reliability, and recovery protocols. Analyze downtime causes pie chart."})
-    
-    psych_safety_scores = safe_get(sim_data, 'psychological_safety', [])
-    target_psych_safety = float(current_config.get('TARGET_PSYCH_SAFETY', 70.0))
-    psych_safety_avg = safe_stat(psych_safety_scores, np.mean, default_val=target_psych_safety)
-    if psych_safety_avg < target_psych_safety * 0.9:
-        insights.append({"type": "warning", "title": "Low Psychological Safety", "text": f"Avg. Psych. Safety ({psych_safety_avg:.1f}%) is below target ({target_psych_safety:.0f}%). Consider initiatives to build trust and open communication."})
-
-    cohesion_scores = safe_get(sim_data, 'worker_wellbeing.team_cohesion_scores', [])
-    target_cohesion = float(current_config.get('TARGET_TEAM_COHESION', 70.0))
-    cohesion_avg = safe_stat(cohesion_scores, np.mean, default_val=target_cohesion)
-    if cohesion_avg < target_cohesion * 0.9:
-        insights.append({"type": "warning", "title": "Low Team Cohesion", "text": f"Avg. Team Cohesion ({cohesion_avg:.1f}%) is below desired levels. Consider team-building activities or structural reviews for collaboration."})
-    
-    workload_scores = safe_get(sim_data, 'worker_wellbeing.perceived_workload_scores', [])
-    target_workload = float(current_config.get('TARGET_PERCEIVED_WORKLOAD', 6.5))
-    workload_avg = safe_stat(workload_scores, np.mean, default_val=target_workload)
-    if workload_avg > float(current_config.get('PERCEIVED_WORKLOAD_THRESHOLD_VERY_HIGH', 8.5)):
-        insights.append({"type": "critical", "title": "Very High Perceived Workload", "text": f"Avg. Perceived Workload ({workload_avg:.1f}/10) is critically high. Immediate review of task distribution, staffing, and process efficiencies is required."})
-    elif workload_avg > float(current_config.get('PERCEIVED_WORKLOAD_THRESHOLD_HIGH', 7.5)):
-        insights.append({"type": "warning", "title": "High Perceived Workload", "text": f"Avg. Perceived Workload ({workload_avg:.1f}/10) exceeds high threshold. Monitor closely and identify bottlenecks."})
-    elif workload_avg > target_workload:
-        insights.append({"type": "info", "title": "Elevated Perceived Workload", "text": f"Avg. Perceived Workload ({workload_avg:.1f}/10) is above target ({target_workload:.1f}/10). Consider proactive adjustments."})
-    
-    if compliance_avg > target_compliance_from_config * 1.05 and \
-       wellbeing_avg > target_wellbeing_from_config * 1.05 and \
-       total_downtime < dt_thresh_total_shift * 0.5 and \
-       psych_safety_avg > target_psych_safety * 1.05:
-        insights.append({"type": "positive", "title": "Holistically Excellent Performance", "text": "Key operational and psychosocial metrics significantly exceed targets. A well-balanced and high-performing shift! Leadership should identify and replicate success factors."})
-    
-    initiative = sim_data.get('config_params', {}).get('TEAM_INITIATIVE', 'Standard Operations')
-    if initiative != "Standard Operations":
-        insights.append({"type": "info", "title": f"Initiative Active: '{initiative}'", "text": f"The '{initiative}' initiative was simulated. Its impact can be assessed by comparing metrics to a 'Standard Operations' baseline run."})
-    
-    return insights
-
-def time_range_input_section(tab_key_prefix: str, max_minutes: int, st_col_obj = st): # Same as previous
+def time_range_input_section(tab_key_prefix: str, max_minutes: int, st_col_obj = st):
     start_time_key = f"{tab_key_prefix}_start_time_min"
     end_time_key = f"{tab_key_prefix}_end_time_min"
 
@@ -506,10 +443,10 @@ def time_range_input_section(tab_key_prefix: str, max_minutes: int, st_col_obj =
         st.session_state[end_time_key] = current_end_val
 
     cols = st_col_obj.columns(2)
-    start_time_widget_key = f"num_input_{start_time_key}"
+    start_time_widget_key = f"num_input_{start_time_key}" 
     end_time_widget_key = f"num_input_{end_time_key}"
 
-    start_time = cols[0].number_input(
+    start_time_val_from_widget = cols[0].number_input(
         "Start Time (min)", 
         min_value=0, 
         max_value=max_minutes, 
@@ -518,9 +455,9 @@ def time_range_input_section(tab_key_prefix: str, max_minutes: int, st_col_obj =
         key=start_time_widget_key, 
         help="Select the start of the time range (in minutes from shift start)."
     )
-    end_time = cols[1].number_input(
+    end_time_val_from_widget = cols[1].number_input( 
         "End Time (min)", 
-        min_value=int(start_time), 
+        min_value=int(start_time_val_from_widget), 
         max_value=max_minutes, 
         value=st.session_state[end_time_key], 
         step=2, 
@@ -529,25 +466,27 @@ def time_range_input_section(tab_key_prefix: str, max_minutes: int, st_col_obj =
     )
     
     needs_rerun = False
-    if start_time != st.session_state[start_time_key]:
-        st.session_state[start_time_key] = int(start_time)
-        if st.session_state[end_time_key] < st.session_state[start_time_key]:
-            st.session_state[end_time_key] = st.session_state[start_time_key]
+    if start_time_val_from_widget != st.session_state[start_time_key]:
+        st.session_state[start_time_key] = int(start_time_val_from_widget)
+        if st.session_state[end_time_key] < st.session_state[start_time_key]: 
+            st.session_state[end_time_key] = st.session_state[start_time_key] 
         needs_rerun = True
     
-    if end_time != st.session_state[end_time_key]:
-        st.session_state[end_time_key] = int(end_time)
+    corrected_end_time_val_from_widget = max(int(st.session_state[start_time_key]), int(end_time_val_from_widget))
+
+    if corrected_end_time_val_from_widget != st.session_state[end_time_key]:
+        st.session_state[end_time_key] = corrected_end_time_val_from_widget
         needs_rerun = True
+    elif end_time_val_from_widget < st.session_state[start_time_key] and corrected_end_time_val_from_widget == st.session_state[start_time_key] and not needs_rerun:
+        if st.session_state[end_time_key] != st.session_state[start_time_key]:
+             st.session_state[end_time_key] = st.session_state[start_time_key]
+             needs_rerun = True
 
     if needs_rerun:
         st.rerun()
 
     return int(st.session_state[start_time_key]), int(st.session_state[end_time_key])
 
-# --- MAIN FUNCTION AND TAB RENDERING (Same as previous, with dynamic insights for wellbeing) ---
-# Ensure the tab_configs and the tab rendering loop are exactly as in the previous correct response.
-# For brevity, not repeating the entire main() and tab rendering loop here, but it should be the
-# one that includes the "dynamic_insights_func": "render_wellbeing_alerts" logic.
 
 def main():
     st.title("Workplace Shift Optimization Dashboard")
@@ -575,7 +514,8 @@ def main():
 
     if st.session_state.simulation_results and isinstance(st.session_state.simulation_results, dict):
         sim_cfg = st.session_state.simulation_results.get('config_params', {})
-        num_intervals_from_sim = sim_cfg.get('SHIFT_DURATION_MINUTES', _default_shift_duration) // 2
+        sim_shift_duration_cfg = sim_cfg.get('SHIFT_DURATION_MINUTES', sb_shift_duration if sb_shift_duration is not None else _default_shift_duration)
+        num_intervals_from_sim = sim_shift_duration_cfg // 2
         
         if num_intervals_from_sim > 0:
             current_max_minutes_for_inputs = max(0, (num_intervals_from_sim - 1) * 2)
@@ -600,7 +540,7 @@ def main():
                 if isinstance(start_time, (int, float)) and start_time >= 0:
                     temp_disruption_steps.append(int(start_time // 2))
         disruption_steps_for_plots = sorted(list(set(temp_disruption_steps)))
-        current_max_minutes_for_inputs = sb_shift_duration - 2 if sb_shift_duration else _default_shift_duration - 2
+        current_max_minutes_for_inputs = sb_shift_duration - 2 if sb_shift_duration is not None else _default_shift_duration - 2
     
     current_max_minutes_for_inputs = max(0, current_max_minutes_for_inputs)
     logger.debug(f"Main: current_max_minutes_for_inputs set to {current_max_minutes_for_inputs}")
@@ -895,34 +835,29 @@ def main():
                                         sel_metrics = st.multiselect("Select OEE Metrics:", ['uptime', 'throughput', 'quality', 'oee'], default=['uptime', 'throughput', 'quality', 'oee'], key=f"{tab_config['key_prefix']}_oee_metrics_ms")
                                         filt_eff_df = eff_df_full.iloc[start_idx:end_idx] if start_idx < end_idx and start_idx < len(eff_df_full) and end_idx <= len(eff_df_full) else pd.DataFrame()
                                         if not filt_eff_df.empty:
-                                            st.plotly_chart(plot_operational_efficiency(filt_eff_df, sel_metrics, current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
+                                            st.plotly_chart(plot_operational_efficiency(filt_eff_df, sel_metrics, disruption_points=filt_disrupt_steps, high_contrast=current_high_contrast_setting), use_container_width=True, config=plot_config_interactive)
                                         else: st.caption("No OEE data for this time range.")
                                     else: st.caption("No OEE data available.")
                                 else:
                                     plot_data_raw = safe_get(sim_data, plot_info["data_path"], [])
-                                    plot_data_list = [] # Default to empty list
+                                    plot_data_list = [] 
                                     
-                                    # Handle slicing for lists and DataFrames
                                     if isinstance(plot_data_raw, list):
-                                        if start_idx < len(plot_data_raw): # Ensure start_idx is valid
+                                        if start_idx < len(plot_data_raw): 
                                             plot_data_list = plot_data_raw[start_idx:min(end_idx, len(plot_data_raw))]
                                     elif isinstance(plot_data_raw, pd.DataFrame) and not plot_data_raw.empty:
-                                        if start_idx < len(plot_data_raw): # Ensure start_idx is valid
+                                        if start_idx < len(plot_data_raw): 
                                             plot_data_list = plot_data_raw.iloc[start_idx:min(end_idx, len(plot_data_raw))]
                                         else:
-                                            plot_data_list = pd.DataFrame() # Empty DataFrame if start_idx out of bounds
+                                            plot_data_list = pd.DataFrame() 
 
-
-                                    # Check if there's data to plot
                                     has_data_to_plot = False
-                                    if isinstance(plot_data_list, list) and plot_data_list:
-                                        has_data_to_plot = True
-                                    elif isinstance(plot_data_list, pd.DataFrame) and not plot_data_list.empty:
-                                        has_data_to_plot = True
-                                    elif plot_info["plot_func"] == plot_downtime_causes_pie and isinstance(plot_data_raw, list) and plot_data_raw: # Pie/Downtime Trend take full list and filter internally
-                                        has_data_to_plot = True # Will be filtered by plot_func
-                                    elif plot_info["plot_func"] == plot_downtime_trend and isinstance(plot_data_raw, list) and plot_data_raw:
-                                        has_data_to_plot = True
+                                    if isinstance(plot_data_list, list) and plot_data_list: has_data_to_plot = True
+                                    elif isinstance(plot_data_list, pd.DataFrame) and not plot_data_list.empty: has_data_to_plot = True
+                                    elif plot_info["plot_func"] in [plot_downtime_causes_pie, plot_downtime_trend] and isinstance(plot_data_raw, list) and plot_data_raw:
+                                        if start_idx < len(plot_data_raw):
+                                            data_for_these_plots = plot_data_raw[start_idx:min(end_idx, len(plot_data_raw))]
+                                            if data_for_these_plots: has_data_to_plot = True
 
 
                                     if has_data_to_plot:
@@ -935,10 +870,8 @@ def main():
                                                 elif isinstance(extra_data_raw, list) :
                                                     if start_idx < len(extra_data_raw):
                                                         kwargs[arg_name] = extra_data_raw[start_idx:min(end_idx, len(extra_data_raw))]
-                                                    else:
-                                                        kwargs[arg_name] = [] # Empty list if start_idx out of bounds
-                                                else: 
-                                                    kwargs[arg_name] = extra_data_raw 
+                                                    else: kwargs[arg_name] = [] 
+                                                else: kwargs[arg_name] = extra_data_raw 
                                         if "extra_args_fixed" in plot_info:
                                             kwargs.update(plot_info["extra_args_fixed"])
                                         
@@ -947,17 +880,14 @@ def main():
                                             kwargs["disruption_points"] = filt_disrupt_steps
                                         
                                         data_to_plot_final = plot_data_list
-                                        # For these plots, they expect the full list of events for the selected time range
                                         if plot_info["plot_func"] == plot_downtime_causes_pie or plot_info["plot_func"] == plot_downtime_trend:
                                             if isinstance(plot_data_raw, list):
                                                 if start_idx < len(plot_data_raw):
                                                     data_to_plot_final = plot_data_raw[start_idx:min(end_idx, len(plot_data_raw))]
-                                                else:
-                                                    data_to_plot_final = []
-
-
-                                        if (isinstance(data_to_plot_final, list) and not data_to_plot_final) and not \
-                                           (isinstance(data_to_plot_final, pd.DataFrame) and not data_to_plot_final.empty):
+                                                else: data_to_plot_final = []
+                                        
+                                        if (isinstance(data_to_plot_final, list) and not data_to_plot_final) and \
+                                           not (isinstance(data_to_plot_final, pd.DataFrame) and not data_to_plot_final.empty):
                                             st.caption(f"No data for {plot_info['title']} in this time range.")
                                         else:
                                             st.plotly_chart(plot_info["plot_func"](data_to_plot_final, high_contrast=current_high_contrast_setting, **kwargs), use_container_width=True, config=plot_config_interactive)
@@ -1003,7 +933,7 @@ def main():
             else: 
                 st.info(f"ℹ️ Run a simulation or load data to view {tab_config['name']}.", icon="📊")
     
-    with tabs[4]: # Glossary Tab
+    with tabs[4]: 
         st.header("📖 Glossary of Terms", divider="blue")
         st.markdown("""
             <div style="font-size: 0.95rem; line-height: 1.7;">
