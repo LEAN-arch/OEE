@@ -67,8 +67,6 @@ DEFAULT_CONFIG = {
     },
 
     # --- Worker Behavior & Psychosocial Factors ---
-    # Scores are 0-100, Fatigue is 0-1 (unless specified)
-    # Rates are per interval effect on the target metric's scale (e.g., points for 0-100 scores, or fractional for 0-1 fatigue)
     "INITIAL_WELLBEING_MEAN": 80.0,
     "BASE_FATIGUE_RATE_PER_INTERVAL": 0.0025, # Additive to 0-1 fatigue scale
     "WELLBEING_ALERT_THRESHOLD": 60.0,
@@ -124,7 +122,7 @@ DEFAULT_CONFIG = {
     "TARGET_WELLBEING": 75.0,
     "TARGET_PSYCH_SAFETY": 80.0,
     "TARGET_TEAM_COHESION": 75.0,
-    "DOWNTIME_THRESHOLD_TOTAL_SHIFT_PERCENT": 0.05, # As a fraction (5%)
+    "DOWNTIME_THRESHOLD_TOTAL_SHIFT_PERCENT": 0.05, # Factor 0-1 (5%)
 }
 
 def validate_config(config_to_validate):
@@ -159,27 +157,28 @@ def validate_config(config_to_validate):
                 all(isinstance(pt_val, tuple) and len(pt_val) == 2 and all(isinstance(c_val, (int, float)) for c_val in pt_val) for pt_val in details_val["coords"])):
             logger.warning(f"Potentially invalid 'coords' for WORK_AREA '{area_name_val}'. Expected list of two (x,y) tuples.")
         total_workers_in_areas_val += details_val.get("workers", 0)
-    if total_workers_in_areas_val != config_to_validate["TEAM_SIZE"]:
-        logger.warning(f"Sum of workers in WORK_AREAS ({total_workers_in_areas_val}) != TEAM_SIZE ({config_to_validate['TEAM_SIZE']}). main.py should redistribute.")
-
-    cfg_events = config_to_validate.get("DEFAULT_SCHEDULED_EVENTS", []) # Key used in DEFAULT_CONFIG
-    if not isinstance(cfg_events, list): # If SCHEDULED_EVENTS is passed by main.py this check will apply to it
-        alt_cfg_events = config_to_validate.get("SCHEDULED_EVENTS", []) # Check alternative key if main.py passes it
-        if not isinstance(alt_cfg_events, list):
-            logger.warning("'SCHEDULED_EVENTS' or 'DEFAULT_SCHEDULED_EVENTS' missing/not list. Defaulting to empty.")
-            config_to_validate["SCHEDULED_EVENTS"] = [] # Ensure SCHEDULED_EVENTS key exists for simulation
-        else:
-            cfg_events = alt_cfg_events # Use the one found
     
-    for idx, event_val in enumerate(cfg_events):
-        if not isinstance(event_val, dict): raise ValueError(f"Event {idx} in SCHEDULED_EVENTS not a dict.")
-        req_event_keys_val = ["Event Type", "Start Time (min)", "Duration (min)"]
-        if not all(k_val in event_val for k_val in req_event_keys_val):
-            raise ValueError(f"Event {idx} ({event_val.get('Event Type', 'Unknown')}) missing required keys: {req_event_keys_val}.")
-        if not (isinstance(event_val["Start Time (min)"], (int,float)) and event_val["Start Time (min)"] >= 0):
-            raise ValueError(f"Event '{event_val['Event Type']}' invalid Start Time: {event_val['Start Time (min)']}")
-        if not (isinstance(event_val["Duration (min)"], (int,float)) and event_val["Duration (min)"] > 0):
-            raise ValueError(f"Event '{event_val['Event Type']}' invalid Duration: {event_val['Duration (min)']}")
+    # This is an informative warning; main.py's run_simulation_logic handles redistribution
+    if total_workers_in_areas_val != config_to_validate["TEAM_SIZE"]:
+        logger.warning(f"Sum of workers in WORK_AREAS ({total_workers_in_areas_val}) != TEAM_SIZE ({config_to_validate['TEAM_SIZE']}). main.py should redistribute if this is the final config for simulation.")
+
+    # Validate scheduled events (whether from DEFAULT_SCHEDULED_EVENTS or dynamically set SCHEDULED_EVENTS)
+    events_to_validate = config_to_validate.get("SCHEDULED_EVENTS", config_to_validate.get("DEFAULT_SCHEDULED_EVENTS", []))
+    if not isinstance(events_to_validate, list):
+        logger.warning("'SCHEDULED_EVENTS' (or DEFAULT_SCHEDULED_EVENTS) is not a list. Defaulting to empty.")
+        # Ensure SCHEDULED_EVENTS key exists for simulation if it's going to be used directly
+        if "SCHEDULED_EVENTS" not in config_to_validate:
+            config_to_validate["SCHEDULED_EVENTS"] = []
+    else:
+        for idx, event_val in enumerate(events_to_validate):
+            if not isinstance(event_val, dict): raise ValueError(f"Event {idx} in SCHEDULED_EVENTS not a dict.")
+            req_event_keys_val = ["Event Type", "Start Time (min)", "Duration (min)"]
+            if not all(k_val in event_val for k_val in req_event_keys_val):
+                raise ValueError(f"Event {idx} ({event_val.get('Event Type', 'Unknown')}) missing required keys: {req_event_keys_val}.")
+            if not (isinstance(event_val["Start Time (min)"], (int,float)) and event_val["Start Time (min)"] >= 0):
+                raise ValueError(f"Event '{event_val['Event Type']}' invalid Start Time: {event_val['Start Time (min)']}")
+            if not (isinstance(event_val["Duration (min)"], (int,float)) and event_val["Duration (min)"] > 0):
+                raise ValueError(f"Event '{event_val['Event Type']}' invalid Duration: {event_val['Duration (min)']}")
 
     if not isinstance(config_to_validate.get("EVENT_TYPE_CONFIG"), dict):
         logger.warning("'EVENT_TYPE_CONFIG' missing/not dict. Event impacts may not apply.")
