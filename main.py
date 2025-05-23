@@ -20,9 +20,9 @@ if not logger.handlers:
                         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s - [User Action: %(user_action)s]',
                         filename='dashboard.log',
                         filemode='a')
-logger.info("Main.py: Startup. Correcting color constant NameError.", extra={'user_action': 'System Startup'})
+logger.info("Main.py: Startup. Correcting syntax and theme.", extra={'user_action': 'System Startup'})
 
-st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.13\nInsights for operational excellence & psychosocial well-being."})
+st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.15\nInsights for operational excellence & psychosocial well-being."})
 
 # --- Light Theme Color Constants for CSS and Streamlit Elements ---
 COLOR_PAGE_BACKGROUND_LIGHT = "#F0F2F6"
@@ -31,7 +31,7 @@ COLOR_CONTENT_BACKGROUND_LIGHT = "#FFFFFF"
 
 COLOR_PRIMARY_TEXT_DARK = "#262730"
 COLOR_SECONDARY_TEXT_DARK = "#5E6474"
-COLOR_ACCENT_TEXT_DARK = "#0052CC" # Renamed from COLOR_ACCENT_UI_LIGHT_THEME for clarity if used for text
+COLOR_ACCENT_TEXT_DARK = "#0052CC" 
 
 COLOR_CRITICAL_RED_BORDER = "#D62728"
 COLOR_WARNING_AMBER_BORDER = "#FF7F0E"
@@ -46,22 +46,16 @@ COLOR_INFO_BLUE_BG_LIGHT = "rgba(31, 119, 180, 0.1)"
 COLOR_BORDER_SUBTLE_LIGHT = "#D1D5DB"
 COLOR_BORDER_DARKER_LIGHT = "#A0AEC0"
 
-# Accent Color for UI elements like active tab underline, some buttons
-COLOR_ACCENT_UI_LIGHT_THEME = "#0063BF" # Defined as requested
-
-# Specific Button Colors (ensure these are defined before CSS block)
-COLOR_ACCENT_BUTTON_LIGHT_THEME = COLOR_ACCENT_UI_LIGHT_THEME # Using the UI accent for default buttons
-COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME = "#0052A3" # Darker shade for hover
-
-COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT = COLOR_POSITIVE_GREEN_BORDER # Green for sidebar primary default actions
-COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT = "#228B22" # Darker Green
+COLOR_ACCENT_UI_LIGHT_THEME = "#0063BF" 
+COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME = "#0052A3" 
+COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT = "#2CA02C"
+COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT = "#228B22"
 COLOR_BUTTON_SECONDARY_BG_LIGHT = "#E0E0E0"
 COLOR_BUTTON_SECONDARY_HOVER_BG_LIGHT = "#BDBDBD"
 COLOR_BUTTON_REMOVE_BG_LIGHT = COLOR_CRITICAL_RED_BORDER
 
 THEMED_DIVIDER_COLOR = "gray"
 
-# ... (rest of the code from Chunk 1, e.g., safe_get, safe_stat, etc.)
 def safe_get(data_dict, path_str, default_val=None):
     current = data_dict
     is_list_like_path = False
@@ -194,13 +188,6 @@ def get_actionable_insights(sim_data, current_config_dict_main):
     logger.info(f"get_actionable_insights: Generated {len(insights)} insights.", extra={'user_action': 'Actionable Insights - End'})
     return insights
 
-# ... The rest of the file (render_settings_sidebar, run_simulation_logic, time_range_input_section, and the main() function with its tab rendering loop)
-# will follow in the next chunk.
-```
-
----
-**`main.py` (Chunk 2 of 2 - Indentation Triple-Checked & Slider Logic Refined)**
-```python
 def aggregate_downtime_by_step(raw_downtime_event_log, num_total_steps_agg):
     downtime_per_step_agg = [0.0] * num_total_steps_agg
     if not isinstance(raw_downtime_event_log, list):
@@ -691,7 +678,8 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
     save_simulation_data(simulation_output_dict_sl_final_run) 
     return simulation_output_dict_sl_final_run
 
-def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_type=None): # Renamed to avoid conflict
+# Helper specifically for run_simulation_logic's config access
+def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_type=None):
     val = secondary_conf.get(key, primary_conf.get(key, default))
     if data_type:
         try:
@@ -700,10 +688,11 @@ def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_t
         except (ValueError, TypeError): return default
     return val
 
+# --- TIME RANGE INPUT WIDGETS ---
 def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int, st_col_obj = st, interval_duration_min_ui: int = 2):
     start_time_key_ui = f"{tab_key_prefix}_start_time_min"
     end_time_key_ui = f"{tab_key_prefix}_end_time_min"
-    
+
     interval_duration_min_ui = float(interval_duration_min_ui) if isinstance(interval_duration_min_ui, (int, float)) and interval_duration_min_ui > 0 else 2.0
     max_minutes_for_range_ui = float(max_minutes_for_range_ui) if isinstance(max_minutes_for_range_ui, (int, float)) and max_minutes_for_range_ui >=0 else 0.0
     
@@ -1028,14 +1017,14 @@ def main():
                                     if plot_cfg_tab_item_final.get("is_event_based_aggregation"):
                                         num_steps_in_range_agg_final = end_idx_tab_final_loop - start_idx_tab_final_loop
                                         aggregated_data_agg_final = [0.0] * num_steps_in_range_agg_final if num_steps_in_range_agg_final > 0 else []
-                                        for evt_agg_final in raw_plot_data_tab_final:
+                                        for evt_agg_final in raw_plot_data_tab_final: # raw_plot_data_tab_final is downtime_events_log
                                             if isinstance(evt_agg_final,dict) and start_idx_tab_final_loop <= evt_agg_final.get('step',-1) < end_idx_tab_final_loop:
                                                 rel_step_agg_final = evt_agg_final['step'] - start_idx_tab_final_loop
                                                 if 0 <= rel_step_agg_final < num_steps_in_range_agg_final: aggregated_data_agg_final[rel_step_agg_final] += evt_agg_final.get('duration',0)
                                         plot_data_to_render_final = aggregated_data_agg_final
                                     elif plot_cfg_tab_item_final.get("is_event_based_filtering"):
                                         plot_data_to_render_final = [evt_filt_final for evt_filt_final in raw_plot_data_tab_final if isinstance(evt_filt_final,dict) and start_idx_tab_final_loop <= evt_filt_final.get('step',-1) < end_idx_tab_final_loop]
-                                        if "disruption_points" in plot_kwargs_final: del plot_kwargs_final["disruption_points"]
+                                        if "disruption_points" in plot_kwargs_final: del plot_kwargs_final["disruption_points"] # Pie doesn't use disruption lines
                                     elif isinstance(raw_plot_data_tab_final, list): plot_data_to_render_final = raw_plot_data_tab_final[start_idx_tab_final_loop:min(end_idx_tab_final_loop, len(raw_plot_data_tab_final))] if start_idx_tab_final_loop < len(raw_plot_data_tab_final) else []
                                     elif isinstance(raw_plot_data_tab_final, pd.DataFrame): plot_data_to_render_final = _slice_dataframe_by_step_indices(raw_plot_data_tab_final, start_idx_tab_final_loop, end_idx_tab_final_loop)
                                     
