@@ -190,37 +190,60 @@ def get_actionable_insights(sim_data, current_config):
     logger.info(f"get_actionable_insights: Generated {len(insights)} insights.", extra={'user_action': 'Actionable Insights - End'})
     return insights
 
-# CSS
+# main.py CHUNK 1 (CSS part modified, rest of CHUNK 1 is the same as previous)
+# ... (imports and utility functions) ...
+
 st.markdown(f"""
     <style>
         /* Base Styles */
         .main {{ background-color: #121828; color: #EAEAEA; font-family: 'Roboto', 'Open Sans', 'Helvetica Neue', sans-serif; padding: 2rem; }}
         h1 {{ font-size: 2.4rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; text-align: center; margin-bottom: 2rem; color: #FFFFFF; }}
-        
-        /* Main Content Headers (Tabs) */
-        .main div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] div[data-testid="stMarkdownContainer"] h2 {{ 
-            font-size: 1.75rem !important; font-weight: 600 !important; line-height: 1.3 !important; 
-            margin: 1.5rem 0 1rem !important; color: #D1D5DB !important; 
+
+        /* Main Content Tab Headers (e.g., "Operational Metrics") */
+        /* Targets H2 elements that are direct children of the markdown container used by st.header in tabs */
+        div[data-testid="stTabs"] section[role="tabpanel"] > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div > h2 {{ 
+            font-size: 1.75rem !important; 
+            font-weight: 600 !important; 
+            line-height: 1.3 !important; 
+            margin: 1.2rem 0 1rem 0 !important; /* Adjusted margin */
+            color: #D1D5DB !important; 
             border-bottom: 2px solid {COLOR_ACCENT_INDIGO} !important; 
             padding-bottom: 0.6rem !important;
-        }}
-        /* Main Content Subheaders (Sections within Tabs like "Additional Operational Metrics") */
-        .main div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] .stSubheader {{ 
-            font-size: 1.4rem !important; font-weight: 500 !important; line-height: 1.4 !important; 
-            margin-top: 2rem !important; margin-bottom: 1rem !important; color: #C0C0C0 !important;
-            border-bottom: 1px solid #4A5568 !important; padding-bottom: 0.4rem !important;
-        }}
-        /* Main Content Markdown H5 (e.g. for "Select Time Range for Plots:") */
-        .main div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] div[data-testid="stMarkdownContainer"] h5 {{
-            font-size: 1.0rem !important; font-weight: 600 !important; line-height: 1.3 !important;
-            margin: 1.5rem 0 0.5rem !important; color: #C8C8C8 !important; text-align: left;
-        }}
-        /* Main Content Markdown H6 (e.g., "Well-Being Alerts (within selected time range):") */
-        .main div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] div[data-testid="stMarkdownContainer"] h6 {{
-            font-size: 0.95rem !important; font-weight: 500 !important; line-height: 1.3 !important;
-            margin-top: 1rem !important; margin-bottom: 0.5rem !important; color: #B0B0B0 !important; text-align: left;
+            text-align: left !important; /* Ensure tab headers are left-aligned */
         }}
 
+        /* Main Content Section Subheaders (e.g., "Additional Operational Metrics") */
+        /* Targets H3 elements used by st.subheader within tabs */
+         div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] div[data-testid="stMarkdownContainer"] h3 {{ 
+            font-size: 1.3rem !important; /* Smaller than tab header */
+            font-weight: 500 !important; 
+            line-height: 1.4 !important; 
+            margin-top: 1.8rem !important; /* More space above these subheaders */
+            margin-bottom: 0.8rem !important; 
+            color: #C0C0C0 !important;
+            border-bottom: 1px solid #4A5568 !important; 
+            padding-bottom: 0.3rem !important;
+            text-align: left !important;
+        }}
+
+        /* For "Select Time Range for Plots:" using st.markdown("##### ...") */
+        div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] div[data-testid="stMarkdownContainer"] h5 {{
+            font-size: 1.0rem !important; 
+            font-weight: 600 !important; 
+            line-height: 1.3 !important;
+            margin: 1.5rem 0 0.5rem 0 !important; /* Ensure left margin is 0 or small for alignment */
+            color: #C8C8C8 !important; 
+            text-align: left !important; /* Left align this text */
+        }}
+        
+        /* For "Well-Being Alerts..." or plot titles if st.markdown("<h6>...") is used */
+        div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] div[data-testid="stMarkdownContainer"] h6 {{
+            font-size: 0.95rem !important; 
+            font-weight: 500 !important; 
+            line-height: 1.3 !important;
+            margin-top: 1rem !important; margin-bottom: 0.5rem !important; 
+            color: #B0B0B0 !important; text-align: left;
+        }}
 
         /* Sidebar Specific Headers */
         [data-testid="stSidebar"] h2 {{ 
@@ -233,45 +256,39 @@ st.markdown(f"""
             margin-bottom: 1.2rem !important; color: #A0A0A0 !important; 
             border-bottom: none !important; 
         }}
-        [data-testid="stSidebar"] div[data-testid="stExpander"] h5 {{ /* For "Schedule Shift Events" */
-            color: #E0E0E0 !important; text-align: left; font-size: 1.0rem !important; 
+        [data-testid="stSidebar"] div[data-testid="stExpander"] h5 {{
+            color: #D1D5DB !important; text-align: left; font-size: 0.95rem !important; 
             font-weight: 600 !important; margin-top: 0.8rem !important; margin-bottom: 0.4rem !important; 
         }}
-        [data-testid="stSidebar"] div[data-testid="stExpander"] h6 {{ /* For "Current Scheduled Events:" */
-            color: #D1D5DB !important; text-align: left; font-size: 0.9rem !important;
-            font-weight: 600 !important; margin-top: 1rem !important; margin-bottom: 0.3rem !important;
+        [data-testid="stSidebar"] div[data-testid="stExpander"] h6 {{
+            color: #C0C0C0 !important; text-align: left; font-size: 0.9rem !important;
+            font-weight: 500 !important; margin-top: 1rem !important; margin-bottom: 0.3rem !important;
         }}
-        /* Sidebar captions & general p tags not covered by h5/h6 in expander */
         [data-testid="stSidebar"] .stMarkdownContainer > p, 
         [data-testid="stSidebar"] .stCaption {{ 
-             color: #B0B0B0 !important; 
-             font-size: 0.85rem !important;
-             line-height: 1.3 !important;
-             margin-top: 0.2rem !important;
-             margin-bottom: 0.5rem !important;
+             color: #B0B0B0 !important; font-size: 0.85rem !important;
+             line-height: 1.3 !important; margin-top: 0.2rem !important; margin-bottom: 0.5rem !important;
         }}
-        /* Specifically for the "Add New Event:" prompt */
-        [data-testid="stSidebar"] div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] > div > div > div > p {{
+        [data-testid="stSidebar"] div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] > div > div > div > p {{ /* "Add New Event:" */
             color: #D1D5DB !important; font-weight: 500 !important;
             font-size:0.9rem !important; margin-bottom:2px !important;
         }}
 
+        /* ... (Rest of CSS: Buttons, Sidebar Widgets, Metrics, Expanders, Tabs general styling etc. remains same as previous chunk 1) ... */
         .stButton>button {{ background-color: {COLOR_ACCENT_INDIGO}; color: #FFFFFF; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.95rem; font-weight: 500; transition: all 0.2s ease-in-out; border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
         .stButton>button:hover, .stButton>button:focus {{ background-color: #6366F1; transform: translateY(-1px); box-shadow: 0 3px 7px rgba(0,0,0,0.2); outline: none; }}
         .stButton>button:disabled {{ background-color: #374151; color: #9CA3AF; cursor: not-allowed; box-shadow: none; }}
-        
-        /* Sidebar Widget Labels */
-        [data-testid="stSidebar"] div[data-testid*="stWidgetLabel"] label p,
-        [data-testid="stSidebar"] label[data-baseweb="checkbox"] span,
-        [data-testid="stSidebar"] .stSelectbox > label {{
+        [data-testid="stSidebar"] .stSlider label,
+        [data-testid="stSidebar"] .stNumberInput label, /* This targets the actual label if Streamlit renders one */
+        [data-testid="stSidebar"] .stSelectbox label, /* This targets the actual label if Streamlit renders one */
+        [data-testid="stSidebar"] .stMultiSelect label,
+        [data-testid="stSidebar"] .stCheckbox label {{
             color: #E0E0E0 !important; 
             font-weight: 600 !important;
             font-size: 0.92rem !important; 
             padding-bottom: 3px !important; 
             display: block !important; 
         }}
-
-        /* Sidebar Widget INPUT FIELDS */
         [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"], 
         [data-testid="stSidebar"] .stNumberInput div input, 
         [data-testid="stSidebar"] .stMultiSelect div[data-baseweb="select"] {{ 
@@ -284,23 +301,13 @@ st.markdown(f"""
             background-color: #374151 !important; color: #EAEAEA !important; border: 1px solid #4A5568 !important;
         }}
         [data-testid="stSidebar"] .stNumberInput button:hover {{ background-color: #4A5568 !important; }}
-
         [data-testid="stSidebar"] {{ background-color: #1F2937; color: #EAEAEA; padding: 1.5rem; border-right: 1px solid #374151; font-size: 0.95rem; }}
         [data-testid="stSidebar"] .stButton>button {{ background-color: {COLOR_POSITIVE_GREEN}; width: 100%; margin-bottom: 0.5rem; }}
         [data-testid="stSidebar"] .stButton>button:hover, [data-testid="stSidebar"] .stButton>button:focus {{ background-color: #6EE7B7; }}
-        
-        /* Main content st.metric styling */
         .stMetric {{ background-color: #1F2937; border-radius: 8px; padding: 1rem 1.25rem; margin: 0.5rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid #374151; display: flex; flex-direction: column; align-items: flex-start;}}
-        .stMetric > div[data-testid="stMetricLabel"] {{ 
-            font-size: 1.0rem !important; color: #B0B0B0 !important; font-weight: 600 !important; margin-bottom: 0.3rem !important;
-        }}
-        .stMetric div[data-testid="stMetricValue"] {{ 
-            font-size: 2.2rem !important; color: #FFFFFF !important; font-weight: 700 !important; line-height: 1.1 !important;
-        }} 
-        .stMetric div[data-testid="stMetricDelta"] {{ 
-            font-size: 0.9rem !important; font-weight: 500 !important; padding-top: 0.1rem !important;
-        }} 
-
+        .stMetric > div[data-testid="stMetricLabel"] {{ font-size: 1.0rem !important; color: #B0B0B0 !important; font-weight: 600 !important; margin-bottom: 0.3rem !important;}}
+        .stMetric div[data-testid="stMetricValue"] {{ font-size: 2.2rem !important; color: #FFFFFF !important; font-weight: 700 !important; line-height: 1.1 !important;}} 
+        .stMetric div[data-testid="stMetricDelta"] {{ font-size: 0.9rem !important;  font-weight: 500 !important; padding-top: 0.1rem !important;}} 
         .stExpander {{ background-color: #1F2937; border-radius: 8px; margin: 1rem 0; border: 1px solid #374151; }}
         .stExpander header {{ font-size: 1rem; font-weight: 500; color: #E0E0E0; padding: 0.5rem 1rem; }}
         .stTabs [data-baseweb="tab-list"] {{ background-color: #1F2937; border-radius: 8px; padding: 0.5rem; display: flex; justify-content: center; gap: 0.5rem; border-bottom: 2px solid #374151;}}
@@ -313,7 +320,7 @@ st.markdown(f"""
         .stDataFrame thead th {{ background-color: #293344; color: #EAEAEA; font-weight: 600; }}
         .stDataFrame tbody tr:nth-child(even) {{ background-color: #222C3D; }}
         .stDataFrame tbody tr:hover {{ background-color: #374151; }}
-        @media (max-width: 768px) {{ .main {{ padding: 1rem; }} h1 {{ font-size: 1.8rem; }} .main h2 {{ font-size: 1.4rem !important; }} .main h3 {{ font-size: 1.1rem !important; }} .stPlotlyChart {{ min-height: 300px !important; }} .stTabs [data-baseweb="tab"] {{ padding: 0.5rem 0.8rem; font-size: 0.85rem; }} }}
+        @media (max-width: 768px) {{ .main {{ padding: 1rem; }} h1 {{ font-size: 1.8rem; }} .main div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] div[data-testid="stMarkdownContainer"] h2 {{ font-size: 1.4rem !important; }} .main div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] .stSubheader {{ font-size: 1.1rem !important; }} .stPlotlyChart {{ min-height: 300px !important; }} .stTabs [data-baseweb="tab"] {{ padding: 0.5rem 0.8rem; font-size: 0.85rem; }} }}
         .spinner {{ display: flex; justify-content: center; align-items: center; height: 100px; }}
         .spinner::after {{ content: ''; width: 40px; height: 40px; border: 4px solid #4A5568; border-top: 4px solid {COLOR_ACCENT_INDIGO}; border-radius: 50%; animation: spin 0.8s linear infinite; }}
         @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
@@ -321,12 +328,10 @@ st.markdown(f"""
         .onboarding-modal h3 {{ color: #EAEAEA; margin-bottom: 1rem; text-align: center; }}
         .onboarding-modal p, .onboarding-modal ul {{ color: #D1D5DB; line-height: 1.6; margin-bottom: 1rem; font-size: 0.9rem; }}
         .onboarding-modal ul {{ list-style-position: inside; padding-left: 0.5rem; }}
-        
         .alert-critical {{ border-left: 5px solid {COLOR_CRITICAL_RED}; background-color: rgba(229, 62, 62, 0.1); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }} 
         .alert-warning {{ border-left: 5px solid {COLOR_WARNING_AMBER}; background-color: rgba(245, 158, 11, 0.1); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }}
         .alert-positive {{ border-left: 5px solid {COLOR_POSITIVE_GREEN}; background-color: rgba(16, 185, 129, 0.1); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }}
         .alert-info {{ border-left: 5px solid {COLOR_INFO_BLUE}; background-color: rgba(59, 130, 246, 0.1); padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }}
-        
         .insight-title {{ font-weight: 600; color: #EAEAEA; margin-bottom: 0.25rem;}}
         .insight-text {{ font-size: 0.9rem; color: #D1D5DB;}}
         .event-item {{padding: 0.3rem 0.5rem; margin-bottom: 0.3rem; background-color: #2a3447; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;}}
@@ -334,15 +339,12 @@ st.markdown(f"""
         .remove-event-btn button {{background-color: #E53E3E !important; color: white !important; padding: 0.1rem 0.4rem !important; font-size: 0.75rem !important; line-height: 1 !important; border-radius: 3px !important; min-height: auto !important; margin-left: 0.5rem !important;}}
     </style>
 """, unsafe_allow_html=True)
-
+# --- END OF CHUNK 1 of 5 (CSS and UTILITY FUNCTIONS) ---
 # --- render_settings_sidebar ---
-# (This function is complete in CHUNK 1, copied to the next chunk for continuity if needed by the model)
-# --- END OF CHUNK 1 of 5 ---
-# --- render_settings_sidebar (Continued) ---
 def render_settings_sidebar():
     with st.sidebar:
-        st.markdown("<h3 style='text-align: center; margin-bottom: 1.5rem; color: #A0A0A0;'>Workplace Optimizer</h3>", unsafe_allow_html=True) # Styled H3
-        st.markdown("## ⚙️ Simulation Controls") # Styled H2
+        st.markdown("<h3 style='text-align: center; margin-bottom: 1.5rem; color: #A0A0A0;'>Workplace Optimizer</h3>", unsafe_allow_html=True)
+        st.markdown("## ⚙️ Simulation Controls")
         with st.expander("🧪 Simulation Parameters", expanded=True):
             if 'sb_team_size_num' not in st.session_state:
                 st.session_state.sb_team_size_num = DEFAULT_CONFIG['TEAM_SIZE']
@@ -378,8 +380,8 @@ def render_settings_sidebar():
             event_types = ["Major Disruption", "Minor Disruption", "Scheduled Break", "Short Pause", "Team Meeting", "Maintenance", "Custom Event"]
             
             with st.container():
-                st.markdown("<p style='font-size:0.9rem; margin-bottom:0.1rem; color: #D1D5DB !important; font-weight:500 !important;'>Add New Event:</p>", unsafe_allow_html=True)
-                new_event_type = st.selectbox("Event Type", event_types, key="sb_new_event_type_select_widget", index=0, label_visibility="visible") # Explicit label now styled by CSS
+                # Use the label parameter of st.selectbox which will be styled by CSS
+                new_event_type = st.selectbox("Event Type", event_types, key="sb_new_event_type_select_widget", index=0) 
                 
                 col_time1, col_time2 = st.columns(2)
                 with col_time1:
@@ -489,8 +491,8 @@ def render_settings_sidebar():
             st.session_state.sb_high_contrast_checkbox, st.session_state.sb_use_3d_distribution_checkbox,
             st.session_state.sb_debug_mode_checkbox)
 
-# --- run_simulation_logic ---
-# @st.cache_data(ttl=3600, show_spinner="⚙️ Running simulation model...") # Caching is OFF for math NameError debugging
+# --- run_simulation_logic (Caching commented out for debugging `math` NameError) ---
+# @st.cache_data(ttl=3600, show_spinner="⚙️ Running simulation model...") 
 def run_simulation_logic(team_size, shift_duration_minutes, scheduled_events_list_of_dicts, team_initiative_selected):
     config = DEFAULT_CONFIG.copy()
     config['TEAM_SIZE'] = team_size
@@ -500,34 +502,45 @@ def run_simulation_logic(team_size, shift_duration_minutes, scheduled_events_lis
     config['SCHEDULED_EVENTS'] = scheduled_events_list_of_dicts 
     logger.info(f"run_simulation_logic: SCHEDULED_EVENTS received: {scheduled_events_list_of_dicts}", extra={'user_action': 'Process Scheduled Events'})
 
+    # Worker distribution logic
     if 'WORK_AREAS' in config and isinstance(config['WORK_AREAS'], dict) and config['WORK_AREAS']:
         total_workers_in_config_zones = sum(zone.get('workers', 0) for zone in config['WORK_AREAS'].values())
         if total_workers_in_config_zones != team_size and team_size > 0:
             logger.info(f"Adjusting worker distribution in config based on team size {team_size}. Configured sum was {total_workers_in_config_zones}.", extra={'user_action': 'Adjust Worker Distribution'})
-            if total_workers_in_config_zones > 0:
+            if total_workers_in_config_zones > 0: # Proportional distribution
                 ratio = team_size / total_workers_in_config_zones
                 accumulated_workers = 0
                 sorted_zone_keys = sorted(list(config['WORK_AREAS'].keys()))
-                assigned_counts = {key: 0 for key in sorted_zone_keys} 
-                for zone_key in sorted_zone_keys[:-1]: 
+                assigned_counts = {key: 0 for key in sorted_zone_keys}
+
+                for zone_key in sorted_zone_keys[:-1]: # Assign to all but last initially
                     workers_prop = config['WORK_AREAS'][zone_key].get('workers', 0) * ratio
                     assigned_val = int(round(workers_prop)) 
                     config['WORK_AREAS'][zone_key]['workers'] = assigned_val
                     accumulated_workers += assigned_val
+                
                 if sorted_zone_keys: 
                     last_zone_key = sorted_zone_keys[-1]
                     remaining_workers_to_assign = team_size - accumulated_workers
                     config['WORK_AREAS'][last_zone_key]['workers'] = remaining_workers_to_assign
                     if config['WORK_AREAS'][last_zone_key]['workers'] < 0:
-                        logger.warning(f"Negative workers assigned to {last_zone_key}. Review distribution logic.", extra={'user_action': 'Worker Distribution Warning'})
-            else: 
+                        logger.warning(f"Negative workers assigned to {last_zone_key} after redistribution. Capping at 0. Deficit: {config['WORK_AREAS'][last_zone_key]['workers']}", extra={'user_action': 'Worker Distribution Warning'})
+                        # Simple cap at 0; a more complex redistribution of the deficit could be added if needed.
+                        config['WORK_AREAS'][last_zone_key]['workers'] = 0
+                        # Recalculate accumulated to see if we need to adjust others slightly
+                        current_total_after_cap = sum(z.get('workers',0) for z in config['WORK_AREAS'].values())
+                        if current_total_after_cap < team_size and sorted_zone_keys[0] != last_zone_key : # Add deficit to first zone if possible
+                             config['WORK_AREAS'][sorted_zone_keys[0]]['workers'] += (team_size - current_total_after_cap)
+
+
+            else: # If no workers initially configured in zones, distribute as evenly as possible
                 num_zones = len(config['WORK_AREAS'])
                 if num_zones > 0:
                     workers_per_zone = team_size // num_zones
                     remainder_workers = team_size % num_zones
                     for i, zone_key in enumerate(config['WORK_AREAS'].keys()):
                         config['WORK_AREAS'][zone_key]['workers'] = workers_per_zone + (1 if i < remainder_workers else 0)
-        elif team_size == 0: 
+        elif team_size == 0: # If team size is 0, set all zone workers to 0
              for zone_key in config['WORK_AREAS']: config['WORK_AREAS'][zone_key]['workers'] = 0
     
     validate_config(config) 
