@@ -23,13 +23,10 @@ COLOR_CRITICAL_RED_LIGHT_THEME = "#D62728"
 COLOR_WARNING_AMBER_LIGHT_THEME = "#FF7F0E" 
 COLOR_POSITIVE_GREEN_LIGHT_THEME = "#2CA02C" 
 COLOR_INFO_BLUE_LIGHT_THEME = "#1F77B4"     
-COLOR_NEUTRAL_GRAY_LIGHT_THEME = "#7F7F7F"  
+COLOR_NEUTRAL_GRAY_LIGHT_THEME = "#7F7F7F"  # <--- THIS WILL BE USED FOR GAUGE BORDER
 COLOR_ACCENT_PURPLE_LIGHT_THEME = "#9467BD"
 
-# Use Plotly's default "plotly" palette for light theme categorical, it's generally good.
-# Or define a custom one like Okabe-Ito if needed.
-# ACCESSIBLE_CATEGORICAL_PALETTE = px.colors.qualitative.Plotly
-ACCESSIBLE_CATEGORICAL_PALETTE = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52'] # Plotly default
+ACCESSIBLE_CATEGORICAL_PALETTE = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52']
 HIGH_CONTRAST_CATEGORICAL_PALETTE_LIGHT_BG = ['#000000', '#004949', '#b66dff', '#007959', '#990000', '#590000', '#003366', '#492500']
 
 ACCESSIBLE_SEQUENTIAL_PLOTLY_SCALES_LIGHT = ["Blues", "Greens", "Oranges", "Reds", "Purples", "Greys", "Viridis", "Cividis"]
@@ -38,69 +35,23 @@ HIGH_CONTRAST_SEQUENTIAL_PLOTLY_SCALES_LIGHT = ["OrRd", "PuBuGn", "YlGnBu", "Inf
 PLOTLY_TEMPLATE_LIGHT = "plotly_white" 
 EPSILON = 1e-9
 
+# ... (_apply_common_layout_settings, _get_no_data_figure, _get_no_data_pie_figure remain the same) ...
 def _apply_common_layout_settings(fig, title_text, high_contrast=False,
                                  yaxis_title=None, xaxis_title="Time Step (Interval)",
                                  yaxis_range=None, show_legend=True):
-    font_main_color = COLOR_PRIMARY_TEXT_DARK # For light theme
+    font_main_color = COLOR_PRIMARY_TEXT_DARK 
     grid_c = COLOR_GRID_LIGHT_THEME 
     axis_line_c = COLOR_AXIS_LINE_LIGHT_THEME
     legend_bg = "rgba(255,255,255,0.85)" 
     legend_border_c = COLOR_NEUTRAL_GRAY_LIGHT_THEME
-
-    fig.update_layout(
-        template=PLOTLY_TEMPLATE_LIGHT,
-        title=dict(text=title_text, x=0.5, font=dict(size=16, color=font_main_color)),
-        paper_bgcolor=COLOR_PAPER_BG_LIGHT, 
-        plot_bgcolor=COLOR_PLOT_BG_LIGHT,   
-        font=dict(color=font_main_color, size=11),
-        legend=dict(
-            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-            bgcolor=legend_bg, bordercolor=legend_border_c, borderwidth=1,
-            font_size=10, traceorder="normal", font=dict(color=font_main_color)
-        ) if show_legend else None,
-        margin=dict(l=65, r=40, t=70, b=60),
-        xaxis=dict(
-            title=xaxis_title, gridcolor=grid_c, zerolinecolor=grid_c, zerolinewidth=1,
-            showline=True, linewidth=1.5, linecolor=axis_line_c,
-            rangemode='tozero' if xaxis_title and ("Time" in xaxis_title or "Step" in xaxis_title) else 'normal',
-            titlefont=dict(size=13, color=font_main_color),
-            tickfont=dict(size=11, color=font_main_color)
-        ),
-        yaxis=dict(
-            title=yaxis_title, gridcolor=grid_c, zerolinecolor=grid_c, zerolinewidth=1,
-            showline=True, linewidth=1.5, linecolor=axis_line_c,
-            range=yaxis_range,
-            titlefont=dict(size=13, color=font_main_color),
-            tickfont=dict(size=11, color=font_main_color)
-        ),
-        hovermode="x unified",
-        dragmode='pan'
-    )
-    fig.update_traces(hoverlabel=dict(bgcolor="rgba(240,240,240,0.9)", 
-                                     font_size=12,
-                                     font_color=COLOR_PRIMARY_TEXT_DARK, 
-                                     bordercolor=COLOR_NEUTRAL_GRAY_LIGHT_THEME))
+    fig.update_layout(template=PLOTLY_TEMPLATE_LIGHT, title=dict(text=title_text, x=0.5, font=dict(size=16, color=font_main_color)), paper_bgcolor=COLOR_PAPER_BG_LIGHT, plot_bgcolor=COLOR_PLOT_BG_LIGHT, font=dict(color=font_main_color, size=11), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor=legend_bg, bordercolor=legend_border_c, borderwidth=1, font_size=10, traceorder="normal", font=dict(color=font_main_color)) if show_legend else None, margin=dict(l=65, r=40, t=70, b=60), xaxis=dict(title=xaxis_title, gridcolor=grid_c, zerolinecolor=grid_c, zerolinewidth=1, showline=True, linewidth=1.5, linecolor=axis_line_c, rangemode='tozero' if xaxis_title and ("Time" in xaxis_title or "Step" in xaxis_title) else 'normal', titlefont=dict(size=13, color=font_main_color), tickfont=dict(size=11, color=font_main_color)), yaxis=dict(title=yaxis_title, gridcolor=grid_c, zerolinecolor=grid_c, zerolinewidth=1, showline=True, linewidth=1.5, linecolor=axis_line_c, range=yaxis_range, titlefont=dict(size=13, color=font_main_color), tickfont=dict(size=11, color=font_main_color)), hovermode="x unified", dragmode='pan')
+    fig.update_traces(hoverlabel=dict(bgcolor="rgba(240,240,240,0.9)", font_size=12, font_color=COLOR_PRIMARY_TEXT_DARK, bordercolor=COLOR_NEUTRAL_GRAY_LIGHT_THEME))
 
 def _get_no_data_figure(title_text, high_contrast=False):
-    fig = go.Figure()
-    _apply_common_layout_settings(fig, title_text, high_contrast, show_legend=False,
-                                 xaxis_title="", yaxis_title="")
-    fig.update_xaxes(showticklabels=False, zeroline=False, showgrid=False, showline=False)
-    fig.update_yaxes(showticklabels=False, zeroline=False, showgrid=False, showline=False)
-    fig.add_annotation(text="No data available for this visualization.",
-                       showarrow=False, font=dict(size=14, color=COLOR_PRIMARY_TEXT_DARK))
-    return fig
-
+    fig = go.Figure(); _apply_common_layout_settings(fig, title_text, high_contrast, show_legend=False, xaxis_title="", yaxis_title=""); fig.update_xaxes(showticklabels=False, zeroline=False, showgrid=False, showline=False); fig.update_yaxes(showticklabels=False, zeroline=False, showgrid=False, showline=False); fig.add_annotation(text="No data available for this visualization.", showarrow=False, font=dict(size=14, color=COLOR_PRIMARY_TEXT_DARK)); return fig
 def _get_no_data_pie_figure(title_text, high_contrast=False):
-    fig = go.Figure()
-    _apply_common_layout_settings(fig, title_text, high_contrast, show_legend=False,
-                                  xaxis_title="", yaxis_title="")
-    fig.update_xaxes(showticklabels=False, zeroline=False, showgrid=False, showline=False)
-    fig.update_yaxes(showticklabels=False, zeroline=False, showgrid=False, showline=False)
-    fig.add_annotation(text="No data available.",
-                       showarrow=False, xref="paper", yref="paper",
-                       x=0.5, y=0.5, font=dict(size=14, color=COLOR_PRIMARY_TEXT_DARK))
-    return fig
+    fig = go.Figure(); _apply_common_layout_settings(fig, title_text, high_contrast, show_legend=False, xaxis_title="", yaxis_title=""); fig.update_xaxes(showticklabels=False, zeroline=False, showgrid=False, showline=False); fig.update_yaxes(showticklabels=False, zeroline=False, showgrid=False, showline=False); fig.add_annotation(text="No data available.", showarrow=False, xref="paper", yref="paper", x=0.5, y=0.5, font=dict(size=14, color=COLOR_PRIMARY_TEXT_DARK)); return fig
+
 
 def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: float, downtime: float,
                              target_compliance: float, target_proximity: float, target_wellbeing: float, target_downtime: float,
@@ -112,7 +63,8 @@ def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: flo
     figs = []
     font_color_gauge = COLOR_PRIMARY_TEXT_DARK
     gauge_base_bgcolor = "rgba(220, 220, 220, 0.7)" if not high_contrast else "rgba(200,200,200,0.8)"
-    gauge_border_color = COLOR_BORDER_DARKER_LIGHT if not high_contrast else COLOR_NEUTRAL_GRAY_LIGHT_THEME
+    # CORRECTED: Use a constant defined within visualizations.py
+    gauge_border_color = COLOR_NEUTRAL_GRAY_LIGHT_THEME 
 
     metrics_config = [
         ("Task Compliance", compliance, target_compliance, accent_color, "%", False),
@@ -124,9 +76,9 @@ def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: flo
     for title, raw_value, raw_target, bar_color_val_gauge, suffix, lower_is_better in metrics_config:
         fig = go.Figure(); value = 0.0; target = 0.0
         try: value = float(raw_value) if pd.notna(raw_value) else 0.0
-        except (ValueError, TypeError): value = 0.0
+        except (ValueError, TypeError): value = 0.0; logger.warning(f"Gauge '{title}': Invalid value '{raw_value}'")
         try: target = float(raw_target) if pd.notna(raw_target) else 0.0
-        except (ValueError, TypeError): target = 0.0
+        except (ValueError, TypeError): target = 0.0; logger.warning(f"Gauge '{title}': Invalid target '{raw_target}'")
         
         increasing_color_gauge = color_positive if not lower_is_better else color_negative
         decreasing_color_gauge = color_negative if not lower_is_better else color_positive
@@ -167,6 +119,17 @@ def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: flo
         fig.update_layout(height=200, margin=dict(l=15,r=15,t=40,b=15), paper_bgcolor=COLOR_PAPER_BG_LIGHT, plot_bgcolor=COLOR_PLOT_BG_LIGHT, font=dict(color=font_color_gauge))
         figs.append(fig)
     return figs
+
+# ... (Rest of your visualization functions: plot_task_compliance_score, etc.)
+# Ensure they use the _LIGHT_THEME color constants defined at the top of this file.
+# For example, in plot_task_compliance_score:
+# line=dict(color=cat_palette[0 % len(cat_palette)], width=2.5),
+# marker=dict(size=6, symbol="circle", line=dict(width=1, color=COLOR_PAPER_BG_LIGHT if high_contrast else cat_palette[0 % len(cat_palette)]))
+# and for disruption vlines:
+# line=dict(color=COLOR_WARNING_AMBER_LIGHT_THEME, ...)
+# annotation=dict(font_color=COLOR_WARNING_AMBER_LIGHT_THEME, ...)
+
+# --- Ensure ALL plot functions below use the _LIGHT_THEME constants ---
 
 def plot_task_compliance_score(data, disruption_points=None, forecast_data=None, z_scores=None, high_contrast=False):
     if not isinstance(data, (list, np.ndarray, pd.Series)) or not any(pd.notna(x) for x in data):
@@ -238,12 +201,14 @@ def plot_operational_recovery(recovery_data, productivity_loss_data, disruption_
                 fig.add_vline(x=dp_step, line=dict(color=COLOR_WARNING_AMBER_LIGHT_THEME, width=1.5, dash="longdash"),
                               annotation_text="▼", annotation_position="top",
                               annotation=dict(font_size=12, font_color=COLOR_WARNING_AMBER_LIGHT_THEME, showarrow=False, yshift=10))
-    _apply_common_layout_settings(fig, "Operational Resilience: Recovery vs. Loss", high_contrast, yaxis_title="Percentage (%)", yaxis_range=[0, 105])
+    _apply_common_layout_settings(fig, "Operational Resilience: Recovery vs. Loss", high_contrast,
+                                 yaxis_title="Percentage (%)", yaxis_range=[0, 105])
     return fig
 
 def plot_operational_efficiency(efficiency_df, selected_metrics, disruption_points=None, high_contrast=False):
     if not isinstance(efficiency_df, pd.DataFrame) or efficiency_df.empty:
         return _get_no_data_figure("Operational Efficiency (OEE)", high_contrast)
+    
     cat_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE_LIGHT_BG if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
     fig = go.Figure()
     metric_styles = {'uptime': {'color_idx': 0, 'dash': 'solid', 'width': 2.0}, 'throughput': {'color_idx': 1, 'dash': 'solid', 'width': 2.0}, 'quality': {'color_idx': 2, 'dash': 'solid', 'width': 2.0}, 'oee': {'color_idx': 3, 'dash': 'solid', 'width': 3.0}}
@@ -298,7 +263,7 @@ def plot_worker_distribution(team_positions_df, facility_size, facility_config, 
         for point in entry_exit_cfg:
             if isinstance(point, dict) and 'coords' in point and isinstance(point['coords'], tuple) and len(point['coords']) == 2:
                 px_ee, py_ee = point['coords']
-                shapes.append(go.layout.Shape(type="circle", x0=px_ee-1.5, y0=py_ee-1.5, x1=px_ee+1.5, y1=py_ee+1.5, fillcolor=ee_point_color, line_color=COLOR_PRIMARY_TEXT_DARK, line_width=1, opacity=0.9, layer="above")) # Dark line for contrast
+                shapes.append(go.layout.Shape(type="circle", x0=px_ee-1.5, y0=py_ee-1.5, x1=px_ee+1.5, y1=py_ee+1.5, fillcolor=ee_point_color, line_color=COLOR_PRIMARY_TEXT_DARK, line_width=1, opacity=0.9, layer="above"))
                 annotations.append(dict(x=px_ee, y=py_ee+4, text=point.get('name','EE')[:2].upper(), showarrow=False, font=dict(size=9, color=font_c), borderpad=2, bgcolor="rgba(200,200,200,0.3)" if not high_contrast else "rgba(100,100,100,0.5)"))
     if show_prod_lines and work_areas_cfg:
          for area_name, area_details in work_areas_cfg.items():
@@ -322,7 +287,9 @@ def plot_worker_density_heatmap(team_positions_df, facility_size, facility_confi
     heatmap_colorscale = HIGH_CONTRAST_SEQUENTIAL_PLOTLY_SCALES_LIGHT[0] if high_contrast else ACCESSIBLE_SEQUENTIAL_PLOTLY_SCALES_LIGHT[0]
     fig = go.Figure(go.Histogram2dContour(x=team_positions_df['x'], y=team_positions_df['y'], colorscale=heatmap_colorscale, reversescale=False, showscale=True, line=dict(width=0), contours=dict(coloring='heatmap', showlabels=False), xbins=dict(start=-facility_width*0.05, end=facility_width*1.05, size=facility_width/max(1,int(facility_width/15))), ybins=dict(start=-facility_height*0.05, end=facility_height*1.05, size=facility_height/max(1,int(facility_height/12))), colorbar=dict(title='Density', thickness=15, len=0.75, y=0.5, tickfont_size=10, x=1.05, bgcolor="rgba(255,255,255,0.1)", bordercolor=COLOR_NEUTRAL_GRAY_LIGHT_THEME, titlefont_color=COLOR_PRIMARY_TEXT_DARK, tickfont_color=COLOR_PRIMARY_TEXT_DARK)))
     shapes = [go.layout.Shape(type="rect", x0=0, y0=0, x1=facility_width, y1=facility_height, line=dict(color=COLOR_NEUTRAL_GRAY_LIGHT_THEME, width=1.5), layer="below")]
-    ee_point_color = COLOR_INFO_BLUE_LIGHT_THEME; work_area_outline_color = ACCESSIBLE_CATEGORICAL_PALETTE[5 % len(ACCESSIBLE_CATEGORICAL_PALETTE)]
+    ee_point_color = COLOR_INFO_BLUE_LIGHT_THEME; 
+    # Use a color from ACCESSIBLE_CATEGORICAL_PALETTE for work area outlines
+    work_area_outline_color = ACCESSIBLE_CATEGORICAL_PALETTE[5 % len(ACCESSIBLE_CATEGORICAL_PALETTE)] 
     if show_entry_exit and entry_exit_cfg:
         for point in entry_exit_cfg:
             if isinstance(point, dict) and 'coords' in point and isinstance(point['coords'], tuple) and len(point['coords']) == 2:
@@ -427,7 +394,7 @@ def plot_downtime_causes_pie(downtime_events_list_for_pie, high_contrast=False):
     for event in downtime_events_list_for_pie:
         if not isinstance(event, dict): continue
         duration = event.get('duration', 0.0); cause = str(event.get('cause', 'Unknown')).strip()
-        if not isinstance(duration, (int, float)) or duration <= 1e-6: continue # Use EPSILON for float comparison
+        if not isinstance(duration, (int, float)) or duration <= 1e-6: continue
         if cause == "None" or cause == "Unknown" or not cause : cause = "Other/Unspecified"
         if "Equip" in cause and "Fail" in cause: cause = "Equipment Failure"
         elif "Human" in cause and "Error" in cause: cause = "Human Error"
