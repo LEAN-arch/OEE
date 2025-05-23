@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from config import DEFAULT_CONFIG, validate_config
-from visualizations import ( # Assuming visualizations.py is already updated for light theme
+from visualizations import (
     plot_key_metrics_summary, plot_task_compliance_score, plot_collaboration_proximity_index,
     plot_operational_recovery, plot_operational_efficiency, plot_worker_distribution,
     plot_worker_density_heatmap, plot_worker_wellbeing, plot_psychological_safety,
@@ -22,45 +22,62 @@ if not logger.handlers:
                         filemode='a')
 logger.info("Main.py: Startup. Light theme adjustments.", extra={'user_action': 'System Startup'})
 
-st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.7\nInsights for operational excellence & psychosocial well-being."})
+st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.8\nInsights for operational excellence & psychosocial well-being."})
 
 # --- Light Theme Color Constants for CSS ---
 # Base Backgrounds
-COLOR_PAGE_BACKGROUND_LIGHT = "#F0F2F6" # Main page background
-COLOR_SIDEBAR_BACKGROUND_LIGHT = "#EAEBED" # Sidebar background
-COLOR_CONTENT_BACKGROUND_LIGHT = "#FFFFFF" # Background for plots, metrics, expanders, tabs if distinct
+COLOR_PAGE_BACKGROUND_LIGHT = "#F0F2F6"
+COLOR_SIDEBAR_BACKGROUND_LIGHT = "#EAEBED"
+COLOR_CONTENT_BACKGROUND_LIGHT = "#FFFFFF" # For plots, metrics, expanders if they need distinct bg
 
 # Text Colors
-COLOR_PRIMARY_TEXT_DARK = "#262730" # For main text, headings
-COLOR_SECONDARY_TEXT_DARK = "#5E6474" # For sub-text, captions
-COLOR_ACCENT_TEXT_DARK = "#0052CC" # A darker blue for accents, links
+COLOR_PRIMARY_TEXT_DARK = "#262730"
+COLOR_SECONDARY_TEXT_DARK = "#5E6474"
+COLOR_ACCENT_TEXT_DARK = "#0052CC" # A darker blue for accents
 
-# Semantic Colors (ensure good contrast with white text if used as background for alerts)
-# These are primarily for alert borders or light backgrounds, not text itself.
-# Text on these backgrounds should be dark.
-COLOR_CRITICAL_RED_BG = "#FADBD8" # Light red background for critical alert
-COLOR_WARNING_AMBER_BG = "#FEF3C7" # Light amber background for warning alert
-COLOR_POSITIVE_GREEN_BG = "#D1FAE5" # Light green background for positive alert
-COLOR_INFO_BLUE_BG = "#D6EAF8"     # Light blue background for info alert
+# Semantic Colors (for borders or very light backgrounds of alerts)
+# Text on these backgrounds should be COLOR_PRIMARY_TEXT_DARK
+COLOR_CRITICAL_RED_BORDER = "#D62728" # From visualizations.py
+COLOR_WARNING_AMBER_BORDER = "#FF7F0E"
+COLOR_POSITIVE_GREEN_BORDER = "#2CA02C"
+COLOR_INFO_BLUE_BORDER = "#1F77B4"
+
+# Backgrounds for Alerts (light shades)
+COLOR_CRITICAL_RED_BG_LIGHT = "rgba(214, 39, 40, 0.1)" # Lighter version of border color
+COLOR_WARNING_AMBER_BG_LIGHT = "rgba(255, 127, 14, 0.1)"
+COLOR_POSITIVE_GREEN_BG_LIGHT = "rgba(44, 160, 44, 0.1)"
+COLOR_INFO_BLUE_BG_LIGHT = "rgba(31, 119, 180, 0.1)"
 
 # Border / Separator Colors
-COLOR_BORDER_SUBTLE_LIGHT = "#D1D5DB" # For subtle borders around elements
-COLOR_BORDER_DARKER_LIGHT = "#A0AEC0"  # For more prominent borders or dividers
+COLOR_BORDER_SUBTLE_LIGHT = "#D1D5DB"
+COLOR_BORDER_DARKER_LIGHT = "#A0AEC0"
 
-# Specific Accent (can be used for buttons or highlights if they contrast well with their own text)
-COLOR_ACCENT_BUTTON_LIGHT_THEME = "#0063BF" # A good contrast blue for buttons
+# Accent Color for UI elements like active tab underline, some buttons
+COLOR_ACCENT_UI_LIGHT_THEME = "#0063BF" # A good contrast blue (was COLOR_ACCENT_INDIGO_CSS)
+
+# Specific Button Colors
+COLOR_BUTTON_PRIMARY_BG_LIGHT = COLOR_ACCENT_UI_LIGHT_THEME
+COLOR_BUTTON_PRIMARY_HOVER_BG_LIGHT = "#0052A3" # Darker shade of accent
+COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT = COLOR_POSITIVE_GREEN_BORDER # Green for sidebar primary actions
+COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT = "#228B22" # Darker Green
+COLOR_BUTTON_SECONDARY_BG_LIGHT = "#E0E0E0"
+COLOR_BUTTON_SECONDARY_HOVER_BG_LIGHT = "#BDBDBD"
+COLOR_BUTTON_REMOVE_BG_LIGHT = COLOR_CRITICAL_RED_BORDER
 
 # Themed color for Streamlit dividers (st.header, st.subheader)
-THEMED_DIVIDER_COLOR_LIGHT = "gray" # "gray" or "blue" often work well on light themes
+THEMED_DIVIDER_COLOR_LIGHT = "gray"
 
 
 def safe_get(data_dict, path_str, default_val=None):
+    # ... (safe_get function as provided previously) ...
     current = data_dict
     is_list_like_path = False
     if isinstance(path_str, str):
         is_list_like_path = path_str.endswith(('.data', '.scores', '.triggers', '_log', 'events_list'))
+    
     if default_val is None: default_return = [] if is_list_like_path else None
     else: default_return = default_val
+
     if not isinstance(path_str, str): return default_return
     if not isinstance(data_dict, dict):
         if path_str: logger.debug(f"safe_get: data_dict not dict for path '{path_str}'. Type: {type(data_dict)}.")
@@ -82,6 +99,7 @@ def safe_get(data_dict, path_str, default_val=None):
         return default_return
 
 def safe_stat(data_list, stat_func, default_val=0.0):
+    # ... (safe_stat function as provided previously) ...
     if not isinstance(data_list, (list, np.ndarray, pd.Series)): return default_val
     if isinstance(data_list, pd.Series):
         valid_data = pd.to_numeric(data_list, errors='coerce').dropna().tolist()
@@ -97,14 +115,20 @@ def safe_stat(data_list, stat_func, default_val=0.0):
         return default_val if isinstance(result, (float, np.floating)) and np.isnan(result) else result
     except Exception: return default_val
 
+
 def _get_config_value_main(primary_conf, secondary_conf, key, default):
+    # ... (_get_config_value_main function as provided previously) ...
     return secondary_conf.get(key, primary_conf.get(key, default))
 
+
 def get_actionable_insights(sim_data, current_config_dict_main):
+    # ... (get_actionable_insights function as provided previously, ensure it uses the new light theme constants for CSS classes if generating HTML directly) ...
+    # This function returns dicts for markdown, so it's mostly fine. The markdown CSS classes will handle colors.
     insights = []
     if not sim_data or not isinstance(sim_data, dict): 
         logger.warning("get_actionable_insights: sim_data is None or not a dict.", extra={'user_action': 'Insights - Invalid Input'})
         return insights
+    
     sim_cfg_params_insights_main = sim_data.get('config_params', {})
     def _get_insight_cfg(key, default): return _get_config_value_main(current_config_dict_main, sim_cfg_params_insights_main, key, default)
 
@@ -223,15 +247,15 @@ st.markdown(f"""
             text-align: center; margin-bottom: 2rem; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
         }}
         
-        /* Main Content Headers (Tabs) */
+        /* Main Content Headers (Tabs) - h2 generated by st.header in tabs */
         div[data-testid="stTabs"] section[role="tabpanel"] > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div > h2 {{ 
             font-size: 1.75rem !important; font-weight: 600 !important; line-height: 1.3 !important; 
             margin: 1.2rem 0 1rem 0 !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
-            border-bottom: 2px solid {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important; /* Use button accent for divider */
+            border-bottom: 2px solid {COLOR_ACCENT_UI_LIGHT_THEME} !important; /* Use a defined accent */
             padding-bottom: 0.6rem !important; text-align: left !important;
         }}
 
-        /* Main Content Section Subheaders */
+        /* Main Content Section Subheaders - h3 generated by st.subheader */
          div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] .stSubheader {{ 
             font-size: 1.3rem !important; font-weight: 500 !important; line-height: 1.4 !important; 
             margin-top: 1.8rem !important; margin-bottom: 0.8rem !important; color: {COLOR_SECONDARY_TEXT_DARK} !important;
@@ -243,17 +267,18 @@ st.markdown(f"""
             font-size: 1.0rem !important; font-weight: 600 !important; line-height: 1.3 !important;
             margin: 1.5rem 0 0.5rem 0 !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; text-align: left !important;
         }}
-        div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] div[data-testid="stMarkdownContainer"] h6 {{ /* Plot Titles */
-            font-size: 0.95rem !important; font-weight: 600 !important; /* Made bolder */
+        /* Main Content Markdown H6 (e.g. for individual plot titles) */
+        div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] div[data-testid="stMarkdownContainer"] h6 {{
+            font-size: 0.95rem !important; font-weight: 600 !important; 
             line-height: 1.3 !important; margin-top: 1rem !important; margin-bottom: 0.5rem !important; 
             color: {COLOR_SECONDARY_TEXT_DARK} !important; text-align: left;
         }}
 
-        /* Sidebar Specific Headers and Text */
+        /* Sidebar Specific Styles */
         [data-testid="stSidebar"] {{ 
             background-color: {COLOR_SIDEBAR_BACKGROUND_LIGHT} !important; 
             color: {COLOR_PRIMARY_TEXT_DARK} !important; 
-            padding: 1.5rem; border-right: 1px solid {COLOR_BORDER_SUBTLE_LIGHT} !important; 
+            padding: 1.5rem; border-right: 1px solid {COLOR_BORDER_DARKER_LIGHT} !important; 
             font-size: 0.95rem; 
         }}
         [data-testid="stSidebar"] h2 {{ 
@@ -280,21 +305,23 @@ st.markdown(f"""
         }}
 
         /* Buttons */
-        .stButton>button {{ /* Default button style in main area */
-            background-color: {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important; color: #FFFFFF !important; 
+        .stButton>button {{ 
+            background-color: {COLOR_BUTTON_PRIMARY_BG_LIGHT} !important; color: #FFFFFF !important; 
             border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.95rem; font-weight: 500; 
-            transition: all 0.2s ease-in-out; border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            transition: all 0.2s ease-in-out; border: 1px solid {COLOR_BUTTON_PRIMARY_BG_LIGHT} !important; /* Added border */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
         }}
         .stButton>button:hover, .stButton>button:focus {{ 
-            background-color: #0052A3 !important; /* Darker shade of accent */
+            background-color: {COLOR_BUTTON_PRIMARY_HOVER_BG_LIGHT} !important; 
+            border-color: {COLOR_BUTTON_PRIMARY_HOVER_BG_LIGHT} !important;
             transform: translateY(-1px); box-shadow: 0 3px 7px rgba(0,0,0,0.2); outline: none; 
         }}
         .stButton>button:disabled {{ 
-            background-color: #B0BEC5 !important; /* Lighter gray for disabled */
-            color: #78909C !important; cursor: not-allowed; box-shadow: none; 
+            background-color: #B0BEC5 !important; color: #78909C !important; 
+            border-color: #B0BEC5 !important; cursor: not-allowed; box-shadow: none; 
         }}
         
-        /* Sidebar Widget Label Styling */
+        /* Sidebar Widget Labels */
         [data-testid="stSidebar"] div[data-testid*="stWidgetLabel"] label p, 
         [data-testid="stSidebar"] label[data-baseweb="checkbox"] span, 
         [data-testid="stSidebar"] .stSelectbox > label, 
@@ -303,52 +330,52 @@ st.markdown(f"""
             font-size: 0.92rem !important; padding-bottom: 3px !important; display: block !important; 
         }}
 
-        /* Sidebar Widget INPUT FIELDS */
+        /* Sidebar Widget Input Fields */
         [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"], 
         [data-testid="stSidebar"] .stNumberInput div input, 
         [data-testid="stSidebar"] .stTextInput div input,
         [data-testid="stSidebar"] .stMultiSelect div[data-baseweb="select"] {{ 
-            background-color: #FFFFFF !important; /* White background for inputs */
-            color: {COLOR_PRIMARY_TEXT_DARK} !important; /* Dark text in inputs */
+            background-color: #FFFFFF !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
             border-radius: 6px !important; padding: 0.4rem 0.5rem !important; 
             margin-bottom: 0.6rem !important; font-size: 0.9rem !important; 
-            border: 1px solid {COLOR_BORDER_SUBTLE_LIGHT} !important; height: auto !important; 
+            border: 1px solid {COLOR_BORDER_DARKER_LIGHT} !important; height: auto !important; 
         }}
-        [data-testid="stSidebar"] .stNumberInput button {{ /* +/- buttons */
+        [data-testid="stSidebar"] .stNumberInput button {{ 
             background-color: #CFD8DC !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
-            border: 1px solid {COLOR_BORDER_SUBTLE_LIGHT} !important;
+            border: 1px solid {COLOR_BORDER_DARKER_LIGHT} !important;
         }}
         [data-testid="stSidebar"] .stNumberInput button:hover {{ background-color: #B0BEC5 !important; }}
 
-        /* Sidebar Buttons (override default if needed, or make specific class) */
-        [data-testid="stSidebar"] .stButton>button {{ /* Default for sidebar specific buttons */
-            background-color: {COLOR_POSITIVE_GREEN_CSS} !important; /* Kept green for primary action like Run */
-            color: #FFFFFF !important;
+        /* Sidebar Buttons (specific overrides) */
+        [data-testid="stSidebar"] .stButton>button {{ /* Default for sidebar buttons */
+            background-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT} !important; 
+            color: #FFFFFF !important; border-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT} !important;
         }}
         [data-testid="stSidebar"] .stButton>button:hover, [data-testid="stSidebar"] .stButton>button:focus {{ 
-            background-color: #0A8F6B !important; /* Darker green */
+            background-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT} !important;
+            border-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT} !important;
         }}
-         [data-testid="stSidebar"] .stButton button[kind="primary"] {{ /* For Run Simulation */
-             background-color: {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important;
+         [data-testid="stSidebar"] .stButton button[kind="primary"] {{ /* For Run Simulation in Sidebar */
+             background-color: {COLOR_ACCENT_UI_LIGHT_THEME} !important; /* Match main accent */
+             border-color: {COLOR_ACCENT_UI_LIGHT_THEME} !important;
         }}
         [data-testid="stSidebar"] .stButton button[kind="primary"]:hover {{
-             background-color: #0052A3 !important;
+             background-color: {COLOR_BUTTON_PRIMARY_HOVER_BG_LIGHT} !important;
+             border-color: {COLOR_BUTTON_PRIMARY_HOVER_BG_LIGHT} !important;
         }}
-        [data-testid="stSidebar"] .stButton button[kind="secondary"] {{ /* For Clear, Remove buttons */
-             background-color: #E0E0E0 !important; color: {COLOR_PRIMARY_TEXT_DARK} !important;
-             border: 1px solid {COLOR_BORDER_SUBTLE_LIGHT} !important;
+        [data-testid="stSidebar"] .stButton button[kind="secondary"] {{ /* For Clear, Remove (non-event) buttons in sidebar */
+             background-color: {COLOR_BUTTON_SECONDARY_BG_LIGHT} !important; color: {COLOR_PRIMARY_TEXT_DARK} !important;
+             border: 1px solid {COLOR_BORDER_DARKER_LIGHT} !important;
         }}
          [data-testid="stSidebar"] .stButton button[kind="secondary"]:hover {{
-             background-color: #BDBDBD !important;
+             background-color: {COLOR_BUTTON_SECONDARY_HOVER_BG_LIGHT} !important;
         }}
-
 
         /* Metric Display */
         .stMetric {{ 
             background-color: {COLOR_CONTENT_BACKGROUND_LIGHT} !important; 
             border-radius: 8px; padding: 1rem 1.25rem; margin: 0.5rem 0; 
             box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid {COLOR_BORDER_SUBTLE_LIGHT} !important; 
-            display: flex; flex-direction: column; align-items: flex-start;
         }}
         .stMetric > div[data-testid="stMetricLabel"] {{ 
             font-size: 1.0rem !important; color: {COLOR_SECONDARY_TEXT_DARK} !important; 
@@ -358,10 +385,7 @@ st.markdown(f"""
             font-size: 2.2rem !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
             font-weight: 700 !important; line-height: 1.1 !important;
         }} 
-        .stMetric div[data-testid="stMetricDelta"] {{ 
-            font-size: 0.9rem !important; font-weight: 500 !important; padding-top: 0.1rem !important;
-            /* Delta color will be set by Streamlit based on positive/negative/neutral */
-        }} 
+        /* stMetricDelta color is handled by Streamlit based on value (positive/negative) */
 
         /* Expanders and Tabs */
         .stExpander {{ 
@@ -371,7 +395,7 @@ st.markdown(f"""
         .stExpander header {{ font-size: 1rem; font-weight: 500; color: {COLOR_PRIMARY_TEXT_DARK} !important; padding: 0.5rem 1rem; }}
         
         .stTabs [data-baseweb="tab-list"] {{ 
-            background-color: {COLOR_SIDEBAR_BACKGROUND_LIGHT} !important; /* Slightly different from main page for tab bar */
+            background-color: {COLOR_SIDEBAR_BACKGROUND_LIGHT} !important; /* Slightly different bg for tab bar */
             border-radius: 8px; padding: 0.5rem; display: flex; justify-content: center; 
             gap: 0.5rem; border-bottom: 2px solid {COLOR_BORDER_DARKER_LIGHT} !important;
         }}
@@ -381,60 +405,58 @@ st.markdown(f"""
             border: none; border-bottom: 2px solid transparent; 
         }}
         .stTabs [data-baseweb="tab"][aria-selected="true"] {{ 
-            background-color: transparent !important; color: {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important; 
-            border-bottom: 2px solid {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important; font-weight:600; 
+            background-color: transparent !important; color: {COLOR_ACCENT_UI_LIGHT_THEME} !important; 
+            border-bottom: 2px solid {COLOR_ACCENT_UI_LIGHT_THEME} !important; font-weight:600; 
         }}
         .stTabs [data-baseweb="tab"]:hover {{ 
-            background-color: #CFD8DC !important; /* Light hover for tabs */
-            color: {COLOR_PRIMARY_TEXT_DARK} !important; 
+            background-color: #CFD8DC !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
         }}
 
-        /* Plot Containers and DataFrames */
-        .plot-container {{ /* If you use this class for plot divs */
+        /* Plot Containers (if used explicitly) & DataFrames */
+        .plot-container {{
             background-color: {COLOR_CONTENT_BACKGROUND_LIGHT} !important; 
             border-radius: 8px; padding: 1rem; margin: 1rem 0; 
             box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid {COLOR_BORDER_SUBTLE_LIGHT} !important;
         }}
-        .stPlotlyChart {{ border-radius: 6px; }} 
+        .stPlotlyChart {{ border-radius: 6px; }} /* Usually inherits plot_bgcolor from layout */
         .stDataFrame {{ 
             border-radius: 8px; font-size: 0.875rem; border: 1px solid {COLOR_BORDER_SUBTLE_LIGHT} !important; 
             background-color: {COLOR_CONTENT_BACKGROUND_LIGHT} !important;
         }}
         .stDataFrame thead th {{ 
-            background-color: #E8EAF6 !important; /* Lighter header for tables */
-            color: {COLOR_PRIMARY_TEXT_DARK} !important; font-weight: 600; 
+            background-color: #E8EAF6 !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; font-weight: 600; 
         }}
-        .stDataFrame tbody tr:nth-child(even) {{ background-color: #FAFAFA !important; }} /* Subtle striping */
-        .stDataFrame tbody tr:hover {{ background-color: #E0E0E0 !important; }} /* Hover for table rows */
+        .stDataFrame tbody tr:nth-child(even) {{ background-color: #FAFAFA !important; }}
+        .stDataFrame tbody tr:hover {{ background-color: #E0E0E0 !important; }}
 
         /* Spinner */
-        .spinner::after {{ border: 4px solid #CFD8DC; border-top: 4px solid {COLOR_ACCENT_BUTTON_LIGHT_THEME}; }}
+        .spinner::after {{ border: 4px solid #CFD8DC; border-top: 4px solid {COLOR_ACCENT_UI_LIGHT_THEME}; }}
 
         /* Onboarding Modal */
         .onboarding-modal {{ 
             background-color: {COLOR_CONTENT_BACKGROUND_LIGHT} !important; 
             border: 1px solid {COLOR_BORDER_DARKER_LIGHT} !important; 
-            color: {COLOR_PRIMARY_TEXT_DARK} !important;
         }}
         .onboarding-modal h3 {{ color: {COLOR_PRIMARY_TEXT_DARK} !important; }}
         .onboarding-modal p, .onboarding-modal ul {{ color: {COLOR_SECONDARY_TEXT_DARK} !important; }}
 
-        /* Alert Boxes */
-        .alert-critical {{ border-left: 5px solid {COLOR_CRITICAL_RED_CSS}; background-color: {COLOR_CRITICAL_RED_BG}; padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }} 
-        .alert-warning {{ border-left: 5px solid {COLOR_WARNING_AMBER_CSS}; background-color: {COLOR_WARNING_AMBER_BG}; padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }}
-        .alert-positive {{ border-left: 5px solid {COLOR_POSITIVE_GREEN_CSS}; background-color: {COLOR_POSITIVE_GREEN_BG}; padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }}
-        .alert-info {{ border-left: 5px solid {COLOR_INFO_BLUE_CSS}; background-color: {COLOR_INFO_BLUE_BG}; padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; }}
-        /* Text inside alerts should be dark for readability on light backgrounds */
+        /* Alert Boxes - ensure text inside is dark now */
+        .alert-critical {{ border-left: 5px solid {COLOR_CRITICAL_RED_BORDER}; background-color: {COLOR_CRITICAL_RED_BG_LIGHT}; }} 
+        .alert-warning {{ border-left: 5px solid {COLOR_WARNING_AMBER_BORDER}; background-color: {COLOR_WARNING_AMBER_BG_LIGHT}; }}
+        .alert-positive {{ border-left: 5px solid {COLOR_POSITIVE_GREEN_BORDER}; background-color: {COLOR_POSITIVE_GREEN_BG_LIGHT}; }}
+        .alert-info {{ border-left: 5px solid {COLOR_INFO_BLUE_BORDER}; background-color: {COLOR_INFO_BLUE_BG_LIGHT}; }}
         .alert-critical .insight-title, .alert-critical .insight-text,
         .alert-warning .insight-title, .alert-warning .insight-text,
         .alert-positive .insight-title, .alert-positive .insight-text,
         .alert-info .insight-title, .alert-info .insight-text {{ color: {COLOR_PRIMARY_TEXT_DARK} !important; }}
         
         /* Event Item in Sidebar */
-        .event-item {{ background-color: #E8EAF6; }} /* Lighter background for event items */
+        .event-item {{ background-color: #E8EAF6; }} 
         .event-text {{ color: {COLOR_PRIMARY_TEXT_DARK} !important; }}
-        .remove-event-btn button {{ /* Ensure remove button is still visible and distinct */
-            background-color: {COLOR_CRITICAL_RED_CSS} !important; color: white !important; 
+        .remove-event-btn button {{ 
+            background-color: {COLOR_BUTTON_REMOVE_BG_LIGHT} !important; color: white !important; 
+            padding: 0.1rem 0.4rem !important; font-size: 0.75rem !important; line-height: 1 !important; 
+            border-radius: 3px !important; min-height: auto !important; margin-left: 0.5rem !important;
         }}
     </style>
 """, unsafe_allow_html=True)
@@ -442,8 +464,8 @@ st.markdown(f"""
 # --- SIDEBAR RENDERING ---
 def render_settings_sidebar():
     with st.sidebar:
-        st.markdown("<h3 style='text-align: center; margin-bottom: 1.5rem;'>Workplace Optimizer</h3>", unsafe_allow_html=True) # Color set by CSS
-        st.markdown("## ⚙️ Simulation Controls") # Color set by CSS
+        st.markdown("<h3 style='text-align: center; margin-bottom: 1.5rem;'>Workplace Optimizer</h3>", unsafe_allow_html=True)
+        st.markdown("## ⚙️ Simulation Controls")
         with st.expander("🧪 Simulation Parameters", expanded=True):
             st.number_input("Team Size", min_value=1, max_value=200, key="sb_team_size_num", step=1,
                             help="Adjust the number of workers in the simulated shift.")
@@ -453,14 +475,14 @@ def render_settings_sidebar():
             current_shift_duration_sb = st.session_state.sb_shift_duration_num
             mpi_sb = DEFAULT_CONFIG.get("MINUTES_PER_INTERVAL", 2)
 
-            st.markdown("---"); st.markdown("<h5>🗓️ Schedule Shift Events</h5>", unsafe_allow_html=True) # Color set by CSS
-            st.caption("Define disruptions, breaks, etc. Times are from shift start.") # Color set by CSS
+            st.markdown("---"); st.markdown("<h5>🗓️ Schedule Shift Events</h5>", unsafe_allow_html=True)
+            st.caption("Define disruptions, breaks, etc. Times are from shift start.")
             
             event_types_sb = ["Major Disruption", "Minor Disruption", "Scheduled Break", "Short Pause", "Team Meeting", "Maintenance", "Custom Event"]
             with st.container():
                 st.session_state.form_event_type = st.selectbox("Event Type", event_types_sb, 
                     index=event_types_sb.index(st.session_state.form_event_type) if st.session_state.form_event_type in event_types_sb else 0, 
-                    key="widget_form_event_type_selector") # Label color by CSS
+                    key="widget_form_event_type_selector")
                 
                 col1_form_sb, col2_form_sb = st.columns(2)
                 st.session_state.form_event_start = col1_form_sb.number_input("Start (min)", min_value=0, 
@@ -468,7 +490,7 @@ def render_settings_sidebar():
                 st.session_state.form_event_duration = col2_form_sb.number_input("Duration (min)", min_value=mpi_sb, 
                     max_value=current_shift_duration_sb, step=mpi_sb, key="widget_form_event_duration_input")
 
-            if st.button("➕ Add Event", key="sb_add_event_button_main", use_container_width=True): # Button style by CSS
+            if st.button("➕ Add Event", key="sb_add_event_button_main", use_container_width=True):
                 start_val_sb_add = st.session_state.form_event_start
                 duration_val_sb_add = st.session_state.form_event_duration
                 type_val_sb_add = st.session_state.form_event_type
@@ -496,11 +518,11 @@ def render_settings_sidebar():
                     for i_ev_disp_sb, event_disp_sb in enumerate(st.session_state.sb_scheduled_events_list):
                         ev_col1_sb, ev_col2_sb = st.columns([0.85,0.15])
                         ev_col1_sb.markdown(f"<div class='event-item'><span><b>{event_disp_sb.get('Event Type','N/A')}</b> at {event_disp_sb.get('Start Time (min)','N/A')}min ({event_disp_sb.get('Duration (min)','N/A')}min)</span></div>", unsafe_allow_html=True)
-                        if ev_col2_sb.button("✖", key=f"remove_event_button_main_{i_ev_disp_sb}", help="Remove this event", type="secondary", use_container_width=True): # Style from CSS
+                        if ev_col2_sb.button("✖", key=f"remove_event_button_main_{i_ev_disp_sb}", help="Remove this event", type="secondary", use_container_width=True):
                             st.session_state.sb_scheduled_events_list.pop(i_ev_disp_sb); st.rerun()
             
             if st.session_state.sb_scheduled_events_list:
-                if st.button("Clear All Events", key="sb_clear_all_events_button_main", type="secondary", use_container_width=True): # Style from CSS
+                if st.button("Clear All Events", key="sb_clear_all_events_button_main", type="secondary", use_container_width=True):
                     st.session_state.sb_scheduled_events_list = []; st.rerun()
             
             st.markdown("---") 
@@ -508,7 +530,7 @@ def render_settings_sidebar():
             st.selectbox("Operational Initiative", team_initiative_options_sb, key="sb_team_initiative_selectbox", 
                          help="Apply an operational strategy to observe its impact on metrics.")
             
-            run_simulation_button_sidebar = st.button("🚀 Run Simulation", key="sb_run_simulation_main_button", type="primary", use_container_width=True) # Style from CSS
+            run_simulation_button_sidebar = st.button("🚀 Run Simulation", key="sb_run_simulation_main_button", type="primary", use_container_width=True)
         
         with st.expander("🎨 Visualization Options"):
             st.checkbox("High Contrast Plots", key="sb_high_contrast_checkbox", help="Applies a high-contrast color theme to all charts.")
@@ -516,7 +538,7 @@ def render_settings_sidebar():
             st.checkbox("Show Debug Info", key="sb_debug_mode_checkbox", help="Display additional debug information.")
         
         with st.expander("💾 Data Management & Export"):
-            load_data_button_sidebar = st.button("🔄 Load Previous Simulation", key="sb_load_data_main_button", use_container_width=True) # Style from CSS
+            load_data_button_sidebar = st.button("🔄 Load Previous Simulation", key="sb_load_data_main_button", use_container_width=True)
             can_export_data_sidebar = 'simulation_results' in st.session_state and st.session_state.simulation_results is not None
             
             if st.button("📄 Download Report (.tex)", key="sb_pdf_download_button_main", disabled=not can_export_data_sidebar, use_container_width=True, help="Generates a LaTeX (.tex) file summarizing the simulation. Requires LaTeX to compile."):
@@ -601,7 +623,8 @@ def render_settings_sidebar():
             st.rerun()
             
     return run_simulation_button_sidebar, load_data_button_sidebar
-    # --- SIMULATION LOGIC WRAPPER (CACHED) ---
+
+# --- SIMULATION LOGIC WRAPPER (CACHED) ---
 @st.cache_data(ttl=3600, show_spinner="⚙️ Simulating workplace operations...")
 def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_ui_sl, team_initiative_sl):
     config_sl = DEFAULT_CONFIG.copy() 
@@ -673,8 +696,8 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
         'SHIFT_DURATION_INTERVALS': config_sl['SHIFT_DURATION_INTERVALS'], 'MINUTES_PER_INTERVAL': mpi_sl, 
         'SCHEDULED_EVENTS': config_sl['SCHEDULED_EVENTS'], 'TEAM_INITIATIVE': team_initiative_sl, 
         'WORK_AREAS_EFFECTIVE': config_sl.get('WORK_AREAS', {}).copy(),
-        'ENTRY_EXIT_POINTS': config_sl.get('ENTRY_EXIT_POINTS', []).copy(), # Added for spatial plots
-        'FACILITY_SIZE': config_sl.get('FACILITY_SIZE', (100,80)) # Added for spatial plots
+        'ENTRY_EXIT_POINTS': config_sl.get('ENTRY_EXIT_POINTS', []).copy(),
+        'FACILITY_SIZE': config_sl.get('FACILITY_SIZE', (100,80))
     }
     
     disruption_steps_final_sl_run = [evt.get('step') for evt in config_sl['SCHEDULED_EVENTS'] if isinstance(evt,dict) and "Disruption" in evt.get("Event Type","") and isinstance(evt.get('step'),int)]
@@ -683,7 +706,7 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
     save_simulation_data(simulation_output_dict_sl_final_run) 
     return simulation_output_dict_sl_final_run
 
-# Helper specifically for run_simulation_logic's config access (if needed for complex defaults)
+# Helper specifically for run_simulation_logic's config access
 def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_type=None):
     val = secondary_conf.get(key, primary_conf.get(key, default))
     if data_type:
@@ -719,18 +742,17 @@ def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int,
     new_start_time_val_ui_widget = cols_ui_time_range[0].number_input( "Start Time (min)", min_value=0.0, max_value=max_minutes_for_range_ui, value=current_start_ui_val, step=interval_duration_min_ui, key=f"widget_num_input_{start_time_key_ui}", help=f"Range: 0 to {int(max_minutes_for_range_ui)} min.")
     st.session_state[start_time_key_ui] = float(new_start_time_val_ui_widget)
     
-    end_time_min_for_widget_val_ui = st.session_state[start_time_key_ui] # This will be float
+    end_time_min_for_widget_val_ui = st.session_state[start_time_key_ui]
     new_end_time_val_ui_widget = cols_ui_time_range[1].number_input("End Time (min)", min_value=end_time_min_for_widget_val_ui, max_value=max_minutes_for_range_ui, value=current_end_ui_val, step=interval_duration_min_ui, key=f"widget_num_input_{end_time_key_ui}", help=f"Range: {int(end_time_min_for_widget_val_ui)} to {int(max_minutes_for_range_ui)} min.")
     st.session_state[end_time_key_ui] = float(new_end_time_val_ui_widget)
 
     if st.session_state[end_time_key_ui] < st.session_state[start_time_key_ui]: st.session_state[end_time_key_ui] = st.session_state[start_time_key_ui]
     
     if abs(prev_start_ui_val_state - st.session_state[start_time_key_ui]) > 1e-6 or \
-       abs(prev_end_ui_val_state - st.session_state[end_time_key_ui]) > 1e-6: # Compare floats with tolerance
+       abs(prev_end_ui_val_state - st.session_state[end_time_key_ui]) > 1e-6:
         st.rerun()
         
-    return int(st.session_state[start_time_key_ui]), int(st.session_state[end_time_key_ui]) # Return as int for indexing
-
+    return int(st.session_state[start_time_key_ui]), int(st.session_state[end_time_key_ui])
 # --- MAIN APPLICATION FUNCTION ---
 def main():
     st.title("Workplace Shift Optimization Dashboard")
