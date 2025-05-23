@@ -3,7 +3,7 @@ import logging
 import streamlit as st
 import pandas as pd
 import numpy as np
-import math # Ensure math is imported here if used in utility functions before main()
+import math # For math operations if needed by helper functions before simulation
 from config import DEFAULT_CONFIG, validate_config
 from visualizations import (
     plot_key_metrics_summary, plot_task_compliance_score, plot_collaboration_proximity_index,
@@ -12,12 +12,12 @@ from visualizations import (
     plot_downtime_trend, plot_team_cohesion, plot_perceived_workload,
     plot_downtime_causes_pie
 )
-from simulation import simulate_workplace_operations
+from simulation import simulate_workplace_operations # simulation.py should have 'import math'
 from utils import save_simulation_data, load_simulation_data, generate_pdf_report
 
 logger = logging.getLogger(__name__)
 if not logger.handlers:
-    logging.basicConfig(level=logging.DEBUG, # DEBUG for detailed logs
+    logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s - [User Action: %(user_action)s]',
                         filename='dashboard.log',
                         filemode='a')
@@ -63,7 +63,8 @@ def safe_get(data_dict, path_str, default_val=None):
                 break
         
         if current is None:
-             return default_return_list if keys[-1] in ['data', 'scores', 'triggers'] or path_str.endswith('minutes') or default_val == [] else default_return_scalar
+             # Corrected default return determination for safety if keys[-1] access is an issue
+            return default_return_list if (keys and keys[-1] in ['data', 'scores', 'triggers']) or path_str.endswith('minutes') or default_val == [] else default_return_scalar
         return current
     except (ValueError, IndexError, TypeError) as e:
         logger.debug(f"safe_get failed for path '{path_str}': {e}. Returning default '{default_return}'.", extra={'user_action': 'Safe Get Internal Error'})
@@ -80,7 +81,7 @@ def safe_stat(data_list, stat_func, default_val=0.0):
         logger.debug(f"safe_stat: data_list is not a list/array/series, type: {type(data_list)}. Returning default_val: {default_val}", extra={'user_action': 'Safe Stat Type Check Fail'})
         return default_val
     
-    valid_data = [float(x) for x in data_list if x is not None and isinstance(x, (int, float)) and not np.isnan(float(x))] # Ensure float for numpy funcs
+    valid_data = [float(x) for x in data_list if x is not None and isinstance(x, (int, float)) and not np.isnan(float(x))]
     logger.debug(f"safe_stat: Valid data (count: {len(valid_data)}, preview after float conversion): {str(valid_data)[:100]}", extra={'user_action': 'Safe Stat Valid Data'})
 
     if not valid_data:
@@ -88,7 +89,7 @@ def safe_stat(data_list, stat_func, default_val=0.0):
         return default_val
     
     try:
-        result = stat_func(np.array(valid_data)) # Numpy functions often prefer numpy arrays
+        result = stat_func(np.array(valid_data)) 
         if isinstance(result, float) and np.isnan(result): 
             logger.debug(f"safe_stat: stat_func returned NaN. Returning default_val: {default_val}", extra={'user_action': 'Safe Stat NaN Result'})
             return default_val
@@ -191,7 +192,68 @@ def get_actionable_insights(sim_data, current_config):
     logger.info(f"get_actionable_insights: Generated {len(insights)} insights.", extra={'user_action': 'Actionable Insights - End'})
     return insights
 
-# --- END OF CHUNK 1 of 6 ---
+# Helper function for time range inputs
+def time_range_input_section(tab_key_prefix: str, max_minutes: int, st_col_obj = st):
+    start_time_key = f"{tab_key_prefix}_start_time_min"
+    end_time_key = f"{tab_key_prefix}_end_time_min"
+
+    # Initialize session state if keys are missing
+    if start_time_key not in st.session_state:
+        st.session_state[start_time_key] = 0
+    if end_time_key not in st.session_state:
+        st.session_state[end_time_key] = max_minutes
+    
+    # Clamp current session state values to be within new max_minutes bounds
+    st.session_state[start_time_key] = min(max(0, st.session_state[start_time_key]), max_minutes)
+    st.session_state[end_time_key] = min(max(st.session_state[start_time_key], st.session_state[end_time_key]), max_minutes)
+    
+    cols = st_col_obj.columns(2)
+    start_time_widget_key = f"num_input_widget_{start_time_key}" # Ensure widget keys are always unique
+    end_time_widget_key = f"num_input_widget_{end_time_key}"
+
+    start_time_val_from_widget = cols[0].number_input(
+        "Start Time (min)", 
+        min_value=0, 
+        max_value=max_minutes, 
+        value=st.session_state[start_time_key], 
+        step=2, 
+        key=start_time_widget_key, 
+        help="Select the start of the time range (in minutes from shift start)."
+    )
+    # Dynamically set min_value of end_time based on the current value of start_time_val_from_widget
+    end_time_val_from_widget = cols[1].number_input( 
+        "End Time (min)", 
+        min_value=int(start_time_val_from_widget), 
+        max_value=max_minutes, 
+        value=st.session_state[end_time_key], 
+        step=2, 
+        key=end_time_widget_key,
+        help="Select the end of the time range (in minutes from shift start)."
+    )
+    
+    # Update canonical session state variables if widget values changed
+    # This needs to be outside the direct rendering of the widgets that use these states for 'value'
+    needs_rerun_flag = False
+    if start_time_val_from_widget != st.session_state[start_time_key]:
+        st.session_state[start_time_key] = int(start_time_val_from_widget)
+        # If start time is adjusted, end time might need to follow to maintain end_time >= start_time
+        if st.session_state[end_time_key] < st.session_state[start_time_key]:
+            st.session_state[end_time_key] = st.session_state[start_time_key]
+        needs_rerun_flag = True
+    
+    # Ensure end_time_val_from_widget (potentially constrained by its own min_value) is used to update session state
+    # and that session state for end_time is never less than session state for start_time
+    corrected_end_time_val_for_state = max(int(st.session_state[start_time_key]), int(end_time_val_from_widget))
+    if corrected_end_time_val_for_state != st.session_state[end_time_key]:
+        st.session_state[end_time_key] = corrected_end_time_val_for_state
+        needs_rerun_flag = True
+
+    if needs_rerun_flag:
+        st.rerun()
+
+    return int(st.session_state[start_time_key]), int(st.session_state[end_time_key])
+
+
 # CSS
 st.markdown(f"""
     <style>
@@ -200,7 +262,7 @@ st.markdown(f"""
         h1 {{ font-size: 2.4rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; text-align: center; margin-bottom: 2rem; color: #FFFFFF; }}
         
         /* Main Content Headers (Tabs) - Targets h2 generated by st.header in tabs */
-        div[data-testid="stTabs"] section[role="tabpanel"] h2 {{ 
+        div[data-testid="stTabs"] section[role="tabpanel"] > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div > h2 {{ 
             font-size: 1.75rem !important; 
             font-weight: 600 !important; 
             line-height: 1.3 !important; 
@@ -212,7 +274,7 @@ st.markdown(f"""
         }}
 
         /* Main Content Section Subheaders (e.g., "Additional Operational Metrics") - Targets h3 generated by st.subheader */
-         div[data-testid="stTabs"] section[role="tabpanel"] h3 {{ 
+         div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] .stSubheader {{ 
             font-size: 1.3rem !important; 
             font-weight: 500 !important; 
             line-height: 1.4 !important; 
@@ -224,7 +286,7 @@ st.markdown(f"""
             text-align: left !important;
         }}
         /* Main Content Markdown H5 (e.g. for "Select Time Range for Plots:") */
-        div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stMarkdownContainer"] h5 {{
+        div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] div[data-testid="stMarkdownContainer"] h5 {{
             font-size: 1.0rem !important; 
             font-weight: 600 !important; 
             line-height: 1.3 !important;
@@ -232,8 +294,7 @@ st.markdown(f"""
             color: #C8C8C8 !important; 
             text-align: left !important;
         }}
-        /* Main Content Markdown H6 (e.g., "Well-Being Alerts...") */
-        div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stMarkdownContainer"] h6 {{
+        div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] div[data-testid="stMarkdownContainer"] h6 {{
             font-size: 0.95rem !important; 
             font-weight: 500 !important; 
             line-height: 1.3 !important;
@@ -252,11 +313,11 @@ st.markdown(f"""
             margin-bottom: 1.2rem !important; color: #A0A0A0 !important; 
             border-bottom: none !important; 
         }}
-        [data-testid="stSidebar"] div[data-testid="stExpander"] h5 {{ /* For "Schedule Shift Events" */
+        [data-testid="stSidebar"] div[data-testid="stExpander"] h5 {{
             color: #E0E0E0 !important; text-align: left; font-size: 1.0rem !important; 
             font-weight: 600 !important; margin-top: 0.8rem !important; margin-bottom: 0.4rem !important; 
         }}
-        [data-testid="stSidebar"] div[data-testid="stExpander"] h6 {{ /* For "Current Scheduled Events:" */
+        [data-testid="stSidebar"] div[data-testid="stExpander"] h6 {{
             color: #D1D5DB !important; text-align: left; font-size: 0.9rem !important;
             font-weight: 600 !important; margin-top: 1rem !important; margin-bottom: 0.3rem !important;
         }}
@@ -265,32 +326,27 @@ st.markdown(f"""
              color: #B0B0B0 !important; font-size: 0.85rem !important;
              line-height: 1.3 !important; margin-top: 0.2rem !important; margin-bottom: 0.5rem !important;
         }}
-        /* Specifically for the "Add New Event:" prompt using Markdown P tag */
-        [data-testid="stSidebar"] div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div > p {{
-            color: #E0E0E0 !important; 
-            font-weight: 600 !important;
-            font-size:0.92rem !important; 
-            margin-bottom: 2px !important;
+        [data-testid="stSidebar"] div[data-testid="stExpander"] div[data-testid="stVerticalBlock"] > div > div > div > p {{ /* "Add New Event:" */
+            color: #E0E0E0 !important; font-weight: 600 !important;
+            font-size:0.92rem !important; margin-bottom:2px !important;
             padding-bottom: 3px !important;
         }}
-
 
         .stButton>button {{ background-color: {COLOR_ACCENT_INDIGO}; color: #FFFFFF; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.95rem; font-weight: 500; transition: all 0.2s ease-in-out; border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }}
         .stButton>button:hover, .stButton>button:focus {{ background-color: #6366F1; transform: translateY(-1px); box-shadow: 0 3px 7px rgba(0,0,0,0.2); outline: none; }}
         .stButton>button:disabled {{ background-color: #374151; color: #9CA3AF; cursor: not-allowed; box-shadow: none; }}
         
-        /* Sidebar Widget Labels Styling */
-        [data-testid="stSidebar"] div[data-testid*="stWidgetLabel"] > label > div > p, /* General target for most widget labels */
-        [data-testid="stSidebar"] .stSelectbox > label, /* Specific target for st.selectbox labels */
-        [data-testid="stSidebar"] .stCheckbox > label > div > p {{ /* Specific target for st.checkbox labels */
+        /* Sidebar Widget Label Styling */
+        [data-testid="stSidebar"] div[data-testid*="stWidgetLabel"] label p,
+        [data-testid="stSidebar"] label[data-baseweb="checkbox"] span,
+        [data-testid="stSidebar"] .stSelectbox > label {{
             color: #E0E0E0 !important; 
             font-weight: 600 !important;
             font-size: 0.92rem !important; 
-            padding-bottom: 3px !important; /* Space between label and input */
-            display: block !important; /* Ensures proper block behavior */
+            padding-bottom: 3px !important; 
+            display: block !important; 
         }}
 
-        /* Sidebar Widget INPUT FIELDS */
         [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"], 
         [data-testid="stSidebar"] .stNumberInput div input, 
         [data-testid="stSidebar"] .stMultiSelect div[data-baseweb="select"] {{ 
@@ -308,7 +364,6 @@ st.markdown(f"""
         [data-testid="stSidebar"] .stButton>button {{ background-color: {COLOR_POSITIVE_GREEN}; width: 100%; margin-bottom: 0.5rem; }}
         [data-testid="stSidebar"] .stButton>button:hover, [data-testid="stSidebar"] .stButton>button:focus {{ background-color: #6EE7B7; }}
         
-        /* Main content st.metric styling */
         .stMetric {{ background-color: #1F2937; border-radius: 8px; padding: 1rem 1.25rem; margin: 0.5rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 1px solid #374151; display: flex; flex-direction: column; align-items: flex-start;}}
         .stMetric > div[data-testid="stMetricLabel"] {{ 
             font-size: 1.0rem !important; color: #B0B0B0 !important; font-weight: 600 !important; margin-bottom: 0.3rem !important;
@@ -332,7 +387,14 @@ st.markdown(f"""
         .stDataFrame thead th {{ background-color: #293344; color: #EAEAEA; font-weight: 600; }}
         .stDataFrame tbody tr:nth-child(even) {{ background-color: #222C3D; }}
         .stDataFrame tbody tr:hover {{ background-color: #374151; }}
-        @media (max-width: 768px) {{ .main {{ padding: 1rem; }} h1 {{ font-size: 1.8rem; }} div[data-testid="stTabs"] section[role="tabpanel"] > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div > h2 {{ font-size: 1.4rem !important; }} div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] .stSubheader {{ font-size: 1.1rem !important; }} .stPlotlyChart {{ min-height: 300px !important; }} .stTabs [data-baseweb="tab"] {{ padding: 0.5rem 0.8rem; font-size: 0.85rem; }} }}
+        @media (max-width: 768px) {{ 
+            .main {{ padding: 1rem; }} 
+            h1 {{ font-size: 1.8rem; }} 
+            div[data-testid="stTabs"] section[role="tabpanel"] > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div > h2 {{ font-size: 1.4rem !important; }} /* Tab H2 */
+            div[data-testid="stTabs"] section[role="tabpanel"] div[data-testid="stVerticalBlock"] div[data-testid="stVerticalBlock"] .stSubheader {{ font-size: 1.1rem !important; }} /* Tab H3 (subheader) */
+            .stPlotlyChart {{ min-height: 300px !important; }} 
+            .stTabs [data-baseweb="tab"] {{ padding: 0.5rem 0.8rem; font-size: 0.85rem; }} 
+        }}
         .spinner {{ display: flex; justify-content: center; align-items: center; height: 100px; }}
         .spinner::after {{ content: ''; width: 40px; height: 40px; border: 4px solid #4A5568; border-top: 4px solid {COLOR_ACCENT_INDIGO}; border-radius: 50%; animation: spin 0.8s linear infinite; }}
         @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
@@ -351,7 +413,13 @@ st.markdown(f"""
         .remove-event-btn button {{background-color: #E53E3E !important; color: white !important; padding: 0.1rem 0.4rem !important; font-size: 0.75rem !important; line-height: 1 !important; border-radius: 3px !important; min-height: auto !important; margin-left: 0.5rem !important;}}
     </style>
 """, unsafe_allow_html=True)
+
 # --- END OF CHUNK 2 of 6 (CSS) ---
+```
+
+---
+**`main.py` - CHUNK 3 of 6 (`render_settings_sidebar`)**
+```python
 # --- render_settings_sidebar ---
 def render_settings_sidebar():
     with st.sidebar:
@@ -392,7 +460,7 @@ def render_settings_sidebar():
             event_types = ["Major Disruption", "Minor Disruption", "Scheduled Break", "Short Pause", "Team Meeting", "Maintenance", "Custom Event"]
             
             with st.container():
-                new_event_type = st.selectbox("Event Type", event_types, key="sb_new_event_type_select_widget", index=0) 
+                new_event_type = st.selectbox("Event Type", event_types, key="sb_new_event_type_select_widget", index=0) # Explicit label for this selectbox
                 
                 col_time1, col_time2 = st.columns(2)
                 with col_time1:
@@ -443,17 +511,15 @@ def render_settings_sidebar():
             
             st.markdown("---") 
             team_initiative_opts = ["Standard Operations", "More frequent breaks", "Team recognition", "Increased Autonomy"]
-            # Ensure 'sb_team_initiative_selectbox' exists in session_state before accessing
-            if 'sb_team_initiative_selectbox' not in st.session_state:
+            if 'sb_team_initiative_selectbox' not in st.session_state: # Initialize if not present
                 st.session_state.sb_team_initiative_selectbox = team_initiative_opts[0]
-            current_initiative = st.session_state.sb_team_initiative_selectbox
-            team_initiative_idx = team_initiative_opts.index(current_initiative) if current_initiative in team_initiative_opts else 0
+            current_initiative_val = st.session_state.sb_team_initiative_selectbox # Use this for index
+            team_initiative_idx = team_initiative_opts.index(current_initiative_val) if current_initiative_val in team_initiative_opts else 0
             
-            # Widget to update the session state value
             team_initiative_widget_val = st.selectbox("Operational Initiative", team_initiative_opts, index=team_initiative_idx, key="widget_sb_team_initiative_selectbox", help="Apply an operational strategy to observe its impact on metrics.")
-            if team_initiative_widget_val != st.session_state.sb_team_initiative_selectbox:
+            if team_initiative_widget_val != st.session_state.sb_team_initiative_selectbox: # Update state if changed
                 st.session_state.sb_team_initiative_selectbox = team_initiative_widget_val
-
+            
             run_simulation_button = st.button("🚀 Run Simulation", key="sb_run_simulation_button_main", type="primary", use_container_width=True)
         
         with st.expander("🎨 Visualization Options"):
@@ -510,7 +576,14 @@ def render_settings_sidebar():
             st.session_state.sb_high_contrast_checkbox, st.session_state.sb_use_3d_distribution_checkbox,
             st.session_state.sb_debug_mode_checkbox)
 
-# @st.cache_data(ttl=3600, show_spinner="⚙️ Running simulation model...") 
+# --- END OF CHUNK 3 of 6 (`render_settings_sidebar`) ---
+```
+
+---
+**`main.py` - CHUNK 4 of 6 (`run_simulation_logic` and `time_range_input_section`)**
+```python
+# --- run_simulation_logic ---
+# @st.cache_data(ttl=3600, show_spinner="⚙️ Running simulation model...") # Caching is OFF for debugging
 def run_simulation_logic(team_size, shift_duration_minutes, scheduled_events_list_of_dicts, team_initiative_selected):
     config = DEFAULT_CONFIG.copy()
     config['TEAM_SIZE'] = team_size
@@ -529,7 +602,7 @@ def run_simulation_logic(team_size, shift_duration_minutes, scheduled_events_lis
                 ratio = team_size / total_workers_in_config_zones
                 accumulated_workers = 0
                 sorted_zone_keys = sorted(list(config['WORK_AREAS'].keys()))
-                # assigned_counts = {key: 0 for key in sorted_zone_keys} # Not needed for this logic
+                # assigned_counts = {key: 0 for key in sorted_zone_keys} # Not strictly needed here as we modify in place
                 for zone_key in sorted_zone_keys[:-1]: 
                     workers_prop = config['WORK_AREAS'][zone_key].get('workers', 0) * ratio
                     assigned_val = int(round(workers_prop)) 
@@ -540,21 +613,15 @@ def run_simulation_logic(team_size, shift_duration_minutes, scheduled_events_lis
                     remaining_workers_to_assign = team_size - accumulated_workers
                     config['WORK_AREAS'][last_zone_key]['workers'] = remaining_workers_to_assign
                     if config['WORK_AREAS'][last_zone_key]['workers'] < 0:
-                        logger.warning(f"Negative workers assigned to {last_zone_key} after redistribution. Capping at 0 and attempting to re-add deficit.", extra={'user_action': 'Worker Distribution Warning'})
-                        current_total_after_cap = sum(z.get('workers',0) for z_key, z in config['WORK_AREAS'].items() if z_key != last_zone_key) 
-                        config['WORK_AREAS'][last_zone_key]['workers'] = 0 
-                        deficit_after_cap = team_size - (current_total_after_cap) # No +0 needed
-                        if deficit_after_cap > 0 and len(sorted_zone_keys) > 1:
-                            # Try to add to the first zone that is not the last_zone_key
-                            adjusted = False
-                            for zk_adjust in sorted_zone_keys:
-                                if zk_adjust != last_zone_key:
-                                    config['WORK_AREAS'][zk_adjust]['workers'] += deficit_after_cap
-                                    logger.info(f"Added deficit of {deficit_after_cap} to {zk_adjust}", extra={'user_action': 'Worker Deficit Redistribution'})
-                                    adjusted = True
-                                    break
-                            if not adjusted and len(sorted_zone_keys) == 1: # Only one zone, assign all
-                                config['WORK_AREAS'][sorted_zone_keys[0]]['workers'] = team_size
+                        logger.warning(f"Negative workers assigned to {last_zone_key} after redistribution ({config['WORK_AREAS'][last_zone_key]['workers']}). Adjusting.", extra={'user_action': 'Worker Distribution Warning'})
+                        # Simple redistribution of deficit: add to the first zone if available
+                        deficit = abs(config['WORK_AREAS'][last_zone_key]['workers'])
+                        config['WORK_AREAS'][last_zone_key]['workers'] = 0
+                        if len(sorted_zone_keys) > 1:
+                             config['WORK_AREAS'][sorted_zone_keys[0]]['workers'] += deficit
+                        elif len(sorted_zone_keys) == 1: # only one zone, it gets all
+                             config['WORK_AREAS'][last_zone_key]['workers'] = team_size # Should be 0 if team_size is 0 due to outer check
+
             else: 
                 num_zones = len(config['WORK_AREAS'])
                 if num_zones > 0:
@@ -600,7 +667,84 @@ def run_simulation_logic(team_size, shift_duration_minutes, scheduled_events_lis
 
     save_simulation_data(simulation_output_dict) 
     return simulation_output_dict
-# --- END OF CHUNK 3 of 6 ---
+
+def time_range_input_section(tab_key_prefix: str, max_minutes: int, st_col_obj = st):
+    start_time_key = f"{tab_key_prefix}_start_time_min"
+    end_time_key = f"{tab_key_prefix}_end_time_min"
+
+    if start_time_key not in st.session_state:
+        st.session_state[start_time_key] = 0
+    if end_time_key not in st.session_state:
+        st.session_state[end_time_key] = max_minutes
+    
+    # Clamp current session state values before rendering widgets
+    current_start_val_state = min(max(0, st.session_state[start_time_key]), max_minutes)
+    current_end_val_state = min(max(current_start_val_state, st.session_state[end_time_key]), max_minutes)
+    
+    # Update state if clamping changed anything, to ensure consistency before widget display
+    if st.session_state[start_time_key] != current_start_val_state:
+        st.session_state[start_time_key] = current_start_val_state
+    if st.session_state[end_time_key] != current_end_val_state:
+        st.session_state[end_time_key] = current_end_val_state
+
+    cols = st_col_obj.columns(2)
+    start_time_widget_key = f"num_input_widget_{start_time_key}" # Ensure widget keys are fully unique
+    end_time_widget_key = f"num_input_widget_{end_time_key}"
+
+    start_time_val_from_widget = cols[0].number_input(
+        "Start Time (min)", 
+        min_value=0, 
+        max_value=max_minutes, 
+        value=st.session_state[start_time_key], # Use the (potentially clamped) state value
+        step=2, 
+        key=start_time_widget_key, 
+        help="Select the start of the time range (in minutes from shift start)."
+    )
+    # end_time min_value depends on the *current value of the start_time widget*
+    end_time_val_from_widget = cols[1].number_input( 
+        "End Time (min)", 
+        min_value=int(start_time_val_from_widget), 
+        max_value=max_minutes, 
+        value=st.session_state[end_time_key], # Use the (potentially clamped) state value
+        step=2, 
+        key=end_time_widget_key,
+        help="Select the end of the time range (in minutes from shift start)."
+    )
+    
+    needs_rerun = False
+    if start_time_val_from_widget != st.session_state[start_time_key]:
+        st.session_state[start_time_key] = int(start_time_val_from_widget)
+        if st.session_state[end_time_key] < st.session_state[start_time_key]: 
+            st.session_state[end_time_key] = st.session_state[start_time_key] 
+        needs_rerun = True
+    
+    # Make sure end time from widget isn't less than the (potentially new) start time in session state
+    final_end_time_for_state = max(int(st.session_state[start_time_key]), int(end_time_val_from_widget))
+    if final_end_time_for_state != st.session_state[end_time_key]:
+        st.session_state[end_time_key] = final_end_time_for_state
+        needs_rerun = True
+    # This condition is tricky: if user changed end_time only, and it was clamped by start_time_val_from_widget's min_value,
+    # we need to ensure session_state reflects that correction if start_time itself didn't change.
+    # Essentially, if the end_time_val_from_widget (which respected its own min_value=start_time_val_from_widget)
+    # is different from what we want to store in session_state[end_time_key] (which must be >= session_state[start_time_key]), adjust.
+    elif int(end_time_val_from_widget) < int(st.session_state[start_time_key]) and not needs_rerun : # If end time widget displays a value < start_time due to its dynamic min_value but start_time hasn't triggered rerun
+        if st.session_state[end_time_key] != st.session_state[start_time_key]: #If state doesn't match clamped value
+            st.session_state[end_time_key] = st.session_state[start_time_key]
+            needs_rerun = True
+
+    if needs_rerun:
+        # To avoid "Duplicate widget key" on rerun, ensure widget keys are stable if values are reset or programmatically changed
+        # The use of distinct widget keys f"num_input_widget_{...}" helps here.
+        st.rerun()
+
+    return int(st.session_state[start_time_key]), int(st.session_state[end_time_key])
+
+# --- END OF CHUNK 4 of 6 ---
+```
+
+---
+**`main.py` - CHUNK 5 of 6 (Start of `main()` and Tab Loop)**
+```python
 # --- MAIN FUNCTION ---
 def main():
     st.title("Workplace Shift Optimization Dashboard")
@@ -608,38 +752,44 @@ def main():
                       'sb_team_size_num', 'sb_shift_duration_num', 'sb_scheduled_events_list', 
                       'op_start_time_min', 'op_end_time_min', 
                       'ww_start_time_min', 'ww_end_time_min',   
-                      'dt_start_time_min', 'dt_end_time_min']   
+                      'dt_start_time_min', 'dt_end_time_min',
+                      'sb_new_event_start_val_form', 'sb_new_event_duration_val_form' # For event adder form persistence
+                      ]   
     for key in app_state_keys:
         if key not in st.session_state:
             if key == 'sb_scheduled_events_list': 
                  st.session_state[key] = list(DEFAULT_CONFIG.get('DEFAULT_SCHEDULED_EVENTS', []))
             elif key == 'sb_team_size_num': st.session_state[key] = DEFAULT_CONFIG['TEAM_SIZE']
             elif key == 'sb_shift_duration_num': st.session_state[key] = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']
+            elif key in ['sb_new_event_start_val_form']: st.session_state[key] = 0 # Default for event form
+            elif key in ['sb_new_event_duration_val_form']: st.session_state[key] = 10 # Default for event form
             else:
                 st.session_state[key] = None 
 
     sidebar_return_values = render_settings_sidebar()
-    sb_team_size = sidebar_return_values[0]
-    sb_shift_duration = sidebar_return_values[1]
-    sb_scheduled_events = sidebar_return_values[2]
-    sb_team_initiative = sidebar_return_values[3]
-    sb_run_sim_btn = sidebar_return_values[4]
-    sb_load_data_btn = sidebar_return_values[5]
-    sb_high_contrast_checkbox_val = sidebar_return_values[6]
-    sb_use_3d_val = sidebar_return_values[7]
-    sb_debug_mode_val = sidebar_return_values[8]
+    # These button/checkbox values are used directly from render_settings_sidebar's return tuple
+    # The main parameters (team_size, shift_duration, events, initiative) are now read from session_state
+    # as they are controlled by widgets within render_settings_sidebar which update session_state.
+    _, _, _, _, \
+    sb_run_sim_btn, sb_load_data_btn, sb_high_contrast_checkbox_val, \
+    sb_use_3d_val, sb_debug_mode_val = sidebar_return_values
+    
+    current_team_size_from_state = st.session_state.sb_team_size_num
+    current_shift_duration_from_state = st.session_state.sb_shift_duration_num
+    current_scheduled_events_from_state = list(st.session_state.sb_scheduled_events_list) 
+    current_team_initiative_from_state = st.session_state.get('sb_team_initiative_selectbox', "Standard Operations")
 
 
     _default_shift_duration = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']
-    current_max_minutes_for_inputs = (st.session_state.sb_shift_duration_num - 2) \
-        if 'sb_shift_duration_num' in st.session_state and st.session_state.sb_shift_duration_num is not None \
+    current_max_minutes_for_inputs = (current_shift_duration_from_state - 2) \
+        if current_shift_duration_from_state is not None \
         else (_default_shift_duration - 2)
     
     disruption_steps_for_plots = [] 
 
     if st.session_state.simulation_results and isinstance(st.session_state.simulation_results, dict):
         sim_cfg = st.session_state.simulation_results.get('config_params', {})
-        sim_shift_duration_cfg = sim_cfg.get('SHIFT_DURATION_MINUTES', st.session_state.get('sb_shift_duration_num', _default_shift_duration))
+        sim_shift_duration_cfg = sim_cfg.get('SHIFT_DURATION_MINUTES', current_shift_duration_from_state)
         num_intervals_from_sim = sim_shift_duration_cfg // 2
         
         if num_intervals_from_sim > 0:
@@ -659,15 +809,14 @@ def main():
 
     else: 
         temp_disruption_steps = []
-        # Use sb_scheduled_events which is now directly from session_state.sb_scheduled_events_list via render_settings_sidebar
-        for event_item in st.session_state.sb_scheduled_events_list: 
-            if isinstance(event_item, dict) and "Disruption" in event_item.get("Event Type", ""):
-                start_time = event_item.get("Start Time (min)")
+        for event in current_scheduled_events: 
+            if isinstance(event, dict) and "Disruption" in event.get("Event Type", ""):
+                start_time = event.get("Start Time (min)")
                 if isinstance(start_time, (int, float)) and start_time >= 0:
                     temp_disruption_steps.append(int(start_time // 2))
         disruption_steps_for_plots = sorted(list(set(temp_disruption_steps)))
-        current_max_minutes_for_inputs = (st.session_state.sb_shift_duration_num - 2) \
-            if 'sb_shift_duration_num' in st.session_state and st.session_state.sb_shift_duration_num is not None \
+        current_max_minutes_for_inputs = (current_shift_duration_from_state - 2) \
+            if current_shift_duration_from_state is not None \
             else (_default_shift_duration - 2)
     
     current_max_minutes_for_inputs = max(0, current_max_minutes_for_inputs)
@@ -677,13 +826,10 @@ def main():
     if sb_run_sim_btn:
         with st.spinner("🚀 Simulating workplace operations..."):
             try:
-                logger.info(f"Events passed to run_simulation_logic: {st.session_state.sb_scheduled_events_list}", extra={'user_action': 'Prepare Simulation Run'})
+                logger.info(f"Events passed to run_simulation_logic: {current_scheduled_events}", extra={'user_action': 'Prepare Simulation Run'})
 
                 st.session_state.simulation_results = run_simulation_logic(
-                    st.session_state.sb_team_size_num, 
-                    st.session_state.sb_shift_duration_num, 
-                    list(st.session_state.sb_scheduled_events_list), # Ensure it's a list of dicts
-                    st.session_state.sb_team_initiative_selectbox
+                    current_team_size, current_shift_duration, current_scheduled_events, current_team_initiative
                 )
                 
                 new_sim_cfg = st.session_state.simulation_results['config_params']
@@ -746,6 +892,7 @@ def main():
     plot_config_minimal = {'displayModeBar': False}
     current_high_contrast_setting = sb_high_contrast_checkbox_val
     
+    # --- Overview Tab ---
     with tabs[0]: 
         st.header("📊 Key Performance Indicators & Actionable Insights", divider="blue")
         if st.session_state.simulation_results:
@@ -805,7 +952,6 @@ def main():
                     else: st.caption("No detailed overview data.")
         else: st.info("ℹ️ Run a simulation or load data to view the Overview & Insights.", icon="📊")
 
-    # --- END OF CHUNK 4 of 6 (Overview Tab) ---
     # --- Tab Definitions ---
     op_insights_html = """<div class='alert-info insight-text' style='margin-top:1rem;'><p class="insight-title">Review Operational Bottlenecks:</p><ul><li><b>Low Compliance/OEE:</b> If Task Compliance or OEE components (Uptime, Throughput, Quality) are consistently low or dip significantly, investigate the root causes. Are these correlated with disruptions, high workload periods, or specific zones?</li><li><b>Recovery Performance:</b> Evaluate how quickly Operational Recovery returns to target after disruptions. Slow recovery indicates a need for improved contingency plans or resource flexibility.</li><li><b>Collaboration Impact:</b> If Collaboration Index is low and operational metrics suffer, it may indicate communication breakdowns or poor team synergy affecting task handoffs. Consider targeted team interventions or process clarifications.</li></ul><p class="insight-title">Strategic Considerations:</p><p>Use the "Operational Initiative" setting in the sidebar to simulate changes (e.g., new break policies, recognition programs). Compare these scenarios against a "Standard Operations" baseline to quantify the ROI and impact of leadership decisions on operational KPIs and worker well-being.</p></div>"""
     ww_static_insights_html = """ 
@@ -851,7 +997,12 @@ def main():
          "insights_html": dt_insights_html
         }
     ]
+    # --- END OF CHUNK 4 of 5 ---
+```
 
+---
+**`main.py` - CHUNK 5 of 5 (Tab Rendering Loop and End)**
+```python
     # --- Tab Rendering Loop ---
     for i, tab_config in enumerate(tab_configs):
         with tabs[i+1]: 
@@ -931,7 +1082,6 @@ def main():
                     current_plot_col = plot_columns[num_plots_in_row % 2]
                     with current_plot_col:
                         with st.container(border=True):
-                            # Plot titles are handled internally by plot functions now
                             try:
                                 if plot_info.get("is_oee"):
                                     eff_df_full = safe_get(sim_data, 'efficiency_metrics_df', pd.DataFrame())
@@ -961,10 +1111,10 @@ def main():
                                     has_data_to_plot = False
                                     if isinstance(plot_data_list, list) and plot_data_list: has_data_to_plot = True
                                     elif isinstance(plot_data_list, pd.DataFrame) and not plot_data_list.empty: has_data_to_plot = True
-                                    elif plot_info["plot_func"] in [plot_downtime_causes_pie, plot_downtime_trend] and isinstance(plot_data_raw, list) and plot_data_raw: # If it's a list and is for these specific plots
-                                        if start_idx < len(plot_data_raw): # and slicing is valid
+                                    elif plot_info["plot_func"] in [plot_downtime_causes_pie, plot_downtime_trend] and isinstance(plot_data_raw, list) and plot_data_raw:
+                                        if start_idx < len(plot_data_raw):
                                             data_for_these_plots = plot_data_raw[start_idx:min(end_idx, len(plot_data_raw))]
-                                            if data_for_these_plots: has_data_to_plot = True # Set flag if sliced data is not empty
+                                            if data_for_these_plots: has_data_to_plot = True
 
                                     if has_data_to_plot:
                                         kwargs = {}
@@ -972,7 +1122,7 @@ def main():
                                             for arg_name, arg_path in plot_info["extra_args_paths"].items():
                                                 extra_data_raw = safe_get(sim_data, arg_path, [])
                                                 if plot_info["plot_func"] == plot_worker_wellbeing and arg_name == "triggers":
-                                                    kwargs[arg_name] = extra_data_raw # Triggers are not sliced here
+                                                    kwargs[arg_name] = extra_data_raw 
                                                 elif isinstance(extra_data_raw, list) :
                                                     if start_idx < len(extra_data_raw): kwargs[arg_name] = extra_data_raw[start_idx:min(end_idx, len(extra_data_raw))]
                                                     else: kwargs[arg_name] = [] 
@@ -982,23 +1132,20 @@ def main():
                                         func_params = plot_info["plot_func"].__code__.co_varnames
                                         if "disruption_points" in func_params: kwargs["disruption_points"] = filt_disrupt_steps
                                         
-                                        data_to_plot_final = plot_data_list # Default to the sliced list
-                                        # If it's pie or downtime trend, ensure they get the *list of dicts* for events
+                                        data_to_plot_final = plot_data_list
                                         if plot_info["plot_func"] == plot_downtime_causes_pie or plot_info["plot_func"] == plot_downtime_trend:
-                                            if isinstance(plot_data_raw, list): # Ensure original data was a list
+                                            if isinstance(plot_data_raw, list):
                                                 if start_idx < len(plot_data_raw): data_to_plot_final = plot_data_raw[start_idx:min(end_idx, len(plot_data_raw))]
                                                 else: data_to_plot_final = []
                                         
-                                        # Final check if data_to_plot_final actually has content
                                         final_check_has_data = False
                                         if isinstance(data_to_plot_final, list) and data_to_plot_final: final_check_has_data = True
                                         elif isinstance(data_to_plot_final, pd.DataFrame) and not data_to_plot_final.empty: final_check_has_data = True
 
                                         if not final_check_has_data:
-                                            st.caption(f"No data for {plot_info['title']} in this time range.")
+                                            st.caption(f"No data for '{plot_info['title']}' in this time range.")
                                         else:
-                                            # Titles are now handled by visualizations.py when calling _apply_common_layout_settings
-                                            st.plotly_chart(plot_info["plot_func"](data_to_plot_final, high_contrast=current_high_contrast_setting, **kwargs), use_container_width=True, config=plot_config_interactive)
+                                            st.plotly_chart(plot_info["plot_func"](data_to_plot_final, title_text=plot_info["title"], high_contrast=current_high_contrast_setting, **kwargs), use_container_width=True, config=plot_config_interactive)
                                     else:
                                         st.caption(f"No data for {plot_info['title']} in this time range.")
                             except Exception as e:
@@ -1006,12 +1153,11 @@ def main():
                                 st.error(f"⚠️ Error plotting {plot_info['title']}: {str(e)}")
                     num_plots_in_row += 1
                 
-    # --- END OF CHUNK 4 of 6 ---
                 # --- Insights Section within the tab loop (AFTER PLOTS) ---
-                st.markdown("<hr><h3 style='text-align:center;'>🏛️ Leadership Actionable Insights</h3>", unsafe_allow_html=True) 
+                st.markdown("<hr><h3 style='text-align:center;'>🏛️ Leadership Actionable Insights</h3>", unsafe_allow_html=True)
                 if tab_config.get("dynamic_insights_func") == "render_wellbeing_alerts":
                     with st.container(border=True):
-                        st.markdown("<h6>Well-Being Alerts (within selected time range):</h6>", unsafe_allow_html=True) 
+                        st.markdown("<h6>Well-Being Alerts (within selected time range):</h6>", unsafe_allow_html=True)
                         ww_trigs_disp_raw = safe_get(sim_data, 'worker_wellbeing.triggers', {})
                         ww_trigs_disp_filt = {}
                         if isinstance(ww_trigs_disp_raw, dict):
@@ -1035,7 +1181,7 @@ def main():
                             st.markdown(f"<div class='alert-warning insight-text'><strong>Work Area Specific Alerts:</strong>", unsafe_allow_html=True)
                             if isinstance(wa_alerts, dict):
                                 for zone, trigs in wa_alerts.items():
-                                    if trigs: st.markdown(f"  - {zone}: {len(trigs)} alerts at steps {trigs}", unsafe_allow_html=True)
+                                    if trigs: st.markdown(f"&nbsp;&nbsp;- {zone}: {len(trigs)} alerts at steps {trigs}", unsafe_allow_html=True)
                             st.markdown("</div>", unsafe_allow_html=True); insights_count_wb+=1
                         
                         if insights_count_wb == 0: st.markdown(f"<p class='insight-text' style='color: {COLOR_POSITIVE_GREEN};'>✅ No specific well-being alerts triggered in the selected period.</p>", unsafe_allow_html=True)
@@ -1071,11 +1217,6 @@ def main():
             </div>
         """, unsafe_allow_html=True)
 
-
 if __name__ == "__main__":
     main()
-
-# --- END OF CHUNK 5 of 6 ---
-
-
-
+          
