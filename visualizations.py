@@ -22,14 +22,14 @@ COLOR_ACCENT_INDIGO = "#4F46E5"
 
 COLOR_WHITE_TEXT = "#FFFFFF"
 COLOR_LIGHT_TEXT = "#EAEAEA"
-COLOR_DARK_TEXT_ON_LIGHT_BG_HC = "#000000" # For text on light-colored elements in HC mode
+COLOR_DARK_TEXT_ON_LIGHT_BG_HC = "#000000"
 COLOR_SUBTLE_GRID_STD = "#374151"
 COLOR_SUBTLE_GRID_HC = "#555555"
 COLOR_AXIS_LINE_STD = "#4A5568"
 COLOR_AXIS_LINE_HC = "#777777"
 
 PLOTLY_TEMPLATE = "plotly_dark"
-EPSILON = 1e-9 # Small constant to prevent division by zero or zero-width ranges
+EPSILON = 1e-9
 
 # --- HELPER FUNCTIONS - DEFINE THESE FIRST ---
 def _apply_common_layout_settings(fig, title_text, high_contrast=False, yaxis_title=None, xaxis_title="Time Step (Interval)", yaxis_range=None, show_legend=True):
@@ -93,7 +93,6 @@ def _get_no_data_pie_figure(title_text, high_contrast=False):
     return fig
 
 # --- PLOTTING FUNCTIONS ---
-
 def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: float, downtime: float,
                              target_compliance: float, target_proximity: float, target_wellbeing: float, target_downtime: float,
                              high_contrast: bool = False,
@@ -136,21 +135,21 @@ def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: flo
         if suffix == "%":
             axis_max_val = 100.0
         else:
-            axis_max_val = max(value * 1.25, target * 1.5, base_max_val) # Ensure scale can show value and target
+            axis_max_val = max(value * 1.25, target * 1.5, base_max_val)
         
-        if axis_max_val <= value : axis_max_val = value * 1.25 # Ensure value is within range with some headroom
-        if axis_max_val <= target : axis_max_val = target * 1.5 # Ensure target is within range with some headroom
-        if axis_max_val <= EPSILON: axis_max_val = base_max_val # Final fallback if still zero or negative
+        if axis_max_val <= value : axis_max_val = value * 1.25 
+        if axis_max_val <= target : axis_max_val = target * 1.5 
+        if axis_max_val <= EPSILON: axis_max_val = base_max_val
 
         steps_config = []
         if lower_is_better: 
             s1_upper = target  
             s2_upper = target * 1.25 if target > EPSILON else axis_max_val / 2.0 
-            if s1_upper < 0: s1_upper = 0 # Prevent negative ranges
+            if s1_upper < 0: s1_upper = 0 
             if s2_upper < s1_upper: s2_upper = s1_upper + EPSILON
 
-            if target == 0.0 : # Special case for 0 target downtime (or similar)
-                s1_upper = EPSILON # Tiny green zone for 0
+            if target == 0.0 : 
+                s1_upper = EPSILON 
                 s2_upper = axis_max_val / 2.0 if axis_max_val > EPSILON else EPSILON * 2
             
             steps_config = [
@@ -166,7 +165,6 @@ def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: flo
             if s1_upper < 0: s1_upper = 0
             if s2_upper < s1_upper: s2_upper = s1_upper + EPSILON
 
-
             steps_config = [
                 {'range': [0, s1_upper], 'color': color_negative},
                 {'range': [s1_upper, s2_upper], 'color': color_warning},
@@ -179,10 +177,8 @@ def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: flo
             s_lower, s_upper = step['range']
             s_lower = float(s_lower) if pd.notna(s_lower) else current_lower_bound
             s_upper = float(s_upper) if pd.notna(s_upper) else axis_max_val
-            
             s_lower = max(current_lower_bound, s_lower) 
             s_upper = min(max(s_lower + EPSILON, s_upper), axis_max_val) 
-
             if s_upper > s_lower: 
                 valid_steps.append({'range': [s_lower, s_upper], 'color': step['color']})
                 current_lower_bound = s_upper
@@ -190,7 +186,6 @@ def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: flo
         if not valid_steps: 
             logger.error(f"Gauge '{title}': All steps became invalid after cleaning. Original steps: {steps_config}. Axis_max: {axis_max_val}. Using a single fallback step.")
             valid_steps = [{'range': [0, axis_max_val], 'color': accent_color}]
-
 
         logger.debug(f"Gauge '{title}': axis_max_val={axis_max_val}, valid_steps={valid_steps}")
         
@@ -268,16 +263,24 @@ def plot_collaboration_proximity_index(data, disruption_points, forecast_data=No
     _apply_common_layout_settings(fig, "Collaboration Proximity Index Trend", high_contrast, yaxis_title="Index (%)", yaxis_range=[max(0, min_val - 15), min(105, max_val + 15)])
     return fig
 
-def plot_operational_recovery(recovery_data, productivity_loss_data, high_contrast=False):
+def plot_operational_recovery(recovery_data, productivity_loss_data, disruption_points=None, high_contrast=False): # Added disruption_points
     if not recovery_data: return _get_no_data_figure("Operational Resilience", high_contrast)
     fig = go.Figure(); x_vals = list(range(len(recovery_data)))
     fig.add_trace(go.Scatter(x=x_vals, y=recovery_data, mode='lines', name='Op. Recovery', line=dict(color=COLOR_POSITIVE_GREEN, width=2.5, dash='solid'), hovertemplate='Recovery: %{y:.1f}%<extra></extra>'))
     if productivity_loss_data and len(productivity_loss_data) == len(recovery_data):
         fig.add_trace(go.Scatter(x=x_vals, y=productivity_loss_data, mode='lines', name='Prod. Loss', line=dict(color=COLOR_CRITICAL_RED, dash='dot', width=2.5), hovertemplate='Prod. Loss: %{y:.1f}%<extra></extra>'))
+    
+    if disruption_points:
+        disruption_line_color = COLOR_WARNING_AMBER
+        disruption_annot_font_color = COLOR_WHITE_TEXT if high_contrast else COLOR_DARK_TEXT_ON_LIGHT_BG_HC
+        disruption_annot_bgcolor = "rgba(245,158,11,0.3)" if not high_contrast else "rgba(245,158,11,0.6)"
+        for dp_step in disruption_points:
+            if 0 <= dp_step < len(recovery_data): fig.add_vline(x=dp_step, line=dict(color=disruption_line_color, width=1.5, dash="longdash"), annotation_text="D", annotation_position="top right", annotation=dict(font_size=10, bgcolor=disruption_annot_bgcolor, borderpad=2, textangle=0, font_color=disruption_annot_font_color))
+
     _apply_common_layout_settings(fig, "Operational Resilience: Recovery vs. Loss", high_contrast, yaxis_title="Percentage (%)", yaxis_range=[0, 105])
     return fig
 
-def plot_operational_efficiency(efficiency_df, selected_metrics, high_contrast=False):
+def plot_operational_efficiency(efficiency_df, selected_metrics, disruption_points=None, high_contrast=False): # Added disruption_points
     if efficiency_df.empty: return _get_no_data_figure("Operational Efficiency (OEE)", high_contrast)
     cat_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
     fig = go.Figure()
@@ -287,6 +290,14 @@ def plot_operational_efficiency(efficiency_df, selected_metrics, high_contrast=F
             style_info = metric_styles.get(metric, {'color_idx': i % len(cat_palette), 'dash': 'solid', 'width': 1.5})
             color = cat_palette[style_info['color_idx'] % len(cat_palette)]
             fig.add_trace(go.Scatter(x=efficiency_df.index, y=efficiency_df[metric], mode='lines', name=metric.upper(), line=dict(color=color, width=style_info['width'], dash=style_info['dash']), hovertemplate=f'{metric.upper()}: %{{y:.1f}}%<extra></extra>'))
+
+    if disruption_points:
+        disruption_line_color = COLOR_WARNING_AMBER
+        disruption_annot_font_color = COLOR_WHITE_TEXT if high_contrast else COLOR_DARK_TEXT_ON_LIGHT_BG_HC
+        disruption_annot_bgcolor = "rgba(245,158,11,0.3)" if not high_contrast else "rgba(245,158,11,0.6)"
+        for dp_step in disruption_points:
+            if 0 <= dp_step < len(efficiency_df): fig.add_vline(x=dp_step, line=dict(color=disruption_line_color, width=1.5, dash="longdash"), annotation_text="D", annotation_position="top right", annotation=dict(font_size=10, bgcolor=disruption_annot_bgcolor, borderpad=2, textangle=0, font_color=disruption_annot_font_color))
+
     _apply_common_layout_settings(fig, "Overall Equipment Effectiveness (OEE) & Components", high_contrast, yaxis_title="Efficiency Score (%)", yaxis_range=[0, 105])
     return fig
 
@@ -345,35 +356,62 @@ def plot_worker_density_heatmap(team_positions_df, facility_size, config, show_e
             if 'coords' in area_details: (x0,y0), (x1,y1) = area_details['coords']; shapes.append(go.layout.Shape(type="rect", x0=min(x0,x1), y0=min(y0,y1), x1=max(x0,x1), y1=max(y0,y1), line=dict(color=work_area_line_color, dash="dot", width=1.5), fillcolor="rgba(0,0,0,0)", layer="above"))
     _apply_common_layout_settings(fig, "Aggregated Worker Density Heatmap", high_contrast, yaxis_title="Y Coordinate (m)", xaxis_title="X Coordinate (m)"); fig.update_layout(xaxis_range=[0, facility_width], yaxis_range=[0, facility_height], shapes=shapes, autosize=True); fig.update_xaxes(constrain="domain", scaleanchor="y", scaleratio=1); fig.update_yaxes(constrain="domain"); return fig
 
-def plot_worker_wellbeing(scores, triggers, high_contrast=False):
+def plot_worker_wellbeing(scores, triggers, disruption_points=None, high_contrast=False): # Added disruption_points
     if not scores: return _get_no_data_figure("Worker Well-Being Index Trend", high_contrast)
     cat_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
     fig = go.Figure(); x_vals = list(range(len(scores)))
     fig.add_trace(go.Scatter(x=x_vals, y=scores, mode='lines', name='Well-Being Index', line=dict(color=cat_palette[0], width=2.5), hovertemplate='Well-Being: %{y:.1f}%<extra></extra>'))
     avg_wellbeing = np.mean([s for s in scores if s is not None and pd.notna(s)]) if any(s is not None and pd.notna(s) for s in scores) else None 
     if avg_wellbeing is not None: fig.add_hline(y=avg_wellbeing, line=dict(color=COLOR_NEUTRAL_GRAY, width=1, dash="dot"), annotation_text=f"Avg: {avg_wellbeing:.1f}%", annotation_position="bottom left", annotation_font_size=10, annotation_font_color=COLOR_NEUTRAL_GRAY)
-    trigger_styles = {'threshold': {'color': COLOR_CRITICAL_RED, 'symbol': 'x-thin-open', 'name': 'Threshold Alert'},'trend': {'color': COLOR_WARNING_AMBER, 'symbol': 'triangle-down-open', 'name': 'Trend Alert'},'disruption': {'color': COLOR_INFO_BLUE, 'symbol': 'star-open', 'name': 'Disruption Link'},'work_area_general': {'color': cat_palette[1], 'symbol': 'diamond-open', 'name': 'Work Area Alert'}}
+    
+    # Plot disruption points if provided
+    if disruption_points:
+        disruption_line_color = COLOR_WARNING_AMBER
+        disruption_annot_font_color = COLOR_WHITE_TEXT if high_contrast else COLOR_DARK_TEXT_ON_LIGHT_BG_HC
+        disruption_annot_bgcolor = "rgba(245,158,11,0.3)" if not high_contrast else "rgba(245,158,11,0.6)"
+        for dp_step in disruption_points:
+            if 0 <= dp_step < len(scores): fig.add_vline(x=dp_step, line=dict(color=disruption_line_color, width=1.5, dash="longdash"), annotation_text="D", annotation_position="top right", annotation=dict(font_size=10, bgcolor=disruption_annot_bgcolor, borderpad=2, textangle=0, font_color=disruption_annot_font_color))
+
+    trigger_styles = {'threshold': {'color': COLOR_CRITICAL_RED, 'symbol': 'x-thin-open', 'name': 'Threshold Alert'},'trend': {'color': COLOR_WARNING_AMBER, 'symbol': 'triangle-down-open', 'name': 'Trend Alert'},'disruption': {'color': COLOR_INFO_BLUE, 'symbol': 'star-open', 'name': 'Disruption Link'},'work_area_general': {'color': cat_palette[1] if len(cat_palette)>1 else COLOR_INFO_BLUE, 'symbol': 'diamond-open', 'name': 'Work Area Alert'}}
     default_trigger_style = {'color': COLOR_NEUTRAL_GRAY, 'symbol': 'circle-open', 'name': 'Other Alert'}
+    
+    # Ensure triggers is a dict, even if empty
+    triggers = triggers if isinstance(triggers, dict) else {}
+
     for trigger_type, points in triggers.items():
         flat_points = []; processed_trigger_type = trigger_type
         if isinstance(points, list): flat_points = points
-        elif isinstance(points, dict) and trigger_type == 'work_area': all_wa_points = set(); [all_wa_points.update(p_list) for p_list in points.values() if isinstance(p_list, list)]; flat_points = list(all_wa_points); processed_trigger_type = 'work_area_general'
+        elif isinstance(points, dict) and trigger_type == 'work_area': 
+            all_wa_points = set()
+            for p_list in points.values():
+                if isinstance(p_list, list): all_wa_points.update(p_list)
+            flat_points = list(all_wa_points)
+            processed_trigger_type = 'work_area_general'
+        
         valid_points = sorted(list(set(p for p in flat_points if isinstance(p, (int, float)) and 0 <= p < len(scores))))
         if valid_points: 
             style = trigger_styles.get(processed_trigger_type, default_trigger_style)
-            y_values_for_markers = [scores[p] for p in valid_points if scores[p] is not None and pd.notna(scores[p])] 
-            valid_points_for_trace = [p for p_idx, p in enumerate(valid_points) if scores[p] is not None and pd.notna(scores[p])] 
+            y_values_for_markers = [scores[p] for p in valid_points if p < len(scores) and scores[p] is not None and pd.notna(scores[p])] 
+            valid_points_for_trace = [p for p in valid_points if p < len(scores) and scores[p] is not None and pd.notna(scores[p])] 
             if y_values_for_markers: 
                 fig.add_trace(go.Scatter(x=valid_points_for_trace, y=y_values_for_markers, mode='markers', name=style['name'], marker=dict(color=style['color'], size=10, symbol=style['symbol'], line=dict(width=1.5, color=COLOR_WHITE_TEXT)), hovertemplate=f'{style["name"]}: %{{y:.1f}}% at Step %{{x}}<extra></extra>'))
     _apply_common_layout_settings(fig, "Worker Well-Being Index Trend", high_contrast, yaxis_title="Index (%)", yaxis_range=[0, 105]); return fig
 
-def plot_psychological_safety(data, high_contrast=False):
+def plot_psychological_safety(data, disruption_points=None, high_contrast=False): # Added disruption_points
     if not data: return _get_no_data_figure("Psychological Safety Score Trend", high_contrast)
     cat_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
     fig = go.Figure(); x_vals = list(range(len(data)))
-    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines', name='Psych. Safety', line=dict(color=cat_palette[2], width=2.5), hovertemplate='Psych. Safety: %{y:.1f}%<extra></extra>'))
+    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines', name='Psych. Safety', line=dict(color=cat_palette[2] if len(cat_palette)>2 else COLOR_INFO_BLUE, width=2.5), hovertemplate='Psych. Safety: %{y:.1f}%<extra></extra>'))
     avg_safety = np.mean([s for s in data if s is not None and pd.notna(s)]) if any(s is not None and pd.notna(s) for s in data) else None
     if avg_safety is not None: fig.add_hline(y=avg_safety, line=dict(color=COLOR_NEUTRAL_GRAY, width=1, dash="dot"), annotation_text=f"Avg: {avg_safety:.1f}%", annotation_position="bottom left", annotation_font_size=10, annotation_font_color=COLOR_NEUTRAL_GRAY)
+    
+    if disruption_points:
+        disruption_line_color = COLOR_WARNING_AMBER
+        disruption_annot_font_color = COLOR_WHITE_TEXT if high_contrast else COLOR_DARK_TEXT_ON_LIGHT_BG_HC
+        disruption_annot_bgcolor = "rgba(245,158,11,0.3)" if not high_contrast else "rgba(245,158,11,0.6)"
+        for dp_step in disruption_points:
+            if 0 <= dp_step < len(data): fig.add_vline(x=dp_step, line=dict(color=disruption_line_color, width=1.5, dash="longdash"), annotation_text="D", annotation_position="top right", annotation=dict(font_size=10, bgcolor=disruption_annot_bgcolor, borderpad=2, textangle=0, font_color=disruption_annot_font_color))
+
     _apply_common_layout_settings(fig, "Psychological Safety Score Trend", high_contrast, yaxis_title="Score (%)", yaxis_range=[0, 105]); return fig
 
 def plot_downtime_trend(downtime_events_list, interval_threshold, high_contrast=False):
@@ -388,7 +426,7 @@ def plot_downtime_trend(downtime_events_list, interval_threshold, high_contrast=
     fig.add_hline(y=interval_threshold, line=dict(color=threshold_line_color, width=1.5, dash="longdash"), annotation_text=f"Alert Thresh: {interval_threshold} min", annotation_position="top right", annotation=dict(font_size=10, bgcolor=threshold_annot_bgcolor, borderpad=2, font_color=threshold_annot_font_color))
     
     max_y_val = 10.0 
-    if downtime_durations: # Ensure there are durations to calculate max from
+    if downtime_durations: 
         max_duration = max(downtime_durations) if downtime_durations else 0
         max_y_val = max(max_duration * 1.15, interval_threshold * 1.5, 10.0)
     else: 
@@ -396,23 +434,39 @@ def plot_downtime_trend(downtime_events_list, interval_threshold, high_contrast=
 
     _apply_common_layout_settings(fig, "Downtime per Interval", high_contrast, yaxis_title="Downtime (minutes)"); fig.update_yaxes(range=[0, max_y_val]); return fig
 
-def plot_team_cohesion(data, high_contrast=False):
+def plot_team_cohesion(data, disruption_points=None, high_contrast=False): # Added disruption_points
     if not data: return _get_no_data_figure("Team Cohesion Index Trend", high_contrast)
     cat_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
     fig = go.Figure(); x_vals = list(range(len(data)))
-    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines', name='Team Cohesion', line=dict(color=cat_palette[3], width=2.5), hovertemplate='Cohesion: %{y:.1f}%<extra></extra>'))
+    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines', name='Team Cohesion', line=dict(color=cat_palette[3] if len(cat_palette)>3 else COLOR_INFO_BLUE, width=2.5), hovertemplate='Cohesion: %{y:.1f}%<extra></extra>'))
     avg_cohesion = np.mean([s for s in data if s is not None and pd.notna(s)]) if any(s is not None and pd.notna(s) for s in data) else None
     if avg_cohesion is not None: fig.add_hline(y=avg_cohesion, line=dict(color=COLOR_NEUTRAL_GRAY, width=1, dash="dot"), annotation_text=f"Avg: {avg_cohesion:.1f}%", annotation_position="top left", annotation_font_size=10, annotation_font_color=COLOR_NEUTRAL_GRAY)
+
+    if disruption_points:
+        disruption_line_color = COLOR_WARNING_AMBER
+        disruption_annot_font_color = COLOR_WHITE_TEXT if high_contrast else COLOR_DARK_TEXT_ON_LIGHT_BG_HC
+        disruption_annot_bgcolor = "rgba(245,158,11,0.3)" if not high_contrast else "rgba(245,158,11,0.6)"
+        for dp_step in disruption_points:
+            if 0 <= dp_step < len(data): fig.add_vline(x=dp_step, line=dict(color=disruption_line_color, width=1.5, dash="longdash"), annotation_text="D", annotation_position="top right", annotation=dict(font_size=10, bgcolor=disruption_annot_bgcolor, borderpad=2, textangle=0, font_color=disruption_annot_font_color))
+            
     _apply_common_layout_settings(fig, "Team Cohesion Index Trend", high_contrast, yaxis_title="Cohesion Index (%)", yaxis_range=[0, 105]); return fig
 
-def plot_perceived_workload(data, high_workload_threshold, very_high_workload_threshold, high_contrast=False):
+def plot_perceived_workload(data, high_workload_threshold, very_high_workload_threshold, disruption_points=None, high_contrast=False): # Added disruption_points
     if not data: return _get_no_data_figure("Perceived Workload Index", high_contrast)
     cat_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
     fig = go.Figure(); x_vals = list(range(len(data)))
-    line_color_main = cat_palette[4]; marker_colors = [COLOR_CRITICAL_RED if val >= very_high_workload_threshold else COLOR_WARNING_AMBER if val >= high_workload_threshold else COLOR_POSITIVE_GREEN for val in data]
+    line_color_main = cat_palette[4] if len(cat_palette)>4 else COLOR_INFO_BLUE; marker_colors = [COLOR_CRITICAL_RED if val >= very_high_workload_threshold else COLOR_WARNING_AMBER if val >= high_workload_threshold else COLOR_POSITIVE_GREEN for val in data]
     fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines+markers', name='Perceived Workload', line=dict(color=line_color_main, width=2), marker=dict(size=6, color=marker_colors, line=dict(width=0.5, color=COLOR_WHITE_TEXT)), hovertemplate='Workload: %{y:.1f}/10<extra></extra>'))
     fig.add_hline(y=high_workload_threshold, line=dict(color=COLOR_WARNING_AMBER, width=1.5, dash="dash"), annotation_text=f"High ({high_workload_threshold})", annotation_position="bottom right", annotation_font=dict(color=COLOR_WARNING_AMBER, size=10))
     fig.add_hline(y=very_high_workload_threshold, line=dict(color=COLOR_CRITICAL_RED, width=1.5, dash="dash"), annotation_text=f"Very High ({very_high_workload_threshold})", annotation_position="top right", annotation_font=dict(color=COLOR_CRITICAL_RED, size=10))
+
+    if disruption_points:
+        disruption_line_color = COLOR_WARNING_AMBER # Could use a different color for these if desired
+        disruption_annot_font_color = COLOR_WHITE_TEXT if high_contrast else COLOR_DARK_TEXT_ON_LIGHT_BG_HC
+        disruption_annot_bgcolor = "rgba(245,158,11,0.3)" if not high_contrast else "rgba(245,158,11,0.6)"
+        for dp_step in disruption_points:
+            if 0 <= dp_step < len(data): fig.add_vline(x=dp_step, line=dict(color=disruption_line_color, width=1.5, dash="longdash"), annotation_text="D", annotation_position="top right", annotation=dict(font_size=10, bgcolor=disruption_annot_bgcolor, borderpad=2, textangle=0, font_color=disruption_annot_font_color))
+
     _apply_common_layout_settings(fig, "Perceived Workload Index (0-10 Scale)", high_contrast, yaxis_title="Workload Index", yaxis_range=[0, 10.5]); return fig
 
 def plot_downtime_causes_pie(downtime_events_list, high_contrast=False):
@@ -466,7 +520,7 @@ def plot_downtime_causes_pie(downtime_events_list, high_contrast=False):
         textinfo='label+percent', insidetextorientation='auto',
         hovertemplate="<b>Cause:</b> %{label}<br><b>Duration:</b> %{value:.1f} min<br><b>Share:</b> %{percent}<extra></extra>",
         sort=True, 
-        direction='clockwise' # CORRECTED VALUE
+        direction='clockwise' # Ensure this is 'clockwise' or 'counterclockwise'
     )])
 
     fig.update_traces(textfont_size=10,
