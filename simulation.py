@@ -1,11 +1,9 @@
 # simulation.py
-import logging # Standard library
-import math    # Standard library - THIS IS THE CRUCIAL IMPORT
-import random  # Standard library
-
-import numpy as np # Third-party
-import pandas as pd # Third-party
-
+import numpy as np
+import pandas as pd
+import random
+# import math # Keep global import for linters/clarity, but add local below
+import logging
 
 logger = logging.getLogger(__name__)
 EPSILON = 1e-6
@@ -16,6 +14,10 @@ def _get_config_param(config, key, default):
 def simulate_workplace_operations(num_team_members: int, num_steps: int, 
                                   scheduled_events: list, 
                                   team_initiative: str, config: dict):
+    # ---- Ensure critical modules are available in this function's scope ----
+    import math # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< ADD IMPORT HERE
+    # ----------------------------------------------------------------------
+    
     np.random.seed(42)
     random.seed(42)
 
@@ -245,7 +247,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
                         for i in range(num_team_members):
                             worker_zone = worker_assigned_zone[i]
                             if (event_affected_zones and worker_zone in event_affected_zones) or (not event_affected_zones): 
-                                if worker_fatigue[i] > 0.65 or random.random() < active_event.get("Intensity", 1.0) * 0.1: 
+                                if worker_fatigue[i] > 0.65 or random.random() < active_event.get("Intensity", 1.0) * 0.1: # Use specific event's intensity
                                     if worker_zone in wellbeing_triggers_dict['work_area']:
                                         if step not in wellbeing_triggers_dict['work_area'][worker_zone]: 
                                             wellbeing_triggers_dict['work_area'][worker_zone].append(step)
@@ -360,17 +362,12 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
                             is_on_scheduled_break_or_meeting = True
                             break_room_name = "Break Room" 
                             if break_room_name in work_areas_config and \
-                               (event_type_active != "Team Meeting" or break_room_name in affected_zones_event):
+                               (event_type_active != "Team Meeting" or break_room_name in affected_zones_event): # Ensure meeting location check
                                 br_coords = work_areas_config[break_room_name].get('coords')
                                 if br_coords and len(br_coords) == 2:
                                     target_x = random.uniform(min(br_coords[0][0],br_coords[1][0]), max(br_coords[0][0],br_coords[1][0]))
                                     target_y = random.uniform(min(br_coords[0][1],br_coords[1][1]), max(br_coords[0][1],br_coords[1][1]))
-                            elif event_type_active == "Team Meeting" and "Break Room" in affected_zones_event and "Break Room" in work_areas_config: 
-                                br_coords = work_areas_config["Break Room"].get('coords')
-                                if br_coords and len(br_coords) == 2:
-                                    target_x = random.uniform(min(br_coords[0][0],br_coords[1][0]), max(br_coords[0][0],br_coords[1][0]))
-                                    target_y = random.uniform(min(br_coords[0][1],br_coords[1][1]), max(br_coords[0][1],br_coords[1][1]))
-                            break 
+                            break # Worker is affected by one such event, no need to check further for this status
                 
                 move_x = (target_x - worker_current_x[i]) * 0.3 + np.random.normal(0, 1.0); 
                 move_y = (target_y - worker_current_y[i]) * 0.3 + np.random.normal(0, 1.0)
@@ -399,7 +396,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
     downtime_events_final = _downtime_events_per_interval
     task_completion_rate = list(_task_completion_rate_percent)
 
-    logger.info(f"Simulation completed for {num_steps} steps with {num_team_members} team members. Initiative: {team_initiative}.", extra={'user_action': 'Simulation Complete'}) # Added extra here
+    logger.info(f"Simulation completed for {num_steps} steps with {num_team_members} team members. Initiative: {team_initiative}.", extra={'user_action': 'Simulation Complete'})
 
     return (
         team_positions_df, task_compliance, collaboration_proximity, 
