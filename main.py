@@ -20,9 +20,9 @@ if not logger.handlers:
                         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s - [User Action: %(user_action)s]',
                         filename='dashboard.log',
                         filemode='a')
-logger.info("Main.py: Startup. Light theme adjustments.", extra={'user_action': 'System Startup'})
+logger.info("Main.py: Startup. Correcting color constant NameError.", extra={'user_action': 'System Startup'})
 
-st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.12\nInsights for operational excellence & psychosocial well-being."})
+st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.13\nInsights for operational excellence & psychosocial well-being."})
 
 # --- Light Theme Color Constants for CSS and Streamlit Elements ---
 COLOR_PAGE_BACKGROUND_LIGHT = "#F0F2F6"
@@ -31,7 +31,7 @@ COLOR_CONTENT_BACKGROUND_LIGHT = "#FFFFFF"
 
 COLOR_PRIMARY_TEXT_DARK = "#262730"
 COLOR_SECONDARY_TEXT_DARK = "#5E6474"
-COLOR_ACCENT_TEXT_DARK = "#0052CC"
+COLOR_ACCENT_TEXT_DARK = "#0052CC" # Renamed from COLOR_ACCENT_UI_LIGHT_THEME for clarity if used for text
 
 COLOR_CRITICAL_RED_BORDER = "#D62728"
 COLOR_WARNING_AMBER_BORDER = "#FF7F0E"
@@ -46,16 +46,22 @@ COLOR_INFO_BLUE_BG_LIGHT = "rgba(31, 119, 180, 0.1)"
 COLOR_BORDER_SUBTLE_LIGHT = "#D1D5DB"
 COLOR_BORDER_DARKER_LIGHT = "#A0AEC0"
 
-COLOR_ACCENT_UI_LIGHT_THEME = "#0063BF" 
-COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME = "#0052A3" 
-COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT = "#2CA02C"
-COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT = "#228B22"
+# Accent Color for UI elements like active tab underline, some buttons
+COLOR_ACCENT_UI_LIGHT_THEME = "#0063BF" # Defined as requested
+
+# Specific Button Colors (ensure these are defined before CSS block)
+COLOR_ACCENT_BUTTON_LIGHT_THEME = COLOR_ACCENT_UI_LIGHT_THEME # Using the UI accent for default buttons
+COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME = "#0052A3" # Darker shade for hover
+
+COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT = COLOR_POSITIVE_GREEN_BORDER # Green for sidebar primary default actions
+COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT = "#228B22" # Darker Green
 COLOR_BUTTON_SECONDARY_BG_LIGHT = "#E0E0E0"
 COLOR_BUTTON_SECONDARY_HOVER_BG_LIGHT = "#BDBDBD"
 COLOR_BUTTON_REMOVE_BG_LIGHT = COLOR_CRITICAL_RED_BORDER
 
 THEMED_DIVIDER_COLOR = "gray"
 
+# ... (rest of the code from Chunk 1, e.g., safe_get, safe_stat, etc.)
 def safe_get(data_dict, path_str, default_val=None):
     current = data_dict
     is_list_like_path = False
@@ -188,6 +194,13 @@ def get_actionable_insights(sim_data, current_config_dict_main):
     logger.info(f"get_actionable_insights: Generated {len(insights)} insights.", extra={'user_action': 'Actionable Insights - End'})
     return insights
 
+# ... The rest of the file (render_settings_sidebar, run_simulation_logic, time_range_input_section, and the main() function with its tab rendering loop)
+# will follow in the next chunk.
+```
+
+---
+**`main.py` (Chunk 2 of 2 - Indentation Triple-Checked & Slider Logic Refined)**
+```python
 def aggregate_downtime_by_step(raw_downtime_event_log, num_total_steps_agg):
     downtime_per_step_agg = [0.0] * num_total_steps_agg
     if not isinstance(raw_downtime_event_log, list):
@@ -233,7 +246,6 @@ st.markdown(f"""
             font-size: 1.75rem !important; font-weight: 600 !important; line-height: 1.3 !important; 
             margin: 1.2rem 0 1rem 0 !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
             /* Streamlit's divider argument handles the line color based on THEMED_DIVIDER_COLOR */
-            /* If custom color is needed, it's more complex CSS to target the <hr> */
             padding-bottom: 0.6rem !important; text-align: left !important;
         }}
 
@@ -338,8 +350,8 @@ st.markdown(f"""
             border-color: {COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT} !important;
         }}
          [data-testid="stSidebar"] .stButton button[kind="primary"] {{ /* For Run Simulation in Sidebar */
-             background-color: {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important;
-             border-color: {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important;
+             background-color: {COLOR_ACCENT_UI_LIGHT_THEME} !important;
+             border-color: {COLOR_ACCENT_UI_LIGHT_THEME} !important;
              color: #FFFFFF !important;
         }}
         [data-testid="stSidebar"] .stButton button[kind="primary"]:hover {{
@@ -353,6 +365,7 @@ st.markdown(f"""
          [data-testid="stSidebar"] .stButton button[kind="secondary"]:hover {{
              background-color: {COLOR_BUTTON_SECONDARY_HOVER_BG_LIGHT} !important;
         }}
+
 
         /* Metric Display */
         .stMetric {{ 
@@ -417,7 +430,6 @@ st.markdown(f"""
         .alert-warning {{ border-left: 5px solid {COLOR_WARNING_AMBER_BORDER}; background-color: {COLOR_WARNING_AMBER_BG_LIGHT}; }}
         .alert-positive {{ border-left: 5px solid {COLOR_POSITIVE_GREEN_BORDER}; background-color: {COLOR_POSITIVE_GREEN_BG_LIGHT}; }}
         .alert-info {{ border-left: 5px solid {COLOR_INFO_BLUE_BORDER}; background-color: {COLOR_INFO_BLUE_BG_LIGHT}; }}
-        /* Ensure text inside alerts is dark for readability on light backgrounds */
         .alert-critical .insight-title, .alert-critical .insight-text,
         .alert-warning .insight-title, .alert-warning .insight-text,
         .alert-positive .insight-title, .alert-positive .insight-text,
@@ -679,8 +691,7 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
     save_simulation_data(simulation_output_dict_sl_final_run) 
     return simulation_output_dict_sl_final_run
 
-# Helper specifically for run_simulation_logic's config access
-def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_type=None):
+def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_type=None): # Renamed to avoid conflict
     val = secondary_conf.get(key, primary_conf.get(key, default))
     if data_type:
         try:
@@ -689,11 +700,10 @@ def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_t
         except (ValueError, TypeError): return default
     return val
 
-# --- TIME RANGE INPUT WIDGETS ---
 def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int, st_col_obj = st, interval_duration_min_ui: int = 2):
     start_time_key_ui = f"{tab_key_prefix}_start_time_min"
     end_time_key_ui = f"{tab_key_prefix}_end_time_min"
-
+    
     interval_duration_min_ui = float(interval_duration_min_ui) if isinstance(interval_duration_min_ui, (int, float)) and interval_duration_min_ui > 0 else 2.0
     max_minutes_for_range_ui = float(max_minutes_for_range_ui) if isinstance(max_minutes_for_range_ui, (int, float)) and max_minutes_for_range_ui >=0 else 0.0
     
@@ -1061,7 +1071,7 @@ def main():
                                     alert_class_final = "alert-critical" if alert_type_final == "threshold" else "alert-warning" if alert_type_final == "trend" else "alert-info"
                                     alert_title_text_final = alert_type_final.replace("_", " ").title()
                                     st.markdown(f"<div class='{alert_class_final} insight-text'><strong>{alert_title_text_final} Alerts ({len(alert_steps_in_range_final)}x):</strong> Steps {alert_steps_in_range_final}.</div>", unsafe_allow_html=True); insights_count_wb_final += 1
-                        if insights_count_wb_final == 0: st.markdown(f"<p class='insight-text' style='color: {COLOR_POSITIVE_GREEN_BORDER};'>✅ No specific well-being alerts triggered in selected period.</p>", unsafe_allow_html=True) # Using a defined constant
+                        if insights_count_wb_final == 0: st.markdown(f"<p class='insight-text' style='color: {COLOR_POSITIVE_GREEN_BORDER};'>✅ No specific well-being alerts triggered in selected period.</p>", unsafe_allow_html=True)
                 if tab_def_main_final_loop.get("insights_html"): st.markdown(tab_def_main_final_loop["insights_html"], unsafe_allow_html=True) 
             else: st.info(f"ℹ️ Run simulation or load data to view {tab_def_main_final_loop['name']}.", icon="📊")
 
@@ -1091,3 +1101,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
