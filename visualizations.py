@@ -107,20 +107,34 @@ def plot_key_metrics_summary(compliance, proximity, wellbeing, downtime, high_co
         ("Total Downtime", downtime, 30, accent_color, " min", True)
     ]
 
-    for title, value, target, bar_color_val, suffix, lower_is_better in metrics_config:
+    for title, raw_value, raw_target, bar_color_val, suffix, lower_is_better in metrics_config:
         fig = go.Figure()
-        value = float(value) if value is not None else 0.0 # Ensure value is float
+        
+        try:
+            value = float(raw_value) if raw_value is not None else 0.0
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid value '{raw_value}' for gauge '{title}'. Defaulting to 0.")
+            value = 0.0
+        
+        try:
+            target = float(raw_target) if raw_target is not None else 0.0
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid target '{raw_target}' for gauge '{title}'. Defaulting to 0.")
+            target = 0.0
+
 
         increasing_is_good_color = color_positive if not lower_is_better else color_negative
         decreasing_is_good_color = color_negative if not lower_is_better else color_positive
 
         steps_config = []
-        axis_max_val_default = max(target * 1.5, value * 1.2 if value else target * 1.5, 10)
-        axis_max_val = 100 if suffix == "%" else axis_max_val_default
+        # Ensure value is used in axis_max_val_default calculation only if it's not None/0 after conversion
+        # This `value` is now guaranteed to be a float.
+        axis_max_val_default = max(target * 1.5, value * 1.2 if value != 0.0 else target * 1.5, 10.0) # ensure comparison with float
+        axis_max_val = 100.0 if suffix == "%" else axis_max_val_default
 
         if lower_is_better: # e.g. Downtime
             good_thresh = target
-            warn_thresh = target * 1.25 
+            warn_thresh = target * 1.25
             steps_config = [
                 {'range': [0, good_thresh], 'color': color_positive},
                 {'range': [good_thresh, warn_thresh], 'color': color_warning},
@@ -137,7 +151,7 @@ def plot_key_metrics_summary(compliance, proximity, wellbeing, downtime, high_co
 
         fig.add_trace(go.Indicator(
             mode="gauge+number+delta", value=value,
-            delta={'reference': float(target),
+            delta={'reference': target, # target is now guaranteed float
                    'increasing': {'color': increasing_is_good_color},
                    'decreasing': {'color': decreasing_is_good_color},
                    'font': {'size': 12}},
@@ -331,7 +345,6 @@ def plot_downtime_causes_pie(downtime_events_list, high_contrast=False):
         if current_duration_value <= 0: # Skip zero or negative durations after conversion
             continue
 
-        # Consolidate similar causes if needed and filter out "None"/"Unknown"
         if "Equip.Fail" in cause and cause != "Equipment Failure": cause = "Equipment Failure"
         if "HumanError" in cause and cause != "Human Error": cause = "Human Error"
         
@@ -351,13 +364,12 @@ def plot_downtime_causes_pie(downtime_events_list, high_contrast=False):
     pie_color_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
     pie_colors = [pie_color_palette[i % len(pie_color_palette)] for i in range(num_causes)]
     
-    # Determine slice border color based on theme for better visibility
     slice_border_color = COLOR_SUBTLE_GRID_HC if high_contrast else COLOR_SUBTLE_GRID_STD
 
     fig = go.Figure(data=[go.Pie(
         labels=labels, values=values, hole=.4,
         pull=[0.02]*num_causes, marker_colors=pie_colors,
-        textinfo='label+percent', insidetextorientation='auto', # Let Plotly handle text color
+        textinfo='label+percent', insidetextorientation='auto',
         hovertemplate="<b>Cause:</b> %{label}<br><b>Duration:</b> %{value:.1f} min<br><b>Share:</b> %{percent}<extra></extra>",
         sort=True, direction='descending'
     )])
@@ -366,115 +378,5 @@ def plot_downtime_causes_pie(downtime_events_list, high_contrast=False):
                       marker=dict(line=dict(color=slice_border_color, width=1)))
 
     _apply_common_layout_settings(fig, f"Downtime Distribution by Cause (Total: {total_downtime_duration_for_pie:.0f} min)",
-                                  high_contrast, show_legend=(num_causes <= 7)) # Auto-hide legend if too many items
-    return fig
-def plot_downtime_trend(downtime_events_list, interval_threshold, high_contrast=False):
-    if not downtime_events_list: return _get_no_data_figure("Downtime per Interval", high_contrast)
-    
-    fig = go.Figure()
-    downtime_durations = [event.get('duration', 0) for event in downtime_events_list]
-    x_vals = list(range(len(downtime_durations)))
-    
-    bar_colors = [COLOR_CRITICAL_RED if d > interval_threshold else COLOR_POSITIVE_GREEN for d in downtime_durations]
-    hover_texts = [f"Duration: {event.get('duration', 0):.1f} min<br>Cause: {event.get('cause', 'Unknown')}" for event in downtime_events_list]
-
-    fig.add_trace(go.Bar(x=x_vals, y=downtime_durations, name='Downtime',
-                         marker_color=bar_colors, width=0.7,
-                         text=hover_texts, hoverinfo='text'))
-    
-    threshold_line_color = COLOR_WARNING_AMBER
-    threshold_annot_font_color = COLOR_DARK_TEXT_ON_LIGHT_BG_HC if high_contrast else COLOR_LIGHT_TEXT
-    threshold_annot_bgcolor = "rgba(245, 158, 11, 0.7)" # Amber background
-
-    fig.add_hline(y=interval_threshold, line=dict(color=threshold_line_color, width=1.5, dash="longdash"),
-                  annotation_text=f"Alert Thresh: {interval_threshold} min", annotation_position="top right",
-                  annotation=dict(font_size=10, bgcolor=threshold_annot_bgcolor, borderpad=2, font_color=threshold_annot_font_color))
-    _apply_common_layout_settings(fig, "Downtime per Interval", high_contrast, yaxis_title="Downtime (minutes)")
-    max_y_val = max(max(downtime_durations) * 1.15 if downtime_durations else interval_threshold * 1.5, interval_threshold * 1.5, 10)
-    fig.update_yaxes(range=[0, max_y_val])
-    return fig
-
-def plot_team_cohesion(data, high_contrast=False):
-    if not data: return _get_no_data_figure("Team Cohesion Index Trend", high_contrast)
-    
-    cat_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
-    fig = go.Figure()
-    x_vals = list(range(len(data)))
-
-    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines', name='Team Cohesion',
-                             line=dict(color=cat_palette[3], width=2.5), # Example color
-                             hovertemplate='Cohesion: %{y:.1f}%<extra></extra>'))
-    avg_cohesion = np.mean(data) if data else None
-    if avg_cohesion is not None:
-        fig.add_hline(y=avg_cohesion, line=dict(color=COLOR_NEUTRAL_GRAY, width=1, dash="dot"),
-                      annotation_text=f"Avg: {avg_cohesion:.1f}%", annotation_position="top left",
-                      annotation_font_size=10, annotation_font_color=COLOR_NEUTRAL_GRAY)
-    _apply_common_layout_settings(fig, "Team Cohesion Index Trend", high_contrast, yaxis_title="Cohesion Index (%)", yaxis_range=[0, 105])
-    return fig
-
-def plot_perceived_workload(data, high_workload_threshold, very_high_workload_threshold, high_contrast=False):
-    if not data: return _get_no_data_figure("Perceived Workload Index", high_contrast)
-    
-    cat_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
-    fig = go.Figure()
-    x_vals = list(range(len(data)))
-    
-    line_color_main = cat_palette[4] # Example color for the line itself
-    marker_colors = [COLOR_CRITICAL_RED if val >= very_high_workload_threshold else
-                     COLOR_WARNING_AMBER if val >= high_workload_threshold else
-                     COLOR_POSITIVE_GREEN for val in data]
-
-    fig.add_trace(go.Scatter(x=x_vals, y=data, mode='lines+markers', name='Perceived Workload',
-                             line=dict(color=line_color_main, width=2),
-                             marker=dict(size=6, color=marker_colors, line=dict(width=0.5, color=COLOR_WHITE_TEXT if high_contrast else COLOR_DARK_TEXT_ON_LIGHT_BG_HC)),
-                             hovertemplate='Workload: %{y:.1f}/10<extra></extra>'))
-    
-    fig.add_hline(y=high_workload_threshold, line=dict(color=COLOR_WARNING_AMBER, width=1.5, dash="dash"),
-                  annotation_text=f"High ({high_workload_threshold})", annotation_position="bottom right",
-                  annotation_font=dict(color=COLOR_WARNING_AMBER, size=10))
-    fig.add_hline(y=very_high_workload_threshold, line=dict(color=COLOR_CRITICAL_RED, width=1.5, dash="dash"),
-                  annotation_text=f"Very High ({very_high_workload_threshold})", annotation_position="top right",
-                  annotation_font=dict(color=COLOR_CRITICAL_RED, size=10))
-    _apply_common_layout_settings(fig, "Perceived Workload Index (0-10 Scale)", high_contrast, yaxis_title="Workload Index", yaxis_range=[0, 10.5])
-    return fig
-
-def plot_downtime_causes_pie(downtime_events_list, high_contrast=False):
-    if not downtime_events_list: return _get_no_data_figure("Downtime Distribution by Cause", high_contrast)
-
-    causes_summary = {}
-    total_downtime_duration_for_pie = 0
-    for event in downtime_events_list:
-        duration = event.get('duration', 0)
-        cause = event.get('cause', 'Unknown')
-        if duration > 0 and cause != "None" and cause != "Unknown":
-            if "Equip.Fail" in cause and cause != "Equipment Failure": cause = "Equipment Failure"
-            if "HumanError" in cause and cause != "Human Error": cause = "Human Error"
-            causes_summary[cause] = causes_summary.get(cause, 0) + duration
-            total_downtime_duration_for_pie += duration
-    
-    if not causes_summary:
-        return _get_no_data_figure("Downtime by Cause (No Categorized Downtime)", high_contrast)
-        
-    labels = list(causes_summary.keys())
-    values = list(causes_summary.values())
-    num_causes = len(labels)
-    
-    pie_color_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
-    pie_colors = [pie_color_palette[i % len(pie_color_palette)] for i in range(num_causes)]
-    
-    fig = go.Figure(data=[go.Pie(
-        labels=labels, values=values, hole=.4,
-        pull=[0.02]*num_causes, marker_colors=pie_colors,
-        textinfo='label+percent', insidetextorientation='auto',
-        hovertemplate="<b>Cause:</b> %{label}<br><b>Duration:</b> %{value:.1f} min<br><b>Share:</b> %{percent}<extra></extra>",
-        sort=True, direction='descending'
-    )])
-    
-    slice_border_color = COLOR_DARK_TEXT_ON_LIGHT_BG_HC if high_contrast else COLOR_WHITE_TEXT # Ensure border contrasts with slices
-    fig.update_traces(textfont_size=10, 
-                      textfont_color=COLOR_DARK_TEXT_ON_LIGHT_BG_HC, # Dark text on potentially light slices
-                      marker=dict(line=dict(color=slice_border_color, width=1))) 
-
-    _apply_common_layout_settings(fig, f"Downtime Distribution by Cause (Total: {total_downtime_duration_for_pie:.0f} min)",
-                                  high_contrast, show_legend=False if num_causes > 7 else True) # Auto-hide legend if too many items
+                                  high_contrast, show_legend=(num_causes <= 7))
     return fig
