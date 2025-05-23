@@ -12,7 +12,7 @@ def _get_config_param(config, key, default):
     return config.get(key, default)
 
 def simulate_workplace_operations(num_team_members: int, num_steps: int, 
-                                  scheduled_events: list, # This is now a list of event dicts
+                                  scheduled_events: list, 
                                   team_initiative: str, config: dict):
     np.random.seed(42)
     random.seed(42)
@@ -22,7 +22,6 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
     event_type_params_config = _get_config_param(config, 'EVENT_TYPE_CONFIG', {})
     shift_duration_minutes_sim = float(_get_config_param(config, 'SHIFT_DURATION_MINUTES', 480))
     
-    # --- Initialize Metric Arrays ---
     _task_compliance_scores = np.zeros(num_steps)
     _collaboration_scores = np.zeros(num_steps)
     _operational_recovery_scores = np.zeros(num_steps)
@@ -33,11 +32,10 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
     _productivity_loss_percent = np.zeros(num_steps)
     _downtime_events_per_interval = [{'duration': 0.0, 'cause': 'None'} for _ in range(num_steps)]
     _task_completion_rate_percent = np.zeros(num_steps)
-    _uptime_percent = np.ones(num_steps) * 100.0 # Overall facility uptime, can be zone-specific later
+    _uptime_percent = np.ones(num_steps) * 100.0
     _quality_rate_percent = np.ones(num_steps) * 100.0
     _throughput_percent_of_max = np.zeros(num_steps)
 
-    # --- Worker and Zone Setup ---
     team_positions_data = []
     worker_current_x = np.random.uniform(0, facility_width, num_team_members) if num_team_members > 0 else np.array([])
     worker_current_y = np.random.uniform(0, facility_height, num_team_members) if num_team_members > 0 else np.array([])
@@ -49,87 +47,80 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
             'max_concurrent_tasks': max(1, num_team_members)
         }
     worker_zone_names_from_config = list(work_areas_config.keys())
-    worker_assigned_zone = ["FallbackZone"] * num_team_members # Default if other logic fails
+    worker_assigned_zone = ["FallbackZone"] * num_team_members 
     if num_team_members > 0 and worker_zone_names_from_config:
-        # Simplified assignment logic, ensure it's robust for your needs
         temp_assigned = []
         for zn, zd in work_areas_config.items():
             temp_assigned.extend([zn] * zd.get('workers',0))
         
         if len(temp_assigned) == num_team_members:
             worker_assigned_zone = temp_assigned
-        else: # Fallback to even distribution
+        else: 
             worker_assigned_zone = [worker_zone_names_from_config[i % len(worker_zone_names_from_config)] for i in range(num_team_members)]
         random.shuffle(worker_assigned_zone)
 
     worker_fatigue = np.random.uniform(0.0, 0.1, num_team_members) if num_team_members > 0 else np.array([])
     zone_task_backlog = {zn: 0.0 for zn in work_areas_config.keys()}
 
-    # --- Simulation State Variables ---
     recovery_halflife_intervals = _get_config_param(config, 'RECOVERY_HALFLIFE_INTERVALS', 10)
-    # linger factor for effects that gradually wear off after an event's formal duration
-    event_effect_linger_factor = 1.0 - (1.0 / (max(1, recovery_halflife_intervals / 2) + EPSILON)) 
-
-    # Initialize step 0 values
+    
     if num_steps > 0:
         _wellbeing_scores[0] = _get_config_param(config, 'INITIAL_WELLBEING_MEAN', 0.8) * 100.0
         _psych_safety_scores[0] = _get_config_param(config, 'PSYCH_SAFETY_BASELINE', 0.75) * 100.0
         _team_cohesion_scores[0] = _get_config_param(config, 'TEAM_COHESION_BASELINE', 0.7) * 100.0
         _operational_recovery_scores[0] = 100.0
-        _perceived_workload_scores[0] = 0.0 # Initially no backlog usually
+        _perceived_workload_scores[0] = 0.0
 
     wellbeing_triggers_dict = {'threshold': [], 'trend': [], 'work_area': {wa: [] for wa in work_areas_config}, 'disruption': []}
     downtime_causes_list = _get_config_param(config, 'DOWNTIME_CAUSES_LIST', ["Equipment Failure", "Material Shortage", "Process Bottleneck", "Human Error", "Utility Outage", "External Supply Chain"])
 
-    # --- Main Simulation Loop ---
     for step in range(num_steps):
-        current_minute_of_shift = step * 2
+        current_minute_of_shift = step * 2 
 
-        # --- Aggregate Active Event Effects for the Current Step ---
-        # Reset effects; these will be calculated based on events active in *this* step
-        active_event_effects = {
+        active_event_effects = { # Reset effects for the current step
             "compliance_reduction_factor": 0.0, "wellbeing_drop_factor": 0.0,
-            "downtime_prob_modifier": 0.0, "downtime_mean_factor": 1.0, # Multiplicative
-            "fatigue_rate_modifier": 1.0,  "fatigue_recovery_factor": 0.0,
+            "downtime_prob_modifier": 0.0, "downtime_mean_modifier": 1.0,
+            "fatigue_rate_modifier": 1.0, "fatigue_recovery_factor": 0.0,
             "wellbeing_boost_abs": 0.0, "cohesion_boost_abs": 0.0,
             "psych_safety_boost_abs": 0.0,
-            "zone_productivity_multiplier": {zn: 1.0 for zn in work_areas_config.keys()}, # Per zone
-            "zone_uptime_multiplier": {zn: 1.0 for zn in work_areas_config.keys()} # Per zone
+            "zone_productivity_multiplier": {zn: 1.0 for zn in work_areas_config.keys()},
+            "zone_uptime_multiplier": {zn: 1.0 for zn in work_areas_config.keys()}
         }
         is_any_disruption_active_this_step = False
-        active_event_types_this_step = set()
+        active_event_types_this_step = set() # Store types of active events
+        active_events_details_this_step = [] # Store full details of active events - THIS WAS MISSING INITIALIZATION
 
         for event_def in scheduled_events:
-            event_start = event_def.get("Start Time (min)", 0)
-            event_duration = event_def.get("Duration (min)", 0)
+            if not isinstance(event_def, dict): continue 
+
+            event_start_min = event_def.get("Start Time (min)", -1)
+            event_duration_min = event_def.get("Duration (min)", 0)
             event_type = event_def.get("Event Type", "Unknown")
 
-            if event_start <= current_minute_of_shift < event_start + event_duration:
+            if event_start_min <= current_minute_of_shift < event_start_min + event_duration_min:
                 active_event_types_this_step.add(event_type)
+                active_events_details_this_step.append(event_def) # Add full event details
                 event_params = event_type_params_config.get(event_type, {})
-                intensity = event_def.get("Intensity", 1.0) # For disruptions
+                
+                logger.debug(f"Step {step} ({current_minute_of_shift} min): Event '{event_type}' ACTIVE. Params: {event_params}")
 
-                logger.debug(f"Step {step} ({current_minute_of_shift} min): Event '{event_type}' ACTIVE.")
-
-                if "Disruption" in event_type:
+                if "Disruption" in event_type: 
                     is_any_disruption_active_this_step = True
+                    intensity = event_def.get("Intensity", 1.0)
                     active_event_effects["compliance_reduction_factor"] = max(active_event_effects["compliance_reduction_factor"], event_params.get("compliance_reduction_factor", 0.0) * intensity)
                     active_event_effects["wellbeing_drop_factor"] = max(active_event_effects["wellbeing_drop_factor"], event_params.get("wellbeing_drop_factor", 0.0) * intensity)
-                    active_event_effects["downtime_prob_modifier"] += event_params.get("downtime_prob_modifier", 0.0) # Additive for prob
-                    active_event_effects["downtime_mean_factor"] *= event_params.get("downtime_mean_factor", 1.0) # Multiplicative for mean
+                    active_event_effects["downtime_prob_modifier"] += event_params.get("downtime_prob_modifier", 0.0) # Changed from downtime_prob
+                    active_event_effects["downtime_mean_factor"] *= event_params.get("downtime_mean_factor", 1.0) 
                     active_event_effects["fatigue_rate_modifier"] = max(active_event_effects["fatigue_rate_modifier"], event_params.get("fatigue_rate_modifier", 1.0))
-                    if current_minute_of_shift == event_start and step < num_steps: # First step of this disruption
-                        wellbeing_triggers_dict['disruption'].append(step)
-                
+                    if current_minute_of_shift == event_start_min and step < num_steps: 
+                         wellbeing_triggers_dict['disruption'].append(step)
                 elif event_type in ["Scheduled Break", "Short Pause"]:
                     active_event_effects["fatigue_recovery_factor"] = max(active_event_effects["fatigue_recovery_factor"], event_params.get("fatigue_recovery_factor", 0.0))
                     active_event_effects["wellbeing_boost_abs"] += event_params.get("wellbeing_boost_abs", 0.0)
-                    # Apply productivity multiplier to all zones during break/pause if scope is "All"
+                    productivity_multiplier_event = event_params.get("productivity_multiplier", 1.0)
                     if event_def.get("Scope", "All") == "All":
                         for zn in active_event_effects["zone_productivity_multiplier"].keys():
-                            active_event_effects["zone_productivity_multiplier"][zn] = min(active_event_effects["zone_productivity_multiplier"][zn], event_params.get("productivity_multiplier", 1.0) )
-
-
+                            active_event_effects["zone_productivity_multiplier"][zn] = min(active_event_effects["zone_productivity_multiplier"][zn], productivity_multiplier_event)
                 elif event_type == "Team Meeting":
                     active_event_effects["cohesion_boost_abs"] += event_params.get("cohesion_boost_abs", 0.0)
                     active_event_effects["psych_safety_boost_abs"] += event_params.get("psych_safety_boost_abs",0.0)
@@ -140,20 +131,18 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
                     else:
                         for zn in affected_zones: 
                             if zn in active_event_effects["zone_productivity_multiplier"]: active_event_effects["zone_productivity_multiplier"][zn] = min(active_event_effects["zone_productivity_multiplier"][zn], prod_multiplier)
-                
                 elif event_type == "Maintenance":
                     active_event_effects["downtime_prob_modifier"] += event_params.get("downtime_prob_modifier", 0.0)
                     affected_zones_maint = event_def.get("Affected Zones", [])
-                    # This is a simplified uptime impact. Realistically, it would link to specific equipment.
-                    uptime_mult = event_params.get("specific_zone_uptime_multiplier", 0.1) # e.g., 10% uptime
+                    uptime_mult = event_params.get("specific_zone_uptime_multiplier", 0.1)
                     if "All" in affected_zones_maint or not affected_zones_maint:
                          for zn in active_event_effects["zone_uptime_multiplier"].keys(): active_event_effects["zone_uptime_multiplier"][zn] = min(active_event_effects["zone_uptime_multiplier"][zn], uptime_mult)
                     else:
                         for zn in affected_zones_maint:
                             if zn in active_event_effects["zone_uptime_multiplier"]: active_event_effects["zone_uptime_multiplier"][zn] = min(active_event_effects["zone_uptime_multiplier"][zn], uptime_mult)
-
-
+        
         # --- Task Backlog and Workload ---
+        # ... (rest of this section is the same)
         avg_fatigue_current_step = np.mean(worker_fatigue) if num_team_members > 0 else 0.0
         for zone_name, zone_details in work_areas_config.items():
             tasks_arriving = zone_details.get('tasks_per_interval', 0) * (1.0 + (0.1*random.random()-0.05) if is_any_disruption_active_this_step else 0.0)
@@ -161,7 +150,6 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
             prev_compliance_score = _task_compliance_scores[max(0, step - 1)] if step > 0 else _get_config_param(config, 'BASE_TASK_COMPLETION_PROB', 0.95) * 100.0
             compliance_factor_for_processing = prev_compliance_score / 100.0
             
-            # Use the specific productivity multiplier for this zone from active events
             zone_prod_mult = active_event_effects["zone_productivity_multiplier"].get(zone_name, 1.0)
 
             zone_processing_capacity = workers_in_this_zone_count * \
@@ -177,8 +165,9 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
         _perceived_workload_scores[step] = np.clip(workload_pressure_from_backlog_metric * 10.0 + (step / (num_steps + EPSILON)) * 1.5, 0, 10)
 
         # --- Fatigue ---
+        # ... (rest of this section is the same)
         fatigue_rate_this_step = _get_config_param(config, 'WELLBEING_FATIGUE_RATE_PER_INTERVAL', 0.0025)
-        if team_initiative == "More frequent breaks": # General initiative effect if active
+        if team_initiative == "More frequent breaks": 
             fatigue_rate_this_step *= (1.0 - _get_config_param(config, 'INITIATIVE_BREAKS_FATIGUE_REDUCTION_FACTOR', 0.3))
         fatigue_rate_this_step *= (1.0 + _perceived_workload_scores[step] / 15.0) 
         fatigue_rate_this_step *= active_event_effects["fatigue_rate_modifier"] 
@@ -190,9 +179,11 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
         avg_fatigue_current_step = np.mean(worker_fatigue) if num_team_members > 0 else 0.0
 
         # --- Wellbeing ---
+        # (Ensure to use active_event_types_this_step instead of active_events_this_step if checking for type string)
+        # ... (rest of this section is the same)
         wb_now = _wellbeing_scores[max(0, step - 1)] if step > 0 else _get_config_param(config, 'INITIAL_WELLBEING_MEAN', 0.8) * 100.0
         wb_now -= (avg_fatigue_current_step * 20.0 + (_perceived_workload_scores[step] - 5.0) * 1.0) 
-        wb_now -= active_event_effects["wellbeing_drop_factor"] * 25.0  # Max drop of 25 if factor is 1
+        wb_now -= active_event_effects["wellbeing_drop_factor"] * 25.0  
         wb_now += active_event_effects["wellbeing_boost_abs"]
         leadership_support_factor = _get_config_param(config, 'LEADERSHIP_SUPPORT_FACTOR', 0.65)
         wb_now += (leadership_support_factor - 0.5) * 10.0 
@@ -207,7 +198,8 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
             wb_now += _get_config_param(config, 'INITIATIVE_AUTONOMY_WELLBEING_BOOST_ABS', 0.05) * 100.0
         _wellbeing_scores[step] = np.clip(wb_now, 5.0, 100.0)
 
-        # --- Psych Safety, Cohesion (similar logic using is_any_disruption_active_this_step and event boosts) ---
+        # --- Psych Safety, Cohesion --- (same logic using is_any_disruption_active_this_step)
+        # ...
         ps_now = _psych_safety_scores[max(0, step - 1)] if step > 0 else _get_config_param(config, 'PSYCH_SAFETY_BASELINE', 0.75) * 100.0
         ps_now -= _get_config_param(config, 'PSYCH_SAFETY_EROSION_RATE_PER_INTERVAL', 0.0005) * 100.0
         if is_any_disruption_active_this_step: 
@@ -216,7 +208,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
         ps_now += (_get_config_param(config, 'COMMUNICATION_EFFECTIVENESS_FACTOR', 0.75) - 0.5) * 10.0
         ps_now += active_event_effects["psych_safety_boost_abs"] 
         if team_initiative == "Team recognition" and step > 0 and step % (num_steps // random.randint(2,3) if num_steps > 2 else 1) == 1: 
-            ps_now += _get_config_param(config, 'INITIATIVE_RECOGNITION_PSYCHSAFETY_BOOST_ABS', 0.09) * 100.0 # Increased boost
+            ps_now += _get_config_param(config, 'INITIATIVE_RECOGNITION_PSYCHSAFETY_BOOST_ABS', 0.09) * 100.0 
         if team_initiative == "Increased Autonomy": 
             ps_now += _get_config_param(config, 'INITIATIVE_AUTONOMY_PSYCHSAFETY_BOOST_ABS', 0.08) * 100.0
         prev_team_cohesion_score = _team_cohesion_scores[max(0, step - 1)] if step > 0 else _get_config_param(config, 'TEAM_COHESION_BASELINE', 0.7) * 100.0
@@ -229,7 +221,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
         if _psych_safety_scores[step] > 70.0: cohesion_now += 0.8
         if prev_collab_score > 60.0: cohesion_now += 0.6
         if team_initiative == "Team recognition" and step > 0 and step % (num_steps // random.randint(2,3) if num_steps > 2 else 1) == 0:
-            cohesion_now += _get_config_param(config, 'INITIATIVE_RECOGNITION_COHESION_BOOST_ABS', 7.0) # Increased boost
+            cohesion_now += _get_config_param(config, 'INITIATIVE_RECOGNITION_COHESION_BOOST_ABS', 7.0) 
         _team_cohesion_scores[step] = np.clip(cohesion_now, 10.0, 100.0) 
 
         # --- Wellbeing Triggers ---
@@ -245,24 +237,20 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
                     if zone_name_affected in wellbeing_triggers_dict['work_area']:
                         wellbeing_triggers_dict['work_area'][zone_name_affected].append(step)
             
-        # --- Operational Metrics (Uptime, Compliance, Quality, Throughput) ---
-        # Overall Uptime - can be refined to per-zone if maintenance events specify zones
+        # --- Operational Metrics ---
         prev_uptime = _uptime_percent[max(0, step - 1)] if step > 0 else 100.0
         current_uptime = prev_uptime
         equipment_failed_this_step_flag = False
-        if random.random() < _get_config_param(config, 'EQUIPMENT_FAILURE_PROB_PER_INTERVAL', 0.003): # Reduced base failure prob
-            current_uptime -= random.uniform(10, 30) # Reduced impact
+        if random.random() < _get_config_param(config, 'EQUIPMENT_FAILURE_PROB_PER_INTERVAL', 0.003): 
+            current_uptime -= random.uniform(10, 30) 
             equipment_failed_this_step_flag = True
         
-        # Apply general disruption impact on uptime, can be zone specific if model supports
-        # For now, a general impact if any disruption is active.
-        # More sophisticated: check if active_event_effects["zone_uptime_multiplier"] is < 1 for any zone.
         general_uptime_multiplier = min(active_event_effects["zone_uptime_multiplier"].values()) if active_event_effects["zone_uptime_multiplier"] else 1.0
-        current_uptime *= general_uptime_multiplier # Maintenance event might set this to 0 for some zones
+        current_uptime *= general_uptime_multiplier 
 
-        if is_any_disruption_active_this_step and general_uptime_multiplier == 1.0: # If no specific maintenance, apply general disruption hit
+        if is_any_disruption_active_this_step and general_uptime_multiplier == 1.0: 
              current_uptime -= 20.0 * active_event_effects.get("compliance_reduction_factor", 0.0) 
-        _uptime_percent[step] = np.clip(current_uptime, 10.0, 100.0) # Min uptime 10%
+        _uptime_percent[step] = np.clip(current_uptime, 10.0, 100.0) 
         
         base_compliance_val = _get_config_param(config, 'BASE_TASK_COMPLETION_PROB', 0.97) * 100.0
         compliance_now = base_compliance_val * (1.0 - avg_fatigue_current_step * _get_config_param(config, 'FATIGUE_IMPACT_ON_COMPLIANCE', 0.3))
@@ -271,22 +259,22 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
             complexities = [work_areas_config.get(worker_assigned_zone[w], {}).get('task_complexity', 0.5) for w in range(num_team_members) if w < len(worker_assigned_zone)]
             if complexities: avg_worker_task_complexity = np.mean(complexities)
         compliance_now -= avg_worker_task_complexity * _get_config_param(config, 'COMPLEXITY_IMPACT_ON_COMPLIANCE', 0.35) * 100.0
-        compliance_now *= (_psych_safety_scores[step] / 100.0 * 0.15 + 0.85) # Increased psych safety influence
+        compliance_now *= (_psych_safety_scores[step] / 100.0 * 0.15 + 0.85) 
         compliance_now *= (_get_config_param(config, 'COMMUNICATION_EFFECTIVENESS_FACTOR', 0.75) * 0.35 + 0.65) 
         min_compliance_during_disruption = _get_config_param(config, 'MIN_COMPLIANCE_DURING_DISRUPTION', 15.0)
         compliance_now = max(min_compliance_during_disruption, compliance_now * (1.0 - active_event_effects["compliance_reduction_factor"]))
         _task_compliance_scores[step] = np.clip(compliance_now, 0.0, 100.0)
 
         quality_now = (100.0 - _get_config_param(config, 'BASE_QUALITY_DEFECT_RATE', 0.015) * 100.0) * \
-                      (_task_compliance_scores[step] / 100.0)**1.2 # Stronger tie to compliance
+                      (_task_compliance_scores[step] / 100.0)**1.2 
         if is_any_disruption_active_this_step: quality_now -= 10.0 * active_event_effects.get("compliance_reduction_factor", 0.0) 
-        _quality_rate_percent[step] = np.clip(quality_now, 25.0, 100.0) # Min quality 25%
+        _quality_rate_percent[step] = np.clip(quality_now, 25.0, 100.0) 
 
         max_potential_throughput_facility = _get_config_param(config, 'THEORETICAL_MAX_THROUGHPUT_UNITS_PER_INTERVAL', 120.0)
         effective_capacity_factor = (_uptime_percent[step] / 100.0) * \
                                     (_task_compliance_scores[step] / 100.0) * \
                                     (1.0 - avg_fatigue_current_step * 0.65) * \
-                                    (1.0 - _perceived_workload_scores[step] / 25.0) # Higher workload impact
+                                    (1.0 - _perceived_workload_scores[step] / 25.0) 
         throughput_disruption_impact = 0.85 * active_event_effects.get("compliance_reduction_factor", 0.0) 
         actual_units_produced = max_potential_throughput_facility * effective_capacity_factor * (1.0 - throughput_disruption_impact)
         _throughput_percent_of_max[step] = np.clip((actual_units_produced / (max_potential_throughput_facility + EPSILON)) * 100.0, 0.0, 100.0)
@@ -294,21 +282,22 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
 
         # --- Downtime ---
         current_downtime_duration = 0.0; current_downtime_cause = "None"
-        # Event-driven downtime has priority for cause
         if active_event_effects["downtime_prob_modifier"] > 0 and random.random() < active_event_effects["downtime_prob_modifier"]:
             downtime_mean_event = _get_config_param(config, 'DOWNTIME_MEAN_MINUTES_PER_OCCURRENCE', 7.0) * active_event_effects["downtime_mean_modifier"]
             downtime_std_event = _get_config_param(config, 'DOWNTIME_STD_MINUTES_PER_OCCURRENCE', 3.0) * math.sqrt(active_event_effects["downtime_mean_modifier"])
             current_downtime_duration = max(0.0, np.random.normal(downtime_mean_event, downtime_std_event))
             
-            active_effect_event_types = [evt.get("Event Type") for evt in active_events_this_step if event_type_params_config.get(evt.get("Event Type",{}),{}).get("downtime_prob_modifier",0)>0 or event_type_params_config.get(evt.get("Event Type",{}),{}).get("downtime_prob",0)>0 ]
-            if active_effect_event_types: current_downtime_cause = active_effect_event_types[0] 
+            active_downtime_event_types = [evt.get("Event Type") for evt in active_events_details_this_step # Use active_events_details_this_step
+                                           if event_type_params_config.get(evt.get("Event Type",{}),{}).get("downtime_prob_modifier",0)>0 or \
+                                              event_type_params_config.get(evt.get("Event Type",{}),{}).get("downtime_prob",0)>0 ] # Ensure key exists
+            if active_downtime_event_types: current_downtime_cause = active_downtime_event_types[0] 
             else: current_downtime_cause = random.choice([c for c in downtime_causes_list if c not in ["Equipment Failure", "Human Error"]])
         
         if equipment_failed_this_step_flag and random.random() < _get_config_param(config, 'DOWNTIME_FROM_EQUIPMENT_FAILURE_PROB', 0.75): 
              duration_equip_fail = _get_config_param(config, 'EQUIPMENT_DOWNTIME_IF_FAIL_INTERVALS', 4) * 2.0 
              current_downtime_duration = max(current_downtime_duration, duration_equip_fail) 
              current_downtime_cause = "Equipment Failure" if current_downtime_cause == "None" or current_downtime_duration == duration_equip_fail else f"{current_downtime_cause}, Equip.Fail"
-        if (_task_compliance_scores[step] < 45 or avg_fatigue_current_step > 0.92) and random.random() < 0.035: # Slightly higher prob for human error
+        if (_task_compliance_scores[step] < 45 or avg_fatigue_current_step > 0.92) and random.random() < 0.035: 
             duration_human_error = max(0.0, np.random.normal(_get_config_param(config, 'DOWNTIME_MEAN_MINUTES_PER_OCCURRENCE',7.0)*0.35, _get_config_param(config, 'DOWNTIME_STD_MINUTES_PER_OCCURRENCE',3.0)*0.2))
             current_downtime_duration = max(current_downtime_duration, duration_human_error)
             current_downtime_cause = "Human Error" if current_downtime_cause == "None" or current_downtime_duration == duration_human_error else f"{current_downtime_cause}, HumanError"
@@ -327,7 +316,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
 
         # --- Collaboration Score ---
         base_collab = 60 + (_team_cohesion_scores[step]-70)*0.5 - (_perceived_workload_scores[step]-5)*2.5 
-        if is_any_disruption_active_this_step: base_collab -= 25.0 * active_event_effects.get("compliance_reduction_factor", 0.0) # Use max disruption intensity proxy
+        if is_any_disruption_active_this_step: base_collab -= 25.0 * active_event_effects.get("compliance_reduction_factor", 0.0) 
         _collaboration_scores[step] = np.clip(base_collab + np.random.normal(0,2) ,5, 95)
 
         # --- Worker Movement and Status ---
@@ -335,33 +324,38 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
             for i in range(num_team_members):
                 current_assigned_zone_for_worker_i = worker_assigned_zone[i]
                 zone_details = work_areas_config.get(current_assigned_zone_for_worker_i, {}); zone_coords = zone_details.get('coords')
-                target_x, target_y = facility_width/2, facility_height/2 # Default target
+                target_x, target_y = facility_width/2, facility_height/2 
                 if zone_coords and len(zone_coords) == 2: 
                     (zx0, zy0), (zx1, zy1) = zone_coords
-                    target_x, target_y = random.uniform(min(zx0,zx1), max(zx0,zx1)), random.uniform(min(zy0,zy1), max(zy0,zy1)) # Move towards random point in zone
+                    target_x, target_y = random.uniform(min(zx0,zx1), max(zx0,zx1)), random.uniform(min(zy0,zy1), max(zy0,zy1)) 
                 
-                # Check if worker should be in break room due to active break event
-                is_on_scheduled_break = False
-                for active_event in active_events_this_step:
+                is_on_scheduled_break_or_meeting = False
+                for active_event in active_events_details_this_step: # Use the list of active event dicts
                     event_type_active = active_event.get("Event Type")
-                    if event_type_active in ["Scheduled Break", "Short Pause"]:
+                    if event_type_active in ["Scheduled Break", "Short Pause", "Team Meeting"]:
                         scope = active_event.get("Scope", "All")
                         affected_zones_event = active_event.get("Affected Zones", [])
+                        # If worker is in an affected zone OR event scope is ALL
                         if scope == "All" or current_assigned_zone_for_worker_i in affected_zones_event:
-                            is_on_scheduled_break = True
-                            if "Break Room" in work_areas_config: # Move to break room
+                            is_on_scheduled_break_or_meeting = True
+                            if "Break Room" in work_areas_config and event_type_active != "Team Meeting": # For breaks, move to break room
                                 br_coords = work_areas_config["Break Room"].get('coords')
                                 if br_coords and len(br_coords) == 2:
                                     target_x = random.uniform(min(br_coords[0][0],br_coords[1][0]), max(br_coords[0][0],br_coords[1][0]))
                                     target_y = random.uniform(min(br_coords[0][1],br_coords[1][1]), max(br_coords[0][1],br_coords[1][1]))
-                            break
+                            elif event_type_active == "Team Meeting" and "Break Room" in affected_zones_event and "Break Room" in work_areas_config: # If meeting in break room
+                                br_coords = work_areas_config["Break Room"].get('coords')
+                                if br_coords and len(br_coords) == 2:
+                                    target_x = random.uniform(min(br_coords[0][0],br_coords[1][0]), max(br_coords[0][0],br_coords[1][0]))
+                                    target_y = random.uniform(min(br_coords[0][1],br_coords[1][1]), max(br_coords[0][1],br_coords[1][1]))
+                            break 
                 
-                move_x = (target_x - worker_current_x[i]) * 0.3 + np.random.normal(0, 1.0); # Slightly increased purposiveness
+                move_x = (target_x - worker_current_x[i]) * 0.3 + np.random.normal(0, 1.0); 
                 move_y = (target_y - worker_current_y[i]) * 0.3 + np.random.normal(0, 1.0)
                 worker_current_x[i] = np.clip(worker_current_x[i] + move_x, 0, facility_width); worker_current_y[i] = np.clip(worker_current_y[i] + move_y, 0, facility_height)
                 
                 status_now = 'working'
-                if is_on_scheduled_break: status_now = 'break'
+                if is_on_scheduled_break_or_meeting: status_now = 'break' # 'break' status covers meetings too for simplicity here
                 elif worker_fatigue[i] > 0.85: status_now = 'exhausted' 
                 elif worker_fatigue[i] > 0.65: status_now = 'fatigued'
                 elif is_any_disruption_active_this_step and random.random() < 0.3: status_now = 'disrupted' 
