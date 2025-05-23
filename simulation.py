@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 import random
-import math  # <<<<<<<<<<<<<<< THIS IS THE CRUCIAL IMPORT
+import math  # <<<<<<<<<<<<<<< ENSURE THIS IS AT THE TOP AND UNCOMMENTED
 import logging
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,6 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
     worker_fatigue = np.random.uniform(0.0, 0.1, num_team_members) if num_team_members > 0 else np.array([])
     zone_task_backlog = {zn: 0.0 for zn in work_areas_config.keys()}
 
-    # --- Simulation State Variables ---
     recovery_halflife_intervals = _get_config_param(config, 'RECOVERY_HALFLIFE_INTERVALS', 10)
         
     if num_steps > 0:
@@ -84,7 +83,6 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
     wellbeing_triggers_dict = {'threshold': [], 'trend': [], 'work_area': {wa: [] for wa in work_areas_config}, 'disruption': []}
     downtime_causes_list = _get_config_param(config, 'DOWNTIME_CAUSES_LIST', ["Equipment Failure", "Material Shortage", "Process Bottleneck", "Human Error", "Utility Outage", "External Supply Chain"])
 
-    # --- Main Simulation Loop ---
     for step in range(num_steps):
         current_minute_of_shift = step * 2 
 
@@ -236,14 +234,14 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
         if step > 0 and _wellbeing_scores[step] < _wellbeing_scores[step - 1] - 12.0: 
             wellbeing_triggers_dict['trend'].append(step)
         if is_any_disruption_active_this_step and _wellbeing_scores[step] < (_wellbeing_scores[max(0, step - 1)] if step > 0 else _wellbeing_scores[0]) * 0.90:
-            for active_event in active_events_details_this_step:
+            for active_event in active_events_details_this_step: # Use detailed list here
                 if "Disruption" in active_event.get("Event Type",""): 
                     event_affected_zones = active_event.get("Affected Zones", [])
                     if num_team_members > 0:
                         for i in range(num_team_members):
                             worker_zone = worker_assigned_zone[i]
                             if (event_affected_zones and worker_zone in event_affected_zones) or (not event_affected_zones): 
-                                if worker_fatigue[i] > 0.65 or random.random() < event_def.get("Intensity", 1.0) * 0.1: 
+                                if worker_fatigue[i] > 0.65 or random.random() < active_event.get("Intensity", 1.0) * 0.1: # Use event-specific intensity
                                     if worker_zone in wellbeing_triggers_dict['work_area']:
                                         if step not in wellbeing_triggers_dict['work_area'][worker_zone]: 
                                             wellbeing_triggers_dict['work_area'][worker_zone].append(step)
@@ -306,7 +304,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
             ]
             if active_downtime_inducing_event_types: current_downtime_cause = active_downtime_inducing_event_types[0] 
             elif downtime_causes_list: current_downtime_cause = random.choice([c for c in downtime_causes_list if c not in ["Equipment Failure", "Human Error"]])
-            else: current_downtime_cause = "Scheduled Event" 
+            else: current_downtime_cause = "Scheduled Event Impact" 
         
         if equipment_failed_this_step_flag and random.random() < _get_config_param(config, 'DOWNTIME_FROM_EQUIPMENT_FAILURE_PROB', 0.75): 
              duration_equip_fail = _get_config_param(config, 'EQUIPMENT_DOWNTIME_IF_FAIL_INTERVALS', 4) * 2.0 
@@ -356,13 +354,11 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
                         affected_zones_event = active_event_detail.get("Affected Zones", [])
                         if scope == "All" or current_assigned_zone_for_worker_i in affected_zones_event:
                             is_on_scheduled_break_or_meeting = True
-                            if "Break Room" in work_areas_config and event_type_active != "Team Meeting": 
-                                br_coords = work_areas_config["Break Room"].get('coords')
-                                if br_coords and len(br_coords) == 2:
-                                    target_x = random.uniform(min(br_coords[0][0],br_coords[1][0]), max(br_coords[0][0],br_coords[1][0]))
-                                    target_y = random.uniform(min(br_coords[0][1],br_coords[1][1]), max(br_coords[0][1],br_coords[1][1]))
-                            elif event_type_active == "Team Meeting" and "Break Room" in affected_zones_event and "Break Room" in work_areas_config: 
-                                br_coords = work_areas_config["Break Room"].get('coords')
+                            # Movement logic for break/meeting: go to break room if specified and applicable
+                            break_room_name = "Break Room" # Or get from config
+                            if break_room_name in work_areas_config and \
+                               (event_type_active != "Team Meeting" or break_room_name in affected_zones_event):
+                                br_coords = work_areas_config[break_room_name].get('coords')
                                 if br_coords and len(br_coords) == 2:
                                     target_x = random.uniform(min(br_coords[0][0],br_coords[1][0]), max(br_coords[0][0],br_coords[1][0]))
                                     target_y = random.uniform(min(br_coords[0][1],br_coords[1][1]), max(br_coords[0][1],br_coords[1][1]))
