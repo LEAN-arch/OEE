@@ -32,8 +32,10 @@ def safe_get(data_dict, path_str, default_val=None):
     is_list_like_path = False
     if isinstance(path_str, str):
         is_list_like_path = path_str.endswith(('.data', '.scores', '.triggers', '_log', 'events_list'))
+    
     if default_val is None: default_return = [] if is_list_like_path else None
     else: default_return = default_val
+
     if not isinstance(path_str, str): return default_return
     if not isinstance(data_dict, dict):
         if path_str: logger.debug(f"safe_get: data_dict not dict for path '{path_str}'. Type: {type(data_dict)}.")
@@ -78,6 +80,7 @@ def get_actionable_insights(sim_data, current_config_dict_main):
     if not sim_data or not isinstance(sim_data, dict): 
         logger.warning("get_actionable_insights: sim_data is None or not a dict.", extra={'user_action': 'Insights - Invalid Input'})
         return insights
+    
     sim_cfg_params_insights_main = sim_data.get('config_params', {})
     def _get_insight_cfg(key, default): return _get_config_value_main(current_config_dict_main, sim_cfg_params_insights_main, key, default)
 
@@ -136,8 +139,9 @@ def get_actionable_insights(sim_data, current_config_dict_main):
                 intended_workers_ia = zone_details_ia.get('workers', 0)
                 coords_ia = zone_details_ia.get('coords'); area_m2_ia = 1.0
                 if coords_ia and isinstance(coords_ia, list) and len(coords_ia) == 2 and \
-                   all(isinstance(p_ia, tuple) and len(p_ia)==2 and all(isinstance(c_ia, (int,float)) for c_tuple_val_ia in coords_ia for c_ia in c_tuple_val_ia) for p_ia in coords_ia):
-                    (x0_ia,y0_ia), (x1_ia,y1_ia) = coords_ia[0], coords_ia[1]; area_m2_ia = abs(x1_ia-x0_ia) * abs(y1_ia-y0_ia)
+                   all(isinstance(p_ia, tuple) and len(p_ia)==2 and all(isinstance(c_ia, (int,float)) for c_tuple_val_ia in coords_ia for c_ia in c_tuple_val_ia) for p_ia in coords_ia): # Make sure coords_ia[0] and coords_ia[1] are tuples of numbers
+                    if len(coords_ia[0]) == 2 and len(coords_ia[1]) == 2: # Further check tuple lengths
+                        (x0_ia,y0_ia), (x1_ia,y1_ia) = coords_ia[0], coords_ia[1]; area_m2_ia = abs(x1_ia-x0_ia) * abs(y1_ia-y0_ia)
                 if abs(area_m2_ia) < 1e-6: area_m2_ia = 1.0 
                 avg_density_ia = workers_in_zone_avg_ia / area_m2_ia if area_m2_ia > 0 else 0
                 intended_density_ia = (intended_workers_ia / area_m2_ia) if area_m2_ia > 0 and intended_workers_ia > 0 else 0
@@ -156,25 +160,22 @@ def get_actionable_insights(sim_data, current_config_dict_main):
     return insights
     def aggregate_downtime_by_step(raw_downtime_event_log, num_total_steps_agg):
     """Aggregates durations from a raw log of downtime events for each simulation step."""
-    # CORRECTED INDENTATION STARTS HERE
-    downtime_per_step_agg = [0.0] * num_total_steps_agg # Initialize with zeros
+    downtime_per_step_agg = [0.0] * num_total_steps_agg
     if not isinstance(raw_downtime_event_log, list):
         logger.warning("aggregate_downtime_by_step: input is not a list.")
-        return downtime_per_step_agg # Return list of zeros
+        return downtime_per_step_agg
 
     for event in raw_downtime_event_log:
         if not isinstance(event, dict): continue
         step, duration = event.get('step'), event.get('duration', 0.0)
-        # Ensure step is a valid index and duration is a positive number
         if isinstance(step, int) and 0 <= step < num_total_steps_agg and isinstance(duration, (int, float)) and duration > 0:
             downtime_per_step_agg[step] += float(duration)
     return downtime_per_step_agg
-    # CORRECTED INDENTATION ENDS HERE
 
 def _prepare_timeseries_for_export(raw_data, num_total_steps, default_val=np.nan):
     if not isinstance(raw_data, list): return [default_val] * num_total_steps
-    # Pad if shorter, truncate if longer
     return (raw_data + [default_val] * num_total_steps)[:num_total_steps]
+
 def _slice_dataframe_by_step_indices(df, start_idx, end_idx):
     if not isinstance(df, pd.DataFrame) or df.empty: return pd.DataFrame()
     if isinstance(df.index, pd.RangeIndex) and df.index.start == 0 and df.index.step == 1:
@@ -395,10 +396,11 @@ def render_settings_sidebar():
                             pdf_data_dict_sb[col_name_pdf_sb] = _prepare_timeseries_for_export(safe_get(sim_res_pdf_sb, path_pdf_sb, []), num_steps_pdf_export_sb)
                         
                         raw_downtime_log_pdf_sb = safe_get(sim_res_pdf_sb, 'downtime_events_log', [])
+                        # For PDF, we need downtime aggregated per step.
                         pdf_data_dict_sb['Downtime (min/interval)'] = aggregate_downtime_by_step(raw_downtime_log_pdf_sb, num_steps_pdf_export_sb)
 
                         df_for_report_sb = pd.DataFrame(pdf_data_dict_sb)
-                        generate_pdf_report(df_for_report_sb, sim_cfg_pdf_export_sb)
+                        generate_pdf_report(df_for_report_sb, sim_cfg_pdf_export_sb) # Pass sim_config_params too
                         st.success("✅ LaTeX report 'workplace_report.tex' generated.")
                     except SystemExit: pass
                     except Exception as e_pdf_sb: 
@@ -413,7 +415,7 @@ def render_settings_sidebar():
 
                 if num_steps_csv_exp_sb > 0:
                     csv_data_dict_sb = {'step': list(range(num_steps_csv_exp_sb)), 'time_minutes': [i * mpi_csv_exp_sb for i in range(num_steps_csv_exp_sb)]}
-                    export_metrics_map_csv_sb = { 
+                    export_metrics_map_csv_sb = { # Reusing PDF map for consistency, can be customized
                         'task_compliance.data': 'task_compliance_percent',
                         'collaboration_metric.data': 'collaboration_metric_percent',
                         'operational_recovery': 'operational_recovery_percent',
@@ -425,7 +427,7 @@ def render_settings_sidebar():
                         'worker_wellbeing.perceived_workload_scores': 'perceived_workload_score_0_10'
                     }
                     for path_csv_sb, col_name_csv_sb in export_metrics_map_csv_sb.items():
-                        csv_data_dict_sb[col_name_csv_sb] = _prepare_timeseries_for_export(safe_get(sim_res_csv_exp_sb, path_csv_sb, []), num_steps_csv_exp_sb)
+                        csv_data_dict_sb[col_name_csv_sb.replace(' (%)','_percent').replace(' (0-10)','_0_10').replace(' ','_')] = _prepare_timeseries_for_export(safe_get(sim_res_csv_exp_sb, path_csv_sb, []), num_steps_csv_exp_sb)
                     
                     raw_downtime_csv_sb = safe_get(sim_res_csv_exp_sb, 'downtime_events_log', [])
                     csv_data_dict_sb['downtime_minutes_per_interval'] = aggregate_downtime_by_step(raw_downtime_csv_sb, num_steps_csv_exp_sb)
@@ -457,28 +459,26 @@ def render_settings_sidebar():
     # --- SIMULATION LOGIC WRAPPER (CACHED) ---
 @st.cache_data(ttl=3600, show_spinner="⚙️ Simulating workplace operations...")
 def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_ui_sl, team_initiative_sl):
-    config_sl = DEFAULT_CONFIG.copy()
+    config_sl = DEFAULT_CONFIG.copy() 
     config_sl['TEAM_SIZE'] = int(team_size_sl)
     config_sl['SHIFT_DURATION_MINUTES'] = int(shift_duration_sl)
     
-    mpi_sl = _get_config_value_sl_main(config_sl, {}, 'MINUTES_PER_INTERVAL', 2, data_type=float) # Use internal helper
-    if mpi_sl <= 0: mpi_sl = 2.0; logger.error("MPI was <=0 in config, used 2.0 for calculation.")
+    mpi_sl = _get_config_value_sl_main(config_sl, {}, 'MINUTES_PER_INTERVAL', 2, data_type=float) 
+    if mpi_sl <= 0: mpi_sl = 2.0; logger.error("MINUTES_PER_INTERVAL was invalid (<=0), defaulted to 2.0 for calculations.")
     config_sl['SHIFT_DURATION_INTERVALS'] = int(config_sl['SHIFT_DURATION_MINUTES'] // mpi_sl)
 
     processed_events_sl = []
     for event_sl_ui_item in scheduled_events_from_ui_sl:
-        evt_sl_item = event_sl_ui_item.copy()
+        evt_sl_item = event_sl_ui_item.copy() 
         if 'step' not in evt_sl_item and 'Start Time (min)' in evt_sl_item:
             start_time_min_evt = _get_config_value_sl_main(evt_sl_item, {}, 'Start Time (min)', 0, data_type=float)
             evt_sl_item['step'] = int(start_time_min_evt // mpi_sl)
         processed_events_sl.append(evt_sl_item)
     config_sl['SCHEDULED_EVENTS'] = processed_events_sl
     
-    # Worker Redistribution Logic
     if 'WORK_AREAS' in config_sl and isinstance(config_sl['WORK_AREAS'], dict) and config_sl['WORK_AREAS']:
         current_total_workers_in_cfg = sum(_get_config_value_sl_main(z_cfg, {}, 'workers', 0, data_type=int) for z_cfg in config_sl['WORK_AREAS'].values() if isinstance(z_cfg, dict))
         target_team_size_for_dist = config_sl['TEAM_SIZE']
-
         if current_total_workers_in_cfg != target_team_size_for_dist and target_team_size_for_dist >= 0:
             logger.info(f"Redistributing workers. Config sum: {current_total_workers_in_cfg}, Target team: {target_team_size_for_dist}")
             distributable_areas = {k:v for k,v in config_sl['WORK_AREAS'].items() if isinstance(v,dict) and not v.get('is_rest_area',False)}
@@ -490,30 +490,29 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
                 for zone_k_sl_zero in config_sl['WORK_AREAS']: 
                     if isinstance(config_sl['WORK_AREAS'][zone_k_sl_zero], dict):
                         config_sl['WORK_AREAS'][zone_k_sl_zero]['workers'] = 0
-            elif distributable_areas:
+            elif distributable_areas: # Only proceed if there are areas to distribute to
                 sum_workers_in_dist_areas = sum(_get_config_value_sl_main(z_dist, {}, 'workers', 0, data_type=int) for z_dist in distributable_areas.values())
                 if sum_workers_in_dist_areas > 0: 
                     ratio_sl = target_team_size_for_dist / sum_workers_in_dist_areas
-                    accumulated_sl = 0
-                    sorted_dist_zone_keys = sorted(distributable_areas.keys())
+                    accumulated_sl = 0; sorted_dist_zone_keys = sorted(distributable_areas.keys())
                     for i_zone_sl, zone_k_sl in enumerate(sorted_dist_zone_keys):
                         original_workers_dist = _get_config_value_sl_main(config_sl['WORK_AREAS'][zone_k_sl], {}, 'workers', 0, data_type=int)
                         if i_zone_sl < len(sorted_dist_zone_keys) - 1:
                             new_w_sl = int(round(original_workers_dist * ratio_sl))
                             config_sl['WORK_AREAS'][zone_k_sl]['workers'] = new_w_sl; accumulated_sl += new_w_sl
                         else: config_sl['WORK_AREAS'][zone_k_sl]['workers'] = max(0, target_team_size_for_dist - accumulated_sl)
-                else: 
-                    num_dist_zones_val = len(distributable_areas)
-                    if num_dist_zones_val > 0 : # Check to prevent division by zero if distributable_areas becomes empty
-                        base_w_sl, rem_w_sl = divmod(target_team_size_for_dist, num_dist_zones_val)
-                        assign_count_sl = 0
-                        for zone_k_sl_even in distributable_areas:
-                            config_sl['WORK_AREAS'][zone_k_sl_even]['workers'] = base_w_sl + (1 if assign_count_sl < rem_w_sl else 0)
-                            assign_count_sl +=1
+                elif len(distributable_areas) > 0: 
+                    base_w_sl, rem_w_sl = divmod(target_team_size_for_dist, len(distributable_areas))
+                    assign_count_sl = 0
+                    for zone_k_sl_even in distributable_areas:
+                        config_sl['WORK_AREAS'][zone_k_sl_even]['workers'] = base_w_sl + (1 if assign_count_sl < rem_w_sl else 0); assign_count_sl +=1
+            
             all_area_keys = set(config_sl['WORK_AREAS'].keys()); dist_area_keys = set(distributable_areas.keys())
             non_dist_keys = all_area_keys - dist_area_keys
-            for r_zone_k in non_dist_keys:
-                if isinstance(config_sl['WORK_AREAS'][r_zone_k], dict): config_sl['WORK_AREAS'][r_zone_k]['workers'] = 0
+            for r_zone_k in non_dist_keys: # Ensure non-distributable (like rest areas explicitly marked so) have 0 workers from redistribution
+                if isinstance(config_sl['WORK_AREAS'][r_zone_k], dict) and config_sl['WORK_AREAS'][r_zone_k].get('is_rest_area'):
+                     config_sl['WORK_AREAS'][r_zone_k]['workers'] = 0
+
 
     validate_config(config_sl)
     logger.info(f"Running simulation with config: Team Size={config_sl['TEAM_SIZE']}, Duration={config_sl['SHIFT_DURATION_MINUTES']}min ({config_sl['SHIFT_DURATION_INTERVALS']} intervals of {mpi_sl}min), Scheduled Events: {len(config_sl['SCHEDULED_EVENTS'])}, Initiative: {team_initiative_sl}", extra={'user_action': 'Run Simulation - Start'})
@@ -530,7 +529,10 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
         'TEAM_SIZE': config_sl['TEAM_SIZE'], 'SHIFT_DURATION_MINUTES': config_sl['SHIFT_DURATION_MINUTES'],
         'SHIFT_DURATION_INTERVALS': config_sl['SHIFT_DURATION_INTERVALS'], 'MINUTES_PER_INTERVAL': mpi_sl, 
         'SCHEDULED_EVENTS': config_sl['SCHEDULED_EVENTS'], 'TEAM_INITIATIVE': team_initiative_sl, 
-        'WORK_AREAS_EFFECTIVE': config_sl.get('WORK_AREAS', {}).copy() }
+        'WORK_AREAS_EFFECTIVE': config_sl.get('WORK_AREAS', {}).copy(),
+        'ENTRY_EXIT_POINTS': config_sl.get('ENTRY_EXIT_POINTS', []).copy(), # Pass E/E points for spatial plots
+        'FACILITY_SIZE': config_sl.get('FACILITY_SIZE', (100,80)) # Pass facility size
+    }
     
     disruption_steps_final_sl_run = [evt.get('step') for evt in config_sl['SCHEDULED_EVENTS'] if isinstance(evt,dict) and "Disruption" in evt.get("Event Type","") and isinstance(evt.get('step'),int)]
     simulation_output_dict_sl_final_run['config_params']['DISRUPTION_EVENT_STEPS'] = sorted(list(set(disruption_steps_final_sl_run)))
@@ -581,7 +583,7 @@ def main():
         'form_event_type': "Major Disruption", 'form_event_start': 0, 'form_event_duration': max(mpi_global_app_main, 10),
     }
     default_max_mins_main_app_init = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - mpi_global_app_main if DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] > mpi_global_app_main else 0
-    for prefix_main_app_init in ['op', 'ww', 'dt']:
+    for prefix_main_app_init in ['op', 'ww', 'dt']: # Operational, WorkerWellbeing, DownTime tabs
         app_state_defaults_main_app[f'{prefix_main_app_init}_start_time_min'] = 0
         app_state_defaults_main_app[f'{prefix_main_app_init}_end_time_min'] = default_max_mins_main_app_init
     for key_main_app_init, val_main_app_init in app_state_defaults_main_app.items():
@@ -593,7 +595,7 @@ def main():
 
     active_mpi_main_app_val = mpi_global_app_main
     max_mins_ui_main_app_val = default_max_mins_main_app_init
-    simulation_disruption_steps_absolute_main_val = []
+    simulation_disruption_steps_absolute_main_val = [] # Stores absolute step numbers of disruptions
 
     if st.session_state.simulation_results and isinstance(st.session_state.simulation_results, dict):
         sim_cfg_main_app_active = st.session_state.simulation_results.get('config_params', {})
@@ -602,16 +604,16 @@ def main():
         sim_intervals_main_app_active_val = sim_cfg_main_app_active.get('SHIFT_DURATION_INTERVALS', 0)
         max_mins_ui_main_app_val = max(0, sim_intervals_main_app_active_val * active_mpi_main_app_val - active_mpi_main_app_val) if sim_intervals_main_app_active_val > 0 else 0
         simulation_disruption_steps_absolute_main_val = sim_cfg_main_app_active.get('DISRUPTION_EVENT_STEPS', [])
-    else:
+    else: # No simulation results, derive from current sidebar settings
         shift_duration_from_sidebar_main_val = st.session_state.sb_shift_duration_num
         sim_intervals_main_app_active_val = shift_duration_from_sidebar_main_val // active_mpi_main_app_val if active_mpi_main_app_val > 0 else 0
         max_mins_ui_main_app_val = max(0, sim_intervals_main_app_active_val * active_mpi_main_app_val - active_mpi_main_app_val) if sim_intervals_main_app_active_val > 0 else 0
-        for event_main_ui_item_cfg_val in st.session_state.sb_scheduled_events_list:
+        for event_main_ui_item_cfg_val in st.session_state.sb_scheduled_events_list: # Use current list from sidebar
             if "Disruption" in event_main_ui_item_cfg_val.get("Event Type","") and isinstance(event_main_ui_item_cfg_val.get("Start Time (min)"), (int,float)):
                 simulation_disruption_steps_absolute_main_val.append(int(event_main_ui_item_cfg_val["Start Time (min)"] // active_mpi_main_app_val))
         simulation_disruption_steps_absolute_main_val = sorted(list(set(simulation_disruption_steps_absolute_main_val)))
     
-    for prefix_main_ui_clamp_val_final in ['op', 'ww', 'dt']:
+    for prefix_main_ui_clamp_val_final in ['op', 'ww', 'dt']: # Ensure UI time ranges are clamped
         st.session_state[f"{prefix_main_ui_clamp_val_final}_start_time_min"] = max(0, min(st.session_state.get(f"{prefix_main_ui_clamp_val_final}_start_time_min",0), max_mins_ui_main_app_val))
         st.session_state[f"{prefix_main_ui_clamp_val_final}_end_time_min"] = max(st.session_state[f"{prefix_main_ui_clamp_val_final}_start_time_min"], min(st.session_state.get(f"{prefix_main_ui_clamp_val_final}_end_time_min",max_mins_ui_main_app_val), max_mins_ui_main_app_val))
 
@@ -705,9 +707,9 @@ def main():
                 else: st.caption("No detailed overview data available (0 simulation steps).")
         else: st.info("ℹ️ Run a simulation or load data to view the Overview & Insights.", icon="📊")
     
-    op_insights_html_main = "<div class='alert-info insight-text' style='margin-top:1rem;'><p class='insight-title'>Review Operational Bottlenecks:</p><ul><li><b>Low Compliance/OEE:</b> Investigate root causes for low Task Compliance or OEE components.</li><li><b>Recovery Performance:</b> Slow recovery post-disruption may need better contingency plans.</li><li><b>Collaboration Impact:</b> Low Collaboration Metric might indicate communication issues.</li></ul><p class='insight-title'>Strategic Considerations:</p><p>Use 'Operational Initiative' to simulate changes and compare against baseline.</p></div>"
-    ww_static_insights_html_main = "<h6 style='margin-top:1.5rem;'>💡 Considerations for Psychosocial Well-being:</h6><ul style='font-size:0.9rem; color: #D1D5DB; padding-left:20px; margin-bottom:0;'><li><strong>Monitor Risk Factors:</strong> Review Well-being, Psych. Safety, Cohesion, Workload.</li><li><strong>Spatial Awareness:</strong> Correlate density/isolation with well-being.</li><li><strong>Evaluate Initiatives:</strong> Test strategies via 'Operational Initiative'.</li><li><strong>Empowerment & Control:</strong> Assess 'Increased Autonomy' impact.</li><li><strong>Prevent Burnout:</strong> Address sustained high workload/low well-being.</li></ul>" 
-    dt_insights_html_main = "<div class='alert-info insight-text' style='margin-top:1rem;'><p class='insight-title'>Focus Areas for Downtime Reduction:</p><ul><li><strong>Prioritize by Cause:</strong> Use pie chart to find primary downtime reasons.</li><li><strong>Analyze Trend for Patterns:</strong> Look for recurring high downtime in trend plot.</li><li><strong>Incident Frequency vs. Severity:</strong> Address both systemic minor issues and major ones.</li><li><strong>Disruption Correlation:</strong> Check if downtime spikes correlate with operational metric drops.</li></ul></div>"
+    op_insights_html_main_final = "<div class='alert-info insight-text' style='margin-top:1rem;'><p class='insight-title'>Review Operational Bottlenecks:</p><ul><li><b>Low Compliance/OEE:</b> Investigate root causes for low Task Compliance or OEE components.</li><li><b>Recovery Performance:</b> Slow recovery post-disruption may need better contingency plans.</li><li><b>Collaboration Impact:</b> Low Collaboration Metric might indicate communication issues.</li></ul><p class='insight-title'>Strategic Considerations:</p><p>Use 'Operational Initiative' to simulate changes and compare against baseline.</p></div>"
+    ww_static_insights_html_main_final = "<h6 style='margin-top:1.5rem;'>💡 Considerations for Psychosocial Well-being:</h6><ul style='font-size:0.9rem; color: #D1D5DB; padding-left:20px; margin-bottom:0;'><li><strong>Monitor Risk Factors:</strong> Review Well-being, Psych. Safety, Cohesion, Workload.</li><li><strong>Spatial Awareness:</strong> Correlate density/isolation with well-being.</li><li><strong>Evaluate Initiatives:</strong> Test strategies via 'Operational Initiative'.</li><li><strong>Empowerment & Control:</strong> Assess 'Increased Autonomy' impact.</li><li><strong>Prevent Burnout:</strong> Address sustained high workload/low well-being.</li></ul>" 
+    dt_insights_html_main_final = "<div class='alert-info insight-text' style='margin-top:1rem;'><p class='insight-title'>Focus Areas for Downtime Reduction:</p><ul><li><strong>Prioritize by Cause:</strong> Use pie chart to find primary downtime reasons.</li><li><strong>Analyze Trend for Patterns:</strong> Look for recurring high downtime in trend plot.</li><li><strong>Incident Frequency vs. Severity:</strong> Address both systemic minor issues and major ones.</li><li><strong>Disruption Correlation:</strong> Check if downtime spikes correlate with operational metric drops.</li></ul></div>"
 
     tab_configs_main_final_app = [
         {"name": "📈 Operational Metrics", "key_prefix": "op", "plots": [
@@ -715,17 +717,17 @@ def main():
              {"title": "Collaboration Metric", "data_path": "collaboration_metric.data", "plot_func": plot_collaboration_proximity_index, "extra_args_paths": {"forecast_data": "collaboration_metric.forecast"}},
              {"is_subheader": True, "title": "Additional Operational Metrics"},
              {"title": "Operational Resilience", "data_path": "operational_recovery", "plot_func": plot_operational_recovery, "extra_args_paths": {"productivity_loss_data": "productivity_loss"}},
-             {"title": "OEE & Components", "is_oee": True}], "insights_html": op_insights_html_main },
+             {"title": "OEE & Components", "is_oee": True}], "insights_html": op_insights_html_main_final },
         {"name": "👥 Worker Well-being", "key_prefix": "ww", "plots": [
              {"is_subheader": True, "title": "Psychosocial & Well-being Indicators"},
              {"title": "Worker Well-Being Index", "data_path": "worker_wellbeing.scores", "plot_func": plot_worker_wellbeing, "extra_args_paths": {"triggers": "worker_wellbeing.triggers"}},
              {"title": "Psychological Safety Score", "data_path": "psychological_safety", "plot_func": plot_psychological_safety},
              {"title": "Team Cohesion Index", "data_path": "worker_wellbeing.team_cohesion_scores", "plot_func": plot_team_cohesion},
              {"title": "Perceived Workload Index (0-10)", "data_path": "worker_wellbeing.perceived_workload_scores", "plot_func": plot_perceived_workload, "extra_args_fixed": {"high_workload_threshold": DEFAULT_CONFIG['PERCEIVED_WORKLOAD_THRESHOLD_HIGH'], "very_high_workload_threshold": DEFAULT_CONFIG['PERCEIVED_WORKLOAD_THRESHOLD_VERY_HIGH']}},
-             {"is_subheader": True, "title": "Spatial Dynamics Analysis", "is_spatial": True}], "dynamic_insights_func": "render_wellbeing_alerts", "insights_html": ww_static_insights_html_main },
+             {"is_subheader": True, "title": "Spatial Dynamics Analysis", "is_spatial": True}], "dynamic_insights_func": "render_wellbeing_alerts", "insights_html": ww_static_insights_html_main_final },
         {"name": "⏱️ Downtime Analysis", "key_prefix": "dt", "metrics_display": True, "plots": [
             {"title": "Downtime Trend (per Interval)", "data_path": "downtime_events_log", "plot_func": plot_downtime_trend, "is_event_based_aggregation": True, "extra_args_fixed": {"interval_threshold_minutes": DEFAULT_CONFIG['DOWNTIME_PLOT_ALERT_THRESHOLD']}},
-            {"title": "Downtime Distribution by Cause", "data_path": "downtime_events_log", "plot_func": plot_downtime_causes_pie, "is_event_based_filtering": True}], "insights_html": dt_insights_html_main }
+            {"title": "Downtime Distribution by Cause", "data_path": "downtime_events_log", "plot_func": plot_downtime_causes_pie, "is_event_based_filtering": True}], "insights_html": dt_insights_html_main_final }
     ]
 
     for i_tab_main_final_loop, tab_def_main_final_loop in enumerate(tab_configs_main_final_app):
@@ -758,11 +760,12 @@ def main():
                     if plot_cfg_tab_item_final.get("is_subheader"):
                         st.subheader(plot_cfg_tab_item_final["title"]) 
                         if plot_cfg_tab_item_final.get("is_spatial"):
-                            facility_config_spatial_tab_final = {'FACILITY_SIZE': sim_cfg_tab_final_active_loop.get('FACILITY_SIZE', DEFAULT_CONFIG['FACILITY_SIZE']),
+                            facility_config_spatial_tab_final = {
+                                'FACILITY_SIZE': sim_cfg_tab_final_active_loop.get('FACILITY_SIZE', DEFAULT_CONFIG['FACILITY_SIZE']),
                                 'WORK_AREAS': sim_cfg_tab_final_active_loop.get('WORK_AREAS_EFFECTIVE', DEFAULT_CONFIG['WORK_AREAS']),
                                 'ENTRY_EXIT_POINTS': sim_cfg_tab_final_active_loop.get('ENTRY_EXIT_POINTS', DEFAULT_CONFIG.get('ENTRY_EXIT_POINTS',[])),
                                 'MINUTES_PER_INTERVAL': active_mpi_main_app_val }
-                            with st.container(border=True): # Spatial plots container
+                            with st.container(border=True):
                                 team_pos_df_all_spatial = safe_get(sim_data_tab_final_loop, 'team_positions_df', pd.DataFrame())
                                 zones_dist_spatial = ["All"] + list(facility_config_spatial_tab_final.get('WORK_AREAS', {}).keys())
                                 zone_sel_key_spatial = f"{tab_def_main_final_loop['key_prefix']}_zone_sel_spatial_dist_final"
@@ -772,14 +775,12 @@ def main():
                                 if not team_pos_df_all_spatial.empty and 'step' in team_pos_df_all_spatial.columns: filt_team_pos_df_spatial_time_final = team_pos_df_all_spatial[(team_pos_df_all_spatial['step'] >= start_idx_tab_final_loop) & (team_pos_df_all_spatial['step'] < end_idx_tab_final_loop)]
                                 filt_team_pos_df_spatial_loop_final = filt_team_pos_df_spatial_time_final
                                 if zone_sel_dist_final != "All" and not filt_team_pos_df_spatial_loop_final.empty and 'zone' in filt_team_pos_df_spatial_loop_final.columns : filt_team_pos_df_spatial_loop_final = filt_team_pos_df_spatial_loop_final[filt_team_pos_df_spatial_loop_final['zone'] == zone_sel_dist_final]
-                                
                                 show_ee_key_final = f'{tab_def_main_final_loop["key_prefix"]}_show_ee_spatial_cb_final'; 
                                 if show_ee_key_final not in st.session_state: st.session_state[show_ee_key_final] = True
                                 show_ee_exp_final = st.checkbox("Show E/E Points", key=show_ee_key_final) 
                                 show_pl_key_final = f'{tab_def_main_final_loop["key_prefix"]}_show_pl_spatial_cb_final'; 
                                 if show_pl_key_final not in st.session_state: st.session_state[show_pl_key_final] = True
                                 show_pl_exp_final = st.checkbox("Show Area Outlines", key=show_pl_key_final)
-                                
                                 spatial_plot_cols_final = st.columns(2)
                                 with spatial_plot_cols_final[0]: 
                                     st.markdown("<h6>Worker Positions (Snapshot)</h6>", unsafe_allow_html=True)
@@ -797,7 +798,7 @@ def main():
                                     else: st.caption("No data for positions snapshot or invalid time range.")
                                 with spatial_plot_cols_final[1]: 
                                     st.markdown("<h6>Worker Density Heatmap</h6>", unsafe_allow_html=True)
-                                    if not filt_team_pos_df_spatial_loop_final.empty: # Use the time AND zone filtered DF
+                                    if not filt_team_pos_df_spatial_loop_final.empty:
                                         try: 
                                             fig_heat_final = plot_worker_density_heatmap(filt_team_pos_df_spatial_loop_final, facility_config_spatial_tab_final.get('FACILITY_SIZE',(100,80)), facility_config_spatial_tab_final, show_ee_exp_final, show_pl_exp_final, current_high_contrast_main_app_val)
                                             if fig_heat_final: st.plotly_chart(fig_heat_final, use_container_width=True, config=plot_cfg_interactive_final_ui)
@@ -849,7 +850,7 @@ def main():
                                     if plot_cfg_tab_item_final.get("is_event_based_aggregation"):
                                         num_steps_in_range_agg_final = end_idx_tab_final_loop - start_idx_tab_final_loop
                                         aggregated_data_agg_final = [0.0] * num_steps_in_range_agg_final if num_steps_in_range_agg_final > 0 else []
-                                        for evt_agg_final in raw_plot_data_tab_final: # raw_plot_data_tab_final is downtime_events_log
+                                        for evt_agg_final in raw_plot_data_tab_final:
                                             if isinstance(evt_agg_final,dict) and start_idx_tab_final_loop <= evt_agg_final.get('step',-1) < end_idx_tab_final_loop:
                                                 rel_step_agg_final = evt_agg_final['step'] - start_idx_tab_final_loop
                                                 if 0 <= rel_step_agg_final < num_steps_in_range_agg_final: aggregated_data_agg_final[rel_step_agg_final] += evt_agg_final.get('duration',0)
