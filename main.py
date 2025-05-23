@@ -22,7 +22,7 @@ if not logger.handlers:
                         filemode='a')
 logger.info("Main.py: Startup. Imports parsed, logger configured.", extra={'user_action': 'System Startup'})
 
-st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.5\nInsights for operational excellence & psychosocial well-being."})
+st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.6\nInsights for operational excellence & psychosocial well-being."})
 
 COLOR_CRITICAL_RED_CSS = "#E53E3E"; COLOR_WARNING_AMBER_CSS = "#F59E0B"; COLOR_POSITIVE_GREEN_CSS = "#10B981"; COLOR_INFO_BLUE_CSS = "#3B82F6"; COLOR_ACCENT_INDIGO_CSS = "#4F46E5"
 THEMED_DIVIDER_COLOR = "violet" 
@@ -427,7 +427,9 @@ def render_settings_sidebar():
                         'worker_wellbeing.perceived_workload_scores': 'perceived_workload_score_0_10'
                     }
                     for path_csv_sb, col_name_csv_sb in export_metrics_map_csv_sb.items():
-                        csv_data_dict_sb[col_name_csv_sb] = _prepare_timeseries_for_export(safe_get(sim_res_csv_exp_sb, path_csv_sb, []), num_steps_csv_exp_sb)
+                        # Ensure column names are CSV-friendly (no spaces, %, or parentheses)
+                        clean_col_name = col_name_csv_sb.replace(' (%)','_percent').replace(' (0-10)','_0_10').replace(' ','_').lower()
+                        csv_data_dict_sb[clean_col_name] = _prepare_timeseries_for_export(safe_get(sim_res_csv_exp_sb, path_csv_sb, []), num_steps_csv_exp_sb)
                     
                     raw_downtime_csv_sb = safe_get(sim_res_csv_exp_sb, 'downtime_events_log', [])
                     csv_data_dict_sb['downtime_minutes_per_interval'] = aggregate_downtime_by_step(raw_downtime_csv_sb, num_steps_csv_exp_sb)
@@ -476,21 +478,24 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
         processed_events_sl.append(evt_sl_item)
     config_sl['SCHEDULED_EVENTS'] = processed_events_sl
     
+    # Worker Redistribution Logic
     if 'WORK_AREAS' in config_sl and isinstance(config_sl['WORK_AREAS'], dict) and config_sl['WORK_AREAS']:
         current_total_workers_in_cfg = sum(_get_config_value_sl_main(z_cfg, {}, 'workers', 0, data_type=int) for z_cfg in config_sl['WORK_AREAS'].values() if isinstance(z_cfg, dict))
         target_team_size_for_dist = config_sl['TEAM_SIZE']
+
         if current_total_workers_in_cfg != target_team_size_for_dist and target_team_size_for_dist >= 0:
             logger.info(f"Redistributing workers. Config sum: {current_total_workers_in_cfg}, Target team: {target_team_size_for_dist}")
+            
             distributable_areas = {k:v for k,v in config_sl['WORK_AREAS'].items() if isinstance(v,dict) and not v.get('is_rest_area',False)}
             if not distributable_areas: 
                 logger.warning("No non-rest work areas for worker redistribution. Using all areas if any.")
-                distributable_areas = {k:v for k,v in config_sl['WORK_AREAS'].items() if isinstance(v,dict)}
+                distributable_areas = {k:v for k,v in config_sl['WORK_AREAS'].items() if isinstance(v,dict)} # Fallback to all areas
 
             if target_team_size_for_dist == 0:
                 for zone_k_sl_zero in config_sl['WORK_AREAS']: 
                     if isinstance(config_sl['WORK_AREAS'][zone_k_sl_zero], dict):
                         config_sl['WORK_AREAS'][zone_k_sl_zero]['workers'] = 0
-            elif distributable_areas:
+            elif distributable_areas: # Only proceed if there are areas to distribute to
                 sum_workers_in_dist_areas = sum(_get_config_value_sl_main(z_dist, {}, 'workers', 0, data_type=int) for z_dist in distributable_areas.values())
                 if sum_workers_in_dist_areas > 0: 
                     ratio_sl = target_team_size_for_dist / sum_workers_in_dist_areas
@@ -506,11 +511,13 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
                     assign_count_sl = 0
                     for zone_k_sl_even in distributable_areas:
                         config_sl['WORK_AREAS'][zone_k_sl_even]['workers'] = base_w_sl + (1 if assign_count_sl < rem_w_sl else 0); assign_count_sl +=1
-            all_area_keys = set(config_sl['WORK_AREAS'].keys()); dist_area_keys = set(distributable_areas.keys())
-            non_dist_keys = all_area_keys - dist_area_keys
-            for r_zone_k in non_dist_keys:
-                if isinstance(config_sl['WORK_AREAS'][r_zone_k], dict) and config_sl['WORK_AREAS'][r_zone_k].get('is_rest_area'):
-                     config_sl['WORK_AREAS'][r_zone_k]['workers'] = 0
+            
+            # Explicitly set worker count in rest areas to 0 after primary distribution,
+            # unless they were part of distributable_areas (e.g. if is_rest_area was false for them).
+            for r_zone_k, r_zone_d in config_sl['WORK_AREAS'].items():
+                if isinstance(r_zone_d, dict) and r_zone_d.get('is_rest_area') and r_zone_k not in distributable_areas:
+                     r_zone_d['workers'] = 0
+
 
     validate_config(config_sl)
     logger.info(f"Running simulation with config: Team Size={config_sl['TEAM_SIZE']}, Duration={config_sl['SHIFT_DURATION_MINUTES']}min ({config_sl['SHIFT_DURATION_INTERVALS']} intervals of {mpi_sl}min), Scheduled Events: {len(config_sl['SCHEDULED_EVENTS'])}, Initiative: {team_initiative_sl}", extra={'user_action': 'Run Simulation - Start'})
@@ -538,7 +545,7 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
     save_simulation_data(simulation_output_dict_sl_final_run) 
     return simulation_output_dict_sl_final_run
 
-def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_type=None): # Renamed to avoid conflict
+def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_type=None):
     val = secondary_conf.get(key, primary_conf.get(key, default))
     if data_type:
         try:
@@ -792,9 +799,15 @@ def main():
                                     st.markdown("<h6>Worker Positions (Snapshot)</h6>", unsafe_allow_html=True)
                                     min_snap_step_final, max_snap_step_final = start_idx_tab_final_loop, max(start_idx_tab_final_loop, end_idx_tab_final_loop -1) 
                                     snap_slider_key_final = f"{tab_def_main_final_loop['key_prefix']}_snap_step_slider_final"
-                                    if snap_slider_key_final not in st.session_state or not (min_snap_step_final <= st.session_state[snap_slider_key_final] <= max_snap_step_final):
-                                        st.session_state[snap_slider_key_final] = min_snap_step_final if min_snap_step_final <= max_snap_step_final else (max_snap_step_final if max_snap_step_final >= min_snap_step_final else 0)
-                                    snap_step_val_final = st.slider("Time Step for Snapshot:", min_snap_step_final, max_snap_step_final, value=st.session_state[snap_slider_key_final], key=f"widget_{snap_slider_key_final}", step=1, disabled=(max_snap_step_final < min_snap_step_final))
+                                    # Ensure slider value is initialized and clamped correctly
+                                    if snap_slider_key_final not in st.session_state: st.session_state[snap_slider_key_final] = min_snap_step_final
+                                    st.session_state[snap_slider_key_final] = max(min_snap_step_final, min(st.session_state[snap_slider_key_final], max_snap_step_final))
+                                    
+                                    snap_step_val_final = st.slider("Time Step for Snapshot:", min_value=min_snap_step_final, max_value=max_snap_step_final, value=st.session_state[snap_slider_key_final], key=f"widget_actual_{snap_slider_key_final}", step=1, disabled=(min_snap_step_final >= max_snap_step_final))
+                                    if st.session_state[snap_slider_key_final] != snap_step_val_final : # Update if slider changed it
+                                        st.session_state[snap_slider_key_final] = snap_step_val_final
+                                        # st.rerun() # Optional: rerun if plot should update instantly on slider change
+
                                     if not team_pos_df_all_spatial.empty and max_snap_step_final >= min_snap_step_final:
                                         try: 
                                             fig_dist_final = plot_worker_distribution(team_pos_df_all_spatial, facility_config_spatial_tab_final.get('FACILITY_SIZE',(100,80)), facility_config_spatial_tab_final, use_3d_main_app_val, snap_step_val_final, show_ee_exp_final, show_pl_exp_final, current_high_contrast_main_app_val)
