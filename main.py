@@ -582,6 +582,7 @@ def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int,
     if prev_start_ui_val_state != st.session_state[start_time_key_ui] or prev_end_ui_val_state != st.session_state[end_time_key_ui]: st.rerun()
     return int(st.session_state[start_time_key_ui]), int(st.session_state[end_time_key_ui])
     # --- MAIN APPLICATION FUNCTION ---
+# --- MAIN APPLICATION FUNCTION ---
 def main():
     st.title("Workplace Shift Optimization Dashboard")
     
@@ -613,22 +614,24 @@ def main():
     if st.session_state.simulation_results and isinstance(st.session_state.simulation_results, dict):
         sim_cfg_main_app_active = st.session_state.simulation_results.get('config_params', {})
         active_mpi_main_app_val = sim_cfg_main_app_active.get('MINUTES_PER_INTERVAL', mpi_global_app_main)
-        if active_mpi_main_app_val <= 0 : active_mpi_main_app_val = 2
+        if active_mpi_main_app_val <= 0 : active_mpi_main_app_val = 2.0 # Ensure float for division
         sim_intervals_main_app_active_val = sim_cfg_main_app_active.get('SHIFT_DURATION_INTERVALS', 0)
-        max_mins_ui_main_app_val = max(0, sim_intervals_main_app_active_val * active_mpi_main_app_val - active_mpi_main_app_val) if sim_intervals_main_app_active_val > 0 else 0
+        # max_mins_ui_main_app_val should be the highest selectable MINUTE value, not index
+        max_mins_ui_main_app_val = float(max(0, sim_intervals_main_app_active_val * active_mpi_main_app_val - active_mpi_main_app_val)) if sim_intervals_main_app_active_val > 0 else 0.0
         simulation_disruption_steps_absolute_main_val = sim_cfg_main_app_active.get('DISRUPTION_EVENT_STEPS', [])
     else:
         shift_duration_from_sidebar_main_val = st.session_state.sb_shift_duration_num
         sim_intervals_main_app_active_val = shift_duration_from_sidebar_main_val // active_mpi_main_app_val if active_mpi_main_app_val > 0 else 0
-        max_mins_ui_main_app_val = max(0, sim_intervals_main_app_active_val * active_mpi_main_app_val - active_mpi_main_app_val) if sim_intervals_main_app_active_val > 0 else 0
+        max_mins_ui_main_app_val = float(max(0, sim_intervals_main_app_active_val * active_mpi_main_app_val - active_mpi_main_app_val)) if sim_intervals_main_app_active_val > 0 else 0.0
         for event_main_ui_item_cfg_val in st.session_state.sb_scheduled_events_list:
             if "Disruption" in event_main_ui_item_cfg_val.get("Event Type","") and isinstance(event_main_ui_item_cfg_val.get("Start Time (min)"), (int,float)):
-                simulation_disruption_steps_absolute_main_val.append(int(event_main_ui_item_cfg_val["Start Time (min)"] // active_mpi_main_app_val))
+                if active_mpi_main_app_val > 0:
+                    simulation_disruption_steps_absolute_main_val.append(int(event_main_ui_item_cfg_val["Start Time (min)"] // active_mpi_main_app_val))
         simulation_disruption_steps_absolute_main_val = sorted(list(set(simulation_disruption_steps_absolute_main_val)))
     
     for prefix_main_ui_clamp_val_final in ['op', 'ww', 'dt']:
-        st.session_state[f"{prefix_main_ui_clamp_val_final}_start_time_min"] = max(0, min(st.session_state.get(f"{prefix_main_ui_clamp_val_final}_start_time_min",0), max_mins_ui_main_app_val))
-        st.session_state[f"{prefix_main_ui_clamp_val_final}_end_time_min"] = max(st.session_state[f"{prefix_main_ui_clamp_val_final}_start_time_min"], min(st.session_state.get(f"{prefix_main_ui_clamp_val_final}_end_time_min",max_mins_ui_main_app_val), max_mins_ui_main_app_val))
+        st.session_state[f"{prefix_main_ui_clamp_val_final}_start_time_min"] = max(0.0, min(float(st.session_state.get(f"{prefix_main_ui_clamp_val_final}_start_time_min",0.0)), max_mins_ui_main_app_val))
+        st.session_state[f"{prefix_main_ui_clamp_val_final}_end_time_min"] = max(st.session_state[f"{prefix_main_ui_clamp_val_final}_start_time_min"], min(float(st.session_state.get(f"{prefix_main_ui_clamp_val_final}_end_time_min",max_mins_ui_main_app_val)), max_mins_ui_main_app_val))
 
     if run_simulation_button_main_app_call:
         with st.spinner("🚀 Simulating workplace operations... This may take a moment."):
@@ -636,10 +639,10 @@ def main():
                 results_run_main_final = run_simulation_logic(st.session_state.sb_team_size_num, st.session_state.sb_shift_duration_num, list(st.session_state.sb_scheduled_events_list), st.session_state.sb_team_initiative_selectbox)
                 st.session_state.simulation_results = results_run_main_final
                 new_cfg_run_main_final = results_run_main_final['config_params']
-                new_mpi_run_main_final = new_cfg_run_main_final.get('MINUTES_PER_INTERVAL', 2)
+                new_mpi_run_main_final = new_cfg_run_main_final.get('MINUTES_PER_INTERVAL', 2.0)
                 new_sim_intervals_run_main_final = new_cfg_run_main_final.get('SHIFT_DURATION_INTERVALS',0)
-                new_max_mins_run_main_final = max(0, new_sim_intervals_run_main_final * new_mpi_run_main_final - new_mpi_run_main_final) if new_sim_intervals_run_main_final > 0 else 0
-                for pfx_run_final in ['op','ww','dt']: st.session_state[f"{pfx_run_final}_start_time_min"]=0; st.session_state[f"{pfx_run_final}_end_time_min"]=new_max_mins_run_main_final
+                new_max_mins_run_main_final = float(max(0, new_sim_intervals_run_main_final * new_mpi_run_main_final - new_mpi_run_main_final)) if new_sim_intervals_run_main_final > 0 else 0.0
+                for pfx_run_final in ['op','ww','dt']: st.session_state[f"{pfx_run_final}_start_time_min"]=0.0; st.session_state[f"{pfx_run_final}_end_time_min"]=new_max_mins_run_main_final
                 st.success("✅ Simulation completed successfully!"); logger.info("Sim run success."); st.rerun()
             except Exception as e_run_main_final: logger.error(f"Sim Run Error: {e_run_main_final}", exc_info=True); st.error(f"❌ Sim failed: {e_run_main_final}"); st.session_state.simulation_results = None
     if load_data_button_main_app_call:
@@ -652,8 +655,10 @@ def main():
                     st.session_state.sb_shift_duration_num = cfg_ld_main_final.get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'])
                     st.session_state.sb_scheduled_events_list = list(cfg_ld_main_final.get('SCHEDULED_EVENTS', []))
                     st.session_state.sb_team_initiative_selectbox = cfg_ld_main_final.get('TEAM_INITIATIVE', "Standard Operations")
-                    max_ld_main_final = max(0, cfg_ld_main_final.get('SHIFT_DURATION_INTERVALS',0) * cfg_ld_main_final.get('MINUTES_PER_INTERVAL',2) - cfg_ld_main_final.get('MINUTES_PER_INTERVAL',2))
-                    for pfx_ld_final in ['op','ww','dt']: st.session_state[f"{pfx_ld_final}_start_time_min"]=0; st.session_state[f"{pfx_ld_final}_end_time_min"]=max_ld_main_final
+                    mpi_loaded = cfg_ld_main_final.get('MINUTES_PER_INTERVAL', 2.0)
+                    intervals_loaded = cfg_ld_main_final.get('SHIFT_DURATION_INTERVALS',0)
+                    max_ld_main_final = float(max(0, intervals_loaded * mpi_loaded - mpi_loaded)) if intervals_loaded > 0 else 0.0
+                    for pfx_ld_final in ['op','ww','dt']: st.session_state[f"{pfx_ld_final}_start_time_min"]=0.0; st.session_state[f"{pfx_ld_final}_end_time_min"]=max_ld_main_final
                     st.success("✅ Data loaded!"); logger.info("Load success."); st.rerun()
                 else: st.error("❌ Failed to load data or data invalid."); logger.warning("Load fail/invalid.")
             except Exception as e_load_main_final: logger.error(f"Load Data Error: {e_load_main_final}", exc_info=True); st.error(f"❌ Load failed: {e_load_main_final}"); st.session_state.simulation_results = None
@@ -751,8 +756,8 @@ def main():
                 sim_cfg_tab_final_active_loop = sim_data_tab_final_loop.get('config_params', {})
                 st.markdown("##### Select Time Range for Plots:")
                 start_time_ui_tab_loop, end_time_ui_tab_loop = time_range_input_section(tab_def_main_final_loop["key_prefix"], max_mins_ui_main_app_val, interval_duration_min_ui=active_mpi_main_app_val)
-                start_idx_tab_final_loop = start_time_ui_tab_loop // active_mpi_main_app_val if active_mpi_main_app_val > 0 else 0
-                end_idx_tab_final_loop = (end_time_ui_tab_loop // active_mpi_main_app_val) + 1 if active_mpi_main_app_val > 0 else 0
+                start_idx_tab_final_loop = int(start_time_ui_tab_loop // active_mpi_main_app_val) if active_mpi_main_app_val > 0 else 0
+                end_idx_tab_final_loop = int(end_time_ui_tab_loop // active_mpi_main_app_val) + 1 if active_mpi_main_app_val > 0 else 0
                 disrupt_steps_for_plots_abs_tab_final_loop = [s for s in simulation_disruption_steps_absolute_main_val if start_idx_tab_final_loop <= s < end_idx_tab_final_loop]
 
                 if tab_def_main_final_loop.get("metrics_display"):
@@ -797,25 +802,24 @@ def main():
                                 spatial_plot_cols_final = st.columns(2)
                                 with spatial_plot_cols_final[0]: 
                                     st.markdown("<h6>Worker Positions (Snapshot)</h6>", unsafe_allow_html=True)
-                                    min_s_val = int(start_idx_tab_final_loop)
-                                    max_s_val = max(min_s_val, int(end_idx_tab_final_loop - 1))
-                                    snap_slider_key_final = f"{tab_def_main_final_loop['key_prefix']}_snap_step_slider_final"
-                                    current_slider_val_state = st.session_state.get(snap_slider_key_final, min_s_val)
-                                    clamped_value_for_slider = max(min_s_val, min(current_slider_val_state, max_s_val))
-                                    if min_s_val == max_s_val: clamped_value_for_slider = min_s_val
-                                    st.session_state[snap_slider_key_final] = clamped_value_for_slider
-                                    slider_is_disabled = (min_s_val >= max_s_val)
-
+                                    min_s_val_slider = int(start_idx_tab_final_loop)
+                                    max_s_val_slider = max(min_s_val_slider, int(end_idx_tab_final_loop - 1))
+                                    snap_slider_key_final_widget = f"{tab_def_main_final_loop['key_prefix']}_snap_step_slider_final"
+                                    current_slider_val_state_widget = st.session_state.get(snap_slider_key_final_widget, min_s_val_slider)
+                                    clamped_value_for_slider_widget = max(min_s_val_slider, min(current_slider_val_state_widget, max_s_val_slider))
+                                    if min_s_val_slider == max_s_val_slider: clamped_value_for_slider_widget = min_s_val_slider
+                                    st.session_state[snap_slider_key_final_widget] = clamped_value_for_slider_widget
+                                    slider_is_disabled_widget = (min_s_val_slider >= max_s_val_slider)
                                     if max_mins_ui_main_app_val < active_mpi_main_app_val :
                                         st.caption("Not enough data for time step snapshot selector.")
-                                        snap_step_val_final = min_s_val
+                                        snap_step_val_final_widget = min_s_val_slider
                                     else:
-                                        snap_step_val_final = st.slider("Time Step for Snapshot:", min_value=min_s_val, max_value=max_s_val, value=clamped_value_for_slider, key=f"widget_actual_render_{snap_slider_key_final}", step=1, disabled=slider_is_disabled)
-                                        if st.session_state[snap_slider_key_final] != snap_step_val_final : st.session_state[snap_slider_key_final] = snap_step_val_final
+                                        snap_step_val_final_widget = st.slider("Time Step for Snapshot:", min_value=min_s_val_slider, max_value=max_s_val_slider, value=clamped_value_for_slider_widget, key=f"widget_actual_render_{snap_slider_key_final_widget}", step=1, disabled=slider_is_disabled_widget)
+                                        if st.session_state[snap_slider_key_final_widget] != snap_step_val_final_widget : st.session_state[snap_slider_key_final_widget] = snap_step_val_final_widget
                                     
-                                    if not team_pos_df_all_spatial.empty and max_s_val >= min_s_val:
+                                    if not team_pos_df_all_spatial.empty and max_s_val_slider >= min_s_val_slider:
                                         try: 
-                                            fig_dist_final = plot_worker_distribution(team_pos_df_all_spatial, facility_config_spatial_tab_final.get('FACILITY_SIZE',(100,80)), facility_config_spatial_tab_final, use_3d_main_app_val, int(snap_step_val_final), show_ee_exp_final, show_pl_exp_final, current_high_contrast_main_app_val)
+                                            fig_dist_final = plot_worker_distribution(team_pos_df_all_spatial, facility_config_spatial_tab_final.get('FACILITY_SIZE',(100,80)), facility_config_spatial_tab_final, use_3d_main_app_val, int(snap_step_val_final_widget), show_ee_exp_final, show_pl_exp_final, current_high_contrast_main_app_val)
                                             if fig_dist_final: st.plotly_chart(fig_dist_final, use_container_width=True, config=plot_cfg_interactive_final_ui)
                                             else: st.caption("Worker distribution plot error."); logger.warning("plot_worker_distribution returned None.")
                                         except Exception as e_dist_final: logger.error(f"Spatial Dist Plot Error: {e_dist_final}", exc_info=True); st.error(f"⚠️ Error plotting Worker Positions: {e_dist_final}.")
@@ -909,7 +913,7 @@ def main():
                                 wa_alert_found_final = False; wa_details_html_final = ""
                                 for zone_final, zone_steps_raw_list_final in alert_steps_raw_final.items():
                                     zone_steps_in_range_final = [s for s in (zone_steps_raw_list_final if isinstance(zone_steps_raw_list_final, list) else []) if start_idx_tab_final_loop <= s < end_idx_tab_final_loop]
-                                    if zone_steps_in_range_final: wa_alert_found_final = True; wa_details_html_final += f"  - {zone_final}: {len(zone_steps_in_range_final)} alerts at steps {zone_steps_in_range_final}<br>"
+                                    if zone_steps_in_range_final: wa_alert_found_final = True; wa_details_html_final += f"  - {zone_final}: {len(zone_steps_in_range_final)} alerts at steps {zone_steps_in_range_final}<br>"
                                 if wa_alert_found_final: st.markdown(f"<div class='alert-warning insight-text'><strong>Work Area Specific Alerts:</strong><br>{wa_details_html_final}</div>", unsafe_allow_html=True); insights_count_wb_final +=1
                             elif isinstance(alert_steps_raw_final, list):
                                 alert_steps_in_range_final = [s for s in alert_steps_raw_final if start_idx_tab_final_loop <= s < end_idx_tab_final_loop]
