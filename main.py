@@ -14,6 +14,7 @@ from visualizations import (
 from simulation import simulate_workplace_operations
 from utils import save_simulation_data, load_simulation_data, generate_pdf_report
 
+
 logger = logging.getLogger(__name__)
 if not logger.handlers:
     logging.basicConfig(level=logging.DEBUG,
@@ -94,10 +95,85 @@ def safe_stat(data_list, stat_func, default_val=0.0):
         logger.warning(f"safe_stat: Error in stat_func {stat_func.__name__}: {e}. Returning default_val: {default_val}", exc_info=True)
         return default_val
 
-# CSS
+def get_actionable_insights(sim_data, current_config): # MOVED HERE
+    insights = []
+    if not sim_data or not isinstance(sim_data, dict): 
+        logger.warning("get_actionable_insights: sim_data is None or not a dict.")
+        return insights
+    
+    logger.debug(f"get_actionable_insights: Generating insights with sim_data keys: {list(sim_data.keys()) if isinstance(sim_data, dict) else 'Not a dict'}")
+
+    compliance_data = safe_get(sim_data, 'task_compliance.data', [])
+    target_compliance_from_config = float(current_config.get('TARGET_COMPLIANCE', 75.0))
+    compliance_avg = safe_stat(compliance_data, np.mean, default_val=target_compliance_from_config)
+
+    if compliance_avg < target_compliance_from_config * 0.9:
+        insights.append({"type": "critical", "title": "Low Task Compliance", "text": f"Avg. Task Compliance ({compliance_avg:.1f}%) significantly below target ({target_compliance_from_config:.0f}%). Review disruption impacts, task complexities, and training."})
+    elif compliance_avg < target_compliance_from_config:
+        insights.append({"type": "warning", "title": "Suboptimal Task Compliance", "text": f"Avg. Task Compliance at {compliance_avg:.1f}%. Identify intervals or areas with lowest compliance for process review."})
+
+    wellbeing_scores = safe_get(sim_data, 'worker_wellbeing.scores', [])
+    target_wellbeing_from_config = float(current_config.get('TARGET_WELLBEING', 70.0))
+    wellbeing_avg = safe_stat(wellbeing_scores, np.mean, default_val=target_wellbeing_from_config)
+    
+    wellbeing_critical_threshold_factor = float(current_config.get('WELLBEING_CRITICAL_THRESHOLD_PERCENT_OF_TARGET', 0.85))
+    if wellbeing_avg < target_wellbeing_from_config * wellbeing_critical_threshold_factor:
+        insights.append({"type": "critical", "title": "Critical Worker Well-being", "text": f"Avg. Well-being ({wellbeing_avg:.1f}%) critically low (target {target_wellbeing_from_config:.0f}%). Urgent review of work conditions, load, and stress factors needed."})
+    
+    threshold_triggers = safe_get(sim_data, 'worker_wellbeing.triggers.threshold', [])
+    if wellbeing_scores and len(threshold_triggers) > max(2, len(wellbeing_scores) * 0.1):
+        insights.append({"type": "warning", "title": "Frequent Low Well-being Alerts", "text": f"{len(threshold_triggers)} instances of well-being dropping below threshold. Investigate specific triggers."})
+
+    downtime_events_list = safe_get(sim_data, 'downtime_minutes', [])
+    downtime_durations = [event.get('duration', 0.0) for event in downtime_events_list if isinstance(event, dict)]
+    total_downtime = safe_stat(downtime_durations, np.sum, default_val=0.0)
+    
+    sim_cfg_params = sim_data.get('config_params', {})
+    shift_mins = float(sim_cfg_params.get('SHIFT_DURATION_MINUTES', DEFAULT_CONFIG['SHIFT_DURATION_MINUTES']))
+    dt_thresh_total_shift = float(current_config.get('DOWNTIME_THRESHOLD_TOTAL_SHIFT', shift_mins * 0.05)) # Ensure this key exists or provide default in current_config
+    
+    if total_downtime > dt_thresh_total_shift:
+        insights.append({"type": "critical", "title": "Excessive Total Shift Downtime", "text": f"Total shift downtime is {total_downtime:.0f} minutes, exceeding the guideline of {dt_thresh_total_shift:.0f} min. Deep dive into disruption causes, equipment reliability, and recovery protocols. Analyze downtime causes pie chart."})
+    
+    psych_safety_scores = safe_get(sim_data, 'psychological_safety', [])
+    target_psych_safety = float(current_config.get('TARGET_PSYCH_SAFETY', 70.0))
+    psych_safety_avg = safe_stat(psych_safety_scores, np.mean, default_val=target_psych_safety)
+    if psych_safety_avg < target_psych_safety * 0.9:
+        insights.append({"type": "warning", "title": "Low Psychological Safety", "text": f"Avg. Psych. Safety ({psych_safety_avg:.1f}%) is below target ({target_psych_safety:.0f}%). Consider initiatives to build trust and open communication."})
+
+    cohesion_scores = safe_get(sim_data, 'worker_wellbeing.team_cohesion_scores', [])
+    target_cohesion = float(current_config.get('TARGET_TEAM_COHESION', 70.0))
+    cohesion_avg = safe_stat(cohesion_scores, np.mean, default_val=target_cohesion)
+    if cohesion_avg < target_cohesion * 0.9:
+        insights.append({"type": "warning", "title": "Low Team Cohesion", "text": f"Avg. Team Cohesion ({cohesion_avg:.1f}%) is below desired levels. Consider team-building activities or structural reviews for collaboration."})
+    
+    workload_scores = safe_get(sim_data, 'worker_wellbeing.perceived_workload_scores', [])
+    target_workload = float(current_config.get('TARGET_PERCEIVED_WORKLOAD', 6.5))
+    workload_avg = safe_stat(workload_scores, np.mean, default_val=target_workload)
+    if workload_avg > float(current_config.get('PERCEIVED_WORKLOAD_THRESHOLD_VERY_HIGH', 8.5)):
+        insights.append({"type": "critical", "title": "Very High Perceived Workload", "text": f"Avg. Perceived Workload ({workload_avg:.1f}/10) is critically high. Immediate review of task distribution, staffing, and process efficiencies is required."})
+    elif workload_avg > float(current_config.get('PERCEIVED_WORKLOAD_THRESHOLD_HIGH', 7.5)):
+        insights.append({"type": "warning", "title": "High Perceived Workload", "text": f"Avg. Perceived Workload ({workload_avg:.1f}/10) exceeds high threshold. Monitor closely and identify bottlenecks."})
+    elif workload_avg > target_workload:
+        insights.append({"type": "info", "title": "Elevated Perceived Workload", "text": f"Avg. Perceived Workload ({workload_avg:.1f}/10) is above target ({target_workload:.1f}/10). Consider proactive adjustments."})
+    
+    if compliance_avg > target_compliance_from_config * 1.05 and \
+       wellbeing_avg > target_wellbeing_from_config * 1.05 and \
+       total_downtime < dt_thresh_total_shift * 0.5 and \
+       psych_safety_avg > target_psych_safety * 1.05:
+        insights.append({"type": "positive", "title": "Holistically Excellent Performance", "text": "Key operational and psychosocial metrics significantly exceed targets. A well-balanced and high-performing shift! Leadership should identify and replicate success factors."})
+    
+    initiative = sim_cfg_params.get('TEAM_INITIATIVE', 'Standard Operations') # Use sim_cfg_params defined earlier
+    if initiative != "Standard Operations":
+        insights.append({"type": "info", "title": f"Initiative Active: '{initiative}'", "text": f"The '{initiative}' initiative was simulated. Its impact can be assessed by comparing metrics to a 'Standard Operations' baseline run."})
+    
+    logger.info(f"get_actionable_insights: Generated {len(insights)} insights.")
+    return insights
+
+# CSS (Same as before)
 st.markdown(f"""
     <style>
-        /* Base Styles */
+        /* ... CSS from previous correct version ... */
         .main {{ background-color: #121828; color: #EAEAEA; font-family: 'Roboto', 'Open Sans', 'Helvetica Neue', sans-serif; padding: 2rem; }}
         h1 {{ font-size: 2.4rem; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; text-align: center; margin-bottom: 2rem; color: #FFFFFF; }}
         h2 {{ /* Tab Headers */ font-size: 1.75rem; font-weight: 600; line-height: 1.3; margin: 1.5rem 0 1rem; color: #D0D0D0; border-bottom: 1px solid #4A5568; padding-bottom: 0.5rem;}}
@@ -173,7 +249,7 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-def render_settings_sidebar():
+def render_settings_sidebar(): # Same as previous version with improved event scheduling
     with st.sidebar:
         st.markdown("<h3 style='text-align: center; margin-bottom: 1.5rem; color: #A0A0A0;'>Workplace Optimizer</h3>", unsafe_allow_html=True)
         st.markdown("## ⚙️ Simulation Controls")
@@ -616,6 +692,15 @@ def main():
         st.header("📊 Key Performance Indicators & Actionable Insights", divider="blue")
         if st.session_state.simulation_results:
             sim_data = st.session_state.simulation_results
+            # DEBUG: Print sim_data type and keys if it's a dict
+            logger.debug(f"Overview Tab: sim_data type: {type(sim_data)}")
+            if isinstance(sim_data, dict):
+                logger.debug(f"Overview Tab: sim_data keys: {list(sim_data.keys())}")
+            else:
+                logger.error("Overview Tab: sim_data is not a dictionary!")
+                st.error("Critical error: Simulation data is not in the expected format.") # Show error on UI
+                st.stop() # Stop further execution in this faulty state
+
             effective_config = {**DEFAULT_CONFIG, **sim_data.get('config_params', {})}
             
             compliance_target = float(effective_config.get('TARGET_COMPLIANCE', 75.0))
