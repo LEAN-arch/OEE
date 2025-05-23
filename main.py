@@ -186,14 +186,15 @@ def get_actionable_insights(sim_data, current_config_dict_main):
     logger.info(f"get_actionable_insights: Generated {len(insights)} insights.", extra={'user_action': 'Actionable Insights - End'})
     return insights
     def aggregate_downtime_by_step(raw_downtime_event_log, num_total_steps_agg):
-    downtime_per_step_agg = [0.0] * num_total_steps_agg
+    downtime_per_step_agg = [0.0] * num_total_steps_agg # Initialize with zeros
     if not isinstance(raw_downtime_event_log, list):
         logger.warning("aggregate_downtime_by_step: input is not a list.")
-        return downtime_per_step_agg
+        return downtime_per_step_agg # Return list of zeros
 
     for event in raw_downtime_event_log:
         if not isinstance(event, dict): continue
         step, duration = event.get('step'), event.get('duration', 0.0)
+        # Ensure step is a valid index and duration is a positive number
         if isinstance(step, int) and 0 <= step < num_total_steps_agg and isinstance(duration, (int, float)) and duration > 0:
             downtime_per_step_agg[step] += float(duration)
     return downtime_per_step_agg
