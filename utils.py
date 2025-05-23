@@ -1,7 +1,6 @@
 # utils.py
 import pickle
 import pandas as pd
-# import numpy as np # Not strictly needed here
 import logging
 from typing import Dict, Optional, Any
 
@@ -25,12 +24,15 @@ def load_simulation_data() -> Optional[Dict[str, Any]]:
         if not isinstance(simulation_results_dict, dict):
             logger.error(f"Loaded data from {SAVE_FILE_PATH} is not a dictionary. Data is likely corrupted or invalid.", extra={'user_action': 'Load Sim Data - Invalid Format'})
             return None
-        # Basic validation for essential keys
-        if 'config_params' not in simulation_results_dict or \
-           'team_positions_df' not in simulation_results_dict: # Example essential keys
-             logger.warning(f"Loaded data from {SAVE_FILE_PATH} is missing essential keys. May be incompatible.", extra={'user_action': 'Load Sim Data - Missing Keys'})
+        
+        # Basic validation for essential keys expected by main.py
+        required_top_level_keys = ['config_params', 'team_positions_df', 'task_compliance', 'downtime_events_log'] # Add more if critical
+        missing_keys = [key for key in required_top_level_keys if key not in simulation_results_dict]
+        if missing_keys:
+             logger.warning(f"Loaded data from {SAVE_FILE_PATH} is missing essential keys: {', '.join(missing_keys)}. May be incompatible.", extra={'user_action': 'Load Sim Data - Missing Keys'})
              # Decide if to return None or the partial dict based on strictness
-             # return None 
+             # return None # More strict: if essential parts are missing, treat as invalid load
+
         logger.info(f"Simulation data successfully loaded from {SAVE_FILE_PATH}", extra={'user_action': 'Load Sim Data - Success'})
         return simulation_results_dict
     except FileNotFoundError:
@@ -61,32 +63,40 @@ def generate_pdf_report(summary_df: pd.DataFrame, sim_config_params: Optional[Di
 
         # Sanitize column names for LaTeX and improve readability
         df_for_latex.columns = [
-            str(col).replace('_', ' ').replace('%', '\\%').title()
+            str(col).replace('_', ' ').replace('%', '\\%').title() # Basic sanitization
             for col in df_for_latex.columns
         ]
         
-        # Round numeric columns appropriately, handling potential non-numeric data mixed in
+        # Round numeric columns, convert others to string and escape problematic characters
         for col in df_for_latex.columns:
             if pd.api.types.is_numeric_dtype(df_for_latex[col]):
-                # Check if column is not purely integers before rounding to avoid adding .0
+                # Check if column is not purely integers before rounding
                 if not df_for_latex[col].dropna().apply(lambda x: isinstance(x, int) or (isinstance(x, float) and x.is_integer())).all():
                     try:
                         df_for_latex[col] = pd.to_numeric(df_for_latex[col], errors='coerce').round(2)
                     except Exception as e_round:
                         logger.warning(f"Could not round column '{col}' for LaTeX report: {e_round}", extra={'user_action': 'Generate LaTeX Report - Rounding Warning'})
-            # Convert other types to string to prevent to_latex errors and escape LaTeX special characters
-            elif not pd.api.types.is_string_dtype(df_for_latex[col]):
-                 df_for_latex[col] = df_for_latex[col].astype(str).str.replace('&', '\\&', regex=False).str.replace('#', '\\#', regex=False)
+            elif not pd.api.types.is_string_dtype(df_for_latex[col]): # If not string and not numeric
+                 df_for_latex[col] = df_for_latex[col].astype(str)
+            
+            # Escape common LaTeX special characters for all string columns (or converted to string)
+            if pd.api.types.is_string_dtype(df_for_latex[col]):
+                df_for_latex[col] = df_for_latex[col].str.replace('&', '\\&', regex=False) \
+                                                    .str.replace('%', '\\%', regex=False) \
+                                                    .str.replace('#', '\\#', regex=False) \
+                                                    .str.replace('_', '\\_', regex=False) \
+                                                    .str.replace('{', '\\{', regex=False) \
+                                                    .str.replace('}', '\\}', regex=False) \
+                                                    .str.replace('~', '\\textasciitilde{}', regex=False) \
+                                                    .str.replace('^', '\\textasciicircum{}', regex=False) \
+                                                    .str.replace('\\', '\\textbackslash{}', regex=False)
 
 
         num_cols = len(df_for_latex.columns)
-        col_fmt = '|' + 'l|' * num_cols if num_cols > 0 else '|l|' # Left-aligned columns
+        col_fmt = '|' + 'l|' * num_cols if num_cols > 0 else '|l|'
 
-        # Generate LaTeX table string
-        # We set escape=False because we manually handled common problematic characters.
-        # For full LaTeX safety, a more robust escaper might be needed or keep escape=True.
         latex_table = df_for_latex.to_latex(
-            index=False, escape=False, 
+            index=False, escape=False, # We handled escaping manually
             column_format=col_fmt, header=True, longtable=True, na_rep="-",
             caption='Summary of Simulation Metrics Over Time.', label='tab:simsummary'
         )
@@ -103,8 +113,7 @@ def generate_pdf_report(summary_df: pd.DataFrame, sim_config_params: Optional[Di
             for key, desc in config_items_to_report.items():
                 val = sim_config_params.get(key)
                 if val is not None:
-                    # Escape LaTeX special chars in value if it's a string
-                    val_str = str(val).replace('_', '\\_').replace('%', '\\%').replace('&', '\\&').replace('#', '\\#')
+                    val_str = str(val).replace('_', '\\_').replace('%', '\\%').replace('&', '\\&').replace('#', '\\#') # Basic escape
                     config_summary_tex += f"    \\item \\textbf{{{desc}:}} {val_str}\n"
             
             num_events = len(sim_config_params.get("SCHEDULED_EVENTS", []))
@@ -138,21 +147,11 @@ def generate_pdf_report(summary_df: pd.DataFrame, sim_config_params: Optional[Di
 {config_summary_tex}
 
 \\section*{{Simulation Data Summary}}
-The data from the dashboard provides an overview of key operational metrics from the latest simulation run.
-The table below presents a time-series summary of these metrics.
+The table below presents a time-series summary of key metrics from the simulation run.
 
 \\begingroup \\centering
 {latex_table}
 \\endgroup
-
-% Placeholder for further analysis and visualizations
-% \\subsection*{{Key Visualizations}}
-% \\begin{{figure}}[h!]
-%   \\centering
-%   % \\includegraphics[width=0.8\\textwidth]{{path/to/your/plot_image.png}} % User needs to add actual plots
-%   \\caption{{Example Plot Title.}}
-%   \\label{{fig:exampleplot}}
-% \\end{{figure}}
 
 \\end{{document}}
 """
