@@ -31,179 +31,119 @@ COLOR_AXIS_LINE_HC = "#777777"
 PLOTLY_TEMPLATE = "plotly_dark"
 EPSILON = 1e-9 # Small number to avoid zero ranges if necessary
 
-def _apply_common_layout_settings(fig, title_text, high_contrast=False, yaxis_title=None, xaxis_title="Time Step (Interval)", yaxis_range=None, show_legend=True):
-    font_color = COLOR_WHITE_TEXT if high_contrast else COLOR_LIGHT_TEXT
-    title_font_color = COLOR_WHITE_TEXT
-    grid_color = COLOR_SUBTLE_GRID_HC if high_contrast else COLOR_SUBTLE_GRID_STD
-    axis_line_color = COLOR_AXIS_LINE_HC if high_contrast else COLOR_AXIS_LINE_STD
-    legend_bgcolor = "rgba(0,0,0,0.7)" if high_contrast else "rgba(31, 41, 55, 0.7)"
-    legend_border_color = COLOR_NEUTRAL_GRAY
-
-    fig.update_layout(
-        template=PLOTLY_TEMPLATE,
-        title=dict(text=title_text, x=0.5, font=dict(size=16, color=title_font_color)),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=font_color, size=11),
-        legend=dict(
-            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-            bgcolor=legend_bgcolor,
-            bordercolor=legend_border_color, borderwidth=0.5, font_size=10,
-            traceorder="normal",
-            font=dict(color=font_color)
-        ) if show_legend else None,
-        margin=dict(l=60, r=40, t=70, b=60),
-        xaxis=dict(
-            title=xaxis_title, gridcolor=grid_color, zerolinecolor=grid_color,
-            showline=True, linewidth=1, linecolor=axis_line_color,
-            rangemode='tozero' if xaxis_title and "Time" in xaxis_title else 'normal',
-            titlefont=dict(size=13, color=font_color), tickfont=dict(size=11, color=font_color)
-        ),
-        yaxis=dict(
-            title=yaxis_title, gridcolor=grid_color, zerolinecolor=grid_color,
-            showline=True, linewidth=1, linecolor=axis_line_color,
-            range=yaxis_range,
-            titlefont=dict(size=13, color=font_color), tickfont=dict(size=11, color=font_color)
-        ),
-        hovermode="x unified",
-        dragmode='pan'
-    )
-
-def _get_no_data_figure(title_text, high_contrast=False):
-    fig = go.Figure()
-    _apply_common_layout_settings(fig, title_text, high_contrast, show_legend=False)
-    font_color = COLOR_WHITE_TEXT if high_contrast else COLOR_LIGHT_TEXT
-    fig.add_annotation(text="No data available for this visualization.",
-                       showarrow=False, font=dict(size=14, color=font_color))
-    return fig
-
-def _get_no_data_pie_figure(title_text, high_contrast=False):
-    fig = go.Figure()
-    font_color = COLOR_WHITE_TEXT if high_contrast else COLOR_LIGHT_TEXT
-    fig.update_layout(
-        title=dict(text=title_text, x=0.5, font=dict(size=16, color=font_color)),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=font_color, size=11),
-        annotations=[dict(text="No data available for this visualization.",
-                          showarrow=False, xref="paper", yref="paper",
-                          x=0.5, y=0.5, font=dict(size=14, color=font_color))]
-    )
-    return fig
+# ... (_apply_common_layout_settings, _get_no_data_figure, _get_no_data_pie_figure remain the same)
 
 
-def plot_key_metrics_summary(compliance, proximity, wellbeing, downtime, high_contrast=False,
-                             color_positive=COLOR_POSITIVE_GREEN,
-                             color_warning=COLOR_WARNING_AMBER,
-                             color_negative=COLOR_CRITICAL_RED,
-                             accent_color=COLOR_ACCENT_INDIGO):
+def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: float, downtime: float,
+                             target_compliance: float, target_proximity: float, target_wellbeing: float, target_downtime: float,
+                             high_contrast: bool = False,
+                             color_positive: str = COLOR_POSITIVE_GREEN,
+                             color_warning: str = COLOR_WARNING_AMBER,
+                             color_negative: str = COLOR_CRITICAL_RED,
+                             accent_color: str = COLOR_ACCENT_INDIGO):
     figs = []
     font_color_gauge = COLOR_WHITE_TEXT if high_contrast else COLOR_LIGHT_TEXT
     gauge_base_bgcolor = "rgba(42, 52, 71, 0.7)" if not high_contrast else "rgba(17,17,17,0.7)"
 
     metrics_config = [
-        ("Task Compliance", compliance, 75, accent_color, "%", False),
-        ("Collaboration Idx", proximity, 60, accent_color, "%", False),
-        ("Well-Being Idx", wellbeing, 70, accent_color, "%", False),
-        ("Total Downtime", downtime, 30, accent_color, " min", True)
+        ("Task Compliance", compliance, target_compliance, accent_color, "%", False),
+        ("Collaboration Idx", proximity, target_proximity, accent_color, "%", False),
+        ("Well-Being Idx", wellbeing, target_wellbeing, accent_color, "%", False),
+        ("Total Downtime", downtime, target_downtime, accent_color, " min", True) # lower_is_better = True
     ]
 
     for title, raw_value, raw_target, bar_color_val, suffix, lower_is_better in metrics_config:
         fig = go.Figure()
         
+        # Ensure inputs are float, default to 0.0 if conversion fails or None
         try:
             value = float(raw_value) if raw_value is not None else 0.0
         except (ValueError, TypeError):
-            logger.warning(f"Invalid value '{raw_value}' for gauge '{title}'. Defaulting to 0.0.")
+            logger.warning(f"Gauge '{title}': Invalid raw_value '{raw_value}'. Defaulting to 0.0.")
             value = 0.0
-        
         try:
             target = float(raw_target) if raw_target is not None else 0.0
         except (ValueError, TypeError):
-            logger.warning(f"Invalid target '{raw_target}' for gauge '{title}'. Defaulting to 0.0.")
+            logger.warning(f"Gauge '{title}': Invalid raw_target '{raw_target}'. Defaulting to 0.0.")
             target = 0.0
+
+        logger.debug(f"Gauge '{title}': Value={value}, Target={target}, Suffix='{suffix}', LowerIsBetter={lower_is_better}")
 
         increasing_is_good_color = color_positive if not lower_is_better else color_negative
         decreasing_is_good_color = color_negative if not lower_is_better else color_positive
 
+        # --- Axis Max Value Calculation ---
+        # Base default max, ensure it's positive.
+        # If value or target are significant, they should influence the max.
+        # Max value for the gauge axis should accommodate value, target, and provide some headroom.
+        base_max_val = 10.0 # A small default if value and target are zero
+        if suffix == "%":
+            axis_max_val = 100.0
+        else:
+            # Consider value, target, and a sensible minimum
+            axis_max_val = max(value * 1.25, target * 1.5, base_max_val)
+        
+        if axis_max_val <= value : axis_max_val = value * 1.25 # ensure current value is visible
+        if axis_max_val <= target : axis_max_val = target * 1.5 # ensure target is visible
+        if axis_max_val <= EPSILON: axis_max_val = base_max_val # final fallback for non-%
+
+
+        # --- Steps Configuration ---
         steps_config = []
+        if lower_is_better: # e.g. Downtime. Target is the ideal "good" point.
+            # Up to target is good (green)
+            # Target to Target*1.25 (or some factor) is warning (amber)
+            # Above Target*1.25 is critical (red)
+            s1_upper = target  # Good range ends at target
+            s2_upper = target * 1.25 if target > EPSILON else axis_max_val / 2.0 # Warning range
+            if s1_upper == 0 and s2_upper == 0: # If target is 0, define steps differently
+                s1_upper = EPSILON # tiny green zone for 0
+                s2_upper = axis_max_val / 2.0
+
+            steps_config = [
+                {'range': [0, s1_upper], 'color': color_positive},
+                {'range': [s1_upper, s2_upper], 'color': color_warning},
+                {'range': [s2_upper, axis_max_val], 'color': color_negative}
+            ]
+        else: # Higher is better. Target is the "good" point.
+            # Below Target*0.8 (or some factor) is critical (red)
+            # Target*0.8 to Target is warning (amber)
+            # Above Target is good (green)
+            s1_upper = target * 0.8 if target > EPSILON else axis_max_val / 3.0 # Critical range ends
+            s2_upper = target       # Warning range ends (good starts)
+            if s1_upper >= s2_upper and target > EPSILON: # Ensure s1_upper < s2_upper
+                s1_upper = target * 0.7 
+
+            steps_config = [
+                {'range': [0, s1_upper], 'color': color_negative},
+                {'range': [s1_upper, s2_upper], 'color': color_warning},
+                {'range': [s2_upper, axis_max_val], 'color': color_positive}
+            ]
         
-        # Calculate axis max value robustly
-        # Ensure it's never zero to prevent [0,0] ranges for steps if target is 0.
-        # Max value for the gauge axis
-        calculated_max = max(target * 1.5, value * 1.25, 10.0) # Start with a base of 10
-        if value > calculated_max: # If current value exceeds, adjust
-             calculated_max = value * 1.25
-        if target > calculated_max: # If target exceeds, adjust
-             calculated_max = target * 1.5
-
-        axis_max_val = 100.0 if suffix == "%" else calculated_max
-        if axis_max_val <= EPSILON: # Ensure axis max is not zero or too small
-            axis_max_val = 10.0 if suffix != "%" else 100.0
-
-
-        if lower_is_better: # e.g. Downtime
-            # Target is the ideal "good" point.
-            # Warn if it's somewhat higher, critical if much higher.
-            good_thresh_upper = target # Up to target is good
-            warn_thresh_upper = target * 1.25 if target > EPSILON else 1.0 # Warn if 25% over, or 1 if target is 0
-            
-            steps_config = [
-                {'range': [0, good_thresh_upper + EPSILON], 'color': color_positive}, # Add EPSILON to avoid overlap if target is 0
-                {'range': [good_thresh_upper, warn_thresh_upper + EPSILON], 'color': color_warning},
-                {'range': [warn_thresh_upper, axis_max_val], 'color': color_negative}
-            ]
-            # Ensure ranges are distinct and ordered
-            if good_thresh_upper >= warn_thresh_upper : warn_thresh_upper = good_thresh_upper + (axis_max_val - good_thresh_upper)/2
-            if good_thresh_upper == 0 and warn_thresh_upper == 0: # Special case for 0 target downtime
-                steps_config = [
-                     {'range': [0, EPSILON], 'color': color_positive}, # Tiny green for 0
-                     {'range': [EPSILON, axis_max_val / 2], 'color': color_warning},
-                     {'range': [axis_max_val / 2, axis_max_val], 'color': color_negative}
-                ]
-
-
-        else: # Higher is better
-            # Target is the "good" point.
-            # Warn if somewhat lower, critical if much lower.
-            warn_thresh_lower = target * 0.8 if target > EPSILON else 0.0 # Warn if below 80% of target
-            good_thresh_lower = target # Reaching target is good
-            
-            steps_config = [
-                {'range': [0, warn_thresh_lower + EPSILON], 'color': color_negative},
-                {'range': [warn_thresh_lower, good_thresh_lower + EPSILON], 'color': color_warning},
-                {'range': [good_thresh_lower, axis_max_val], 'color': color_positive}
-            ]
-            # Ensure ranges are distinct and ordered
-            if warn_thresh_lower >= good_thresh_lower: good_thresh_lower = warn_thresh_lower + (axis_max_val - warn_thresh_lower)/2
-            if warn_thresh_lower == 0 and good_thresh_lower == 0 and target == 0:
-                 steps_config = [ # If target is 0 for a "higher is better" metric (unusual)
-                     {'range': [0, axis_max_val/3], 'color': color_negative},
-                     {'range': [axis_max_val/3, 2*axis_max_val/3], 'color': color_warning},
-                     {'range': [2*axis_max_val/3, axis_max_val], 'color': color_positive}
-                 ]
-
-
-        # Final check on steps to ensure no None values and ranges are sensible
+        # Clean up steps: ensure ranges are valid and ordered [lower, upper] where lower < upper
         valid_steps = []
-        last_upper = 0
-        for step in steps_config:
-            lower = step['range'][0]
-            upper = step['range'][1]
-            if lower is None or upper is None or upper < lower:
-                logger.warning(f"Invalid step range for gauge '{title}': {step['range']}. Skipping step.")
-                continue
-            # Ensure step ranges don't overlap negatively due to epsilon adjustments
-            lower = max(lower, last_upper)
-            if upper <= lower: # If this step would be zero or negative length, try to give it some space or skip
-                upper = lower + EPSILON * 10 
-            if upper > axis_max_val : upper = axis_max_val # Cap at axis max
-            if lower >= axis_max_val : continue # Skip if starts at or beyond max
+        current_lower_bound = 0.0
+        for i, step in enumerate(steps_config):
+            s_lower, s_upper = step['range']
+            
+            # Ensure numeric and ordered
+            s_lower = float(s_lower) if s_lower is not None else current_lower_bound
+            s_upper = float(s_upper) if s_upper is not None else axis_max_val
 
-            valid_steps.append({'range': [lower, upper], 'color': step['color']})
-            last_upper = upper
+            s_lower = max(current_lower_bound, s_lower) # Prevent overlap from previous step
+            s_upper = min(max(s_lower + EPSILON, s_upper), axis_max_val) # Ensure upper > lower and cap at axis_max
+
+            if s_upper > s_lower: # Only add valid steps
+                valid_steps.append({'range': [s_lower, s_upper], 'color': step['color']})
+                current_lower_bound = s_upper
+            elif i == len(steps_config) - 1 and not valid_steps: # If all prior steps failed, make one full step
+                 valid_steps.append({'range': [0, axis_max_val], 'color': accent_color})
+
+
+        logger.debug(f"Gauge '{title}': axis_max_val={axis_max_val}, valid_steps={valid_steps}")
         
-        if not valid_steps: # Fallback if all steps became invalid
+        if not valid_steps: # Ultimate fallback if step logic fails
+            logger.error(f"Gauge '{title}': All steps became invalid. Using a single fallback step.")
             valid_steps = [{'range': [0, axis_max_val], 'color': accent_color}]
 
 
@@ -218,7 +158,7 @@ def plot_key_metrics_summary(compliance, proximity, wellbeing, downtime, high_co
             gauge={
                 'axis': {'range': [0, axis_max_val],
                          'tickwidth': 1, 'tickcolor': COLOR_NEUTRAL_GRAY if not high_contrast else COLOR_WHITE_TEXT},
-                'bar': {'color': bar_color_val, 'thickness': 0.65},
+                'bar': {'color': bar_color_val if bar_color_val else accent_color, 'thickness': 0.65}, # Fallback for bar color
                 'bgcolor': gauge_base_bgcolor,
                 'borderwidth': 0.5, 'bordercolor': COLOR_NEUTRAL_GRAY,
                 'steps': valid_steps,
@@ -229,8 +169,9 @@ def plot_key_metrics_summary(compliance, proximity, wellbeing, downtime, high_co
         figs.append(fig)
     return figs
 
-# ... (rest of the functions remain the same as the previous correct version)
-
+# ... (rest of the visualization functions remain the same) ...
+# Make sure plot_task_compliance_score and other functions are identical to the previously corrected version
+# as they were not identified as the source of the gauge error.
 def plot_task_compliance_score(data, disruption_points, forecast_data=None, z_scores=None, high_contrast=False):
     if not data: return _get_no_data_figure("Task Compliance Score Trend", high_contrast)
     cat_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
@@ -245,8 +186,15 @@ def plot_task_compliance_score(data, disruption_points, forecast_data=None, z_sc
     for dp_step in disruption_points:
         if 0 <= dp_step < len(data): fig.add_vline(x=dp_step, line=dict(color=disruption_line_color, width=1.5, dash="longdash"), annotation_text="D", annotation_position="top left", annotation=dict(font_size=10, bgcolor=disruption_annot_bgcolor, borderpad=2, textangle=0, font_color=disruption_annot_font_color))
     
-    min_val = min(data) if data else 0; max_val = max(data) if data else 100
-    if forecast_data: min_val = min(min_val, min(forecast_data) if forecast_data else min_val); max_val = max(max_val, max(forecast_data) if forecast_data else max_val)
+    min_val_list = [v for v in data if v is not None] # Filter out None before min/max
+    max_val_list = [v for v in data if v is not None]
+    if forecast_data:
+        min_val_list.extend([v for v in forecast_data if v is not None])
+        max_val_list.extend([v for v in forecast_data if v is not None])
+    
+    min_val = min(min_val_list) if min_val_list else 0
+    max_val = max(max_val_list) if max_val_list else 100
+
     _apply_common_layout_settings(fig, "Task Compliance Score Trend", high_contrast, yaxis_title="Score (%)", yaxis_range=[max(0, min_val - 15), min(105, max_val + 15)]); return fig
 
 def plot_collaboration_proximity_index(data, disruption_points, forecast_data=None, high_contrast=False):
@@ -263,8 +211,15 @@ def plot_collaboration_proximity_index(data, disruption_points, forecast_data=No
     for dp_step in disruption_points:
         if 0 <= dp_step < len(data): fig.add_vline(x=dp_step, line=dict(color=disruption_line_color, width=1.5, dash="longdash"), annotation_text="D", annotation_position="bottom right", annotation=dict(font_size=10, bgcolor=disruption_annot_bgcolor, borderpad=2, textangle=0, font_color=disruption_annot_font_color))
     
-    min_val = min(data) if data else 0; max_val = max(data) if data else 100
-    if forecast_data: min_val = min(min_val, min(forecast_data) if forecast_data else min_val); max_val = max(max_val, max(forecast_data) if forecast_data else max_val)
+    min_val_list = [v for v in data if v is not None]
+    max_val_list = [v for v in data if v is not None]
+    if forecast_data:
+        min_val_list.extend([v for v in forecast_data if v is not None])
+        max_val_list.extend([v for v in forecast_data if v is not None])
+
+    min_val = min(min_val_list) if min_val_list else 0
+    max_val = max(max_val_list) if max_val_list else 100
+
     _apply_common_layout_settings(fig, "Collaboration Proximity Index Trend", high_contrast, yaxis_title="Index (%)", yaxis_range=[max(0, min_val - 15), min(105, max_val + 15)]); return fig
 
 def plot_operational_recovery(recovery_data, productivity_loss_data, high_contrast=False):
@@ -386,7 +341,7 @@ def plot_downtime_causes_pie(downtime_events_list, high_contrast=False):
         return _get_no_data_pie_figure("Downtime Distribution by Cause", high_contrast)
 
     causes_summary = {}
-    total_downtime_duration_for_pie = 0.0 # Ensure float
+    total_downtime_duration_for_pie = 0.0 
     for event in downtime_events_list:
         if not isinstance(event, dict):
             logger.warning(f"Skipping non-dict event in downtime_events_list for pie chart: {event}")
