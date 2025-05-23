@@ -57,21 +57,14 @@ COLOR_BUTTON_SECONDARY_BG_DARK = "#566573" # Dark gray for secondary buttons
 COLOR_BUTTON_SECONDARY_HOVER_DARK = "#6C7A89" # Lighter hover for secondary
 COLOR_BUTTON_REMOVE_BG_DARK = COLOR_CRITICAL_RED_BORDER # Use the border color for BG
 
-THEMED_DIVIDER_COLOR = COLOR_BORDER_SUBTLE_DARK
+# Use a Streamlit supported named color for st.header divider
+THEMED_DIVIDER_COLOR = "gray" # Or "grey", "blue", "green", "orange", "red", "violet", "rainbow"
 
 DATAFRAME_HEADER_BG_DARK = "#222E3C"
 DATAFRAME_EVEN_ROW_BG_DARK = "#3A5060"
 DATAFRAME_HOVER_BG_DARK = "#4E6A7B"
 DATAFRAME_TEXT_DARK = COLOR_PRIMARY_TEXT_LIGHT
 
-# (Original Light Theme Constants - commented out for clarity, can be used for a theme switcher later)
-# COLOR_PAGE_BACKGROUND_LIGHT = "#F0F2F6"
-# COLOR_SIDEBAR_BACKGROUND_LIGHT = "#EAEBED"
-# COLOR_CONTENT_BACKGROUND_LIGHT = "#FFFFFF"
-# COLOR_PRIMARY_TEXT_DARK = "#262730"
-# COLOR_SECONDARY_TEXT_DARK = "#5E6474"
-# COLOR_ACCENT_TEXT_DARK = "#0052CC"
-# ... and so on for all light theme constants
 
 def safe_get(data_dict, path_str, default_val=None):
     current = data_dict
@@ -464,8 +457,6 @@ st.markdown(f"""
 # --- SIDEBAR RENDERING ---
 def render_settings_sidebar():
     with st.sidebar:
-        # Sidebar h3, h2, markdown h5/h6, caption, widget labels, input text colors
-        # are handled by the updated CSS selectors using _LIGHT text colors
         st.markdown("<h3 style='text-align: center; margin-bottom: 1.5rem;'>Workplace Optimizer</h3>", unsafe_allow_html=True)
         st.markdown("## ⚙️ Simulation Controls")
         with st.expander("🧪 Simulation Parameters", expanded=True):
