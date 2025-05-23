@@ -758,7 +758,7 @@ def main():
     st.title("Workplace Shift Optimization Dashboard")
     
     mpi_global_app_main = DEFAULT_CONFIG.get("MINUTES_PER_INTERVAL", 2)
-    if mpi_global_app_main <= 0: mpi_global_app_main = 2.0 # Ensure float for calculations
+    if mpi_global_app_main <= 0: mpi_global_app_main = 2.0 
     else: mpi_global_app_main = float(mpi_global_app_main)
 
     app_state_defaults_main_app = {
@@ -893,12 +893,12 @@ def main():
                     df_data_ov_table_final['Well-Being (%)'] = _prepare_timeseries_for_export(safe_get(sim_data_ov_final, 'worker_wellbeing.scores', []), num_steps_ov_table_final)
                     downtime_log_ov_table_final = safe_get(sim_data_ov_final, 'downtime_events_log', [])
                     df_data_ov_table_final['Downtime (min/interval)'] = aggregate_downtime_by_step(downtime_log_ov_table_final, num_steps_ov_table_final)
-                    st.dataframe(pd.DataFrame(df_data_ov_table_final).style.format("{:.1f}", na_rep="-").set_table_styles([{'selector': 'th', 'props': [('background-color', '#293344'), ('color', '#EAEAEA')]}]), use_container_width=True, height=300)
+                    st.dataframe(pd.DataFrame(df_data_ov_table_final).style.format("{:.1f}", na_rep="-").set_table_styles([{'selector': 'th', 'props': [('background-color', '#E8EAF6'), ('color', COLOR_PRIMARY_TEXT_DARK)]}]), use_container_width=True, height=300) # Adjusted table header for light theme
                 else: st.caption("No detailed overview data available (0 simulation steps).")
         else: st.info("ℹ️ Run a simulation or load data to view the Overview & Insights.", icon="📊")
     
     op_insights_html_main_final = "<div class='alert-info insight-text' style='margin-top:1rem;'><p class='insight-title'>Review Operational Bottlenecks:</p><ul><li><b>Low Compliance/OEE:</b> Investigate root causes for low Task Compliance or OEE components.</li><li><b>Recovery Performance:</b> Slow recovery post-disruption may need better contingency plans.</li><li><b>Collaboration Impact:</b> Low Collaboration Metric might indicate communication issues.</li></ul><p class='insight-title'>Strategic Considerations:</p><p>Use 'Operational Initiative' to simulate changes and compare against baseline.</p></div>"
-    ww_static_insights_html_main_final = "<h6 style='margin-top:1.5rem;'>💡 Considerations for Psychosocial Well-being:</h6><ul style='font-size:0.9rem; color: #D1D5DB; padding-left:20px; margin-bottom:0;'><li><strong>Monitor Risk Factors:</strong> Review Well-being, Psych. Safety, Cohesion, Workload.</li><li><strong>Spatial Awareness:</strong> Correlate density/isolation with well-being.</li><li><strong>Evaluate Initiatives:</strong> Test strategies via 'Operational Initiative'.</li><li><strong>Empowerment & Control:</strong> Assess 'Increased Autonomy' impact.</li><li><strong>Prevent Burnout:</strong> Address sustained high workload/low well-being.</li></ul>" 
+    ww_static_insights_html_main_final = "<h6 style='margin-top:1.5rem;'>💡 Considerations for Psychosocial Well-being:</h6><ul style='font-size:0.9rem; color: #5E6474; padding-left:20px; margin-bottom:0;'><li><strong>Monitor Risk Factors:</strong> Review Well-being, Psych. Safety, Cohesion, Workload.</li><li><strong>Spatial Awareness:</strong> Correlate density/isolation with well-being.</li><li><strong>Evaluate Initiatives:</strong> Test strategies via 'Operational Initiative'.</li><li><strong>Empowerment & Control:</strong> Assess 'Increased Autonomy' impact.</li><li><strong>Prevent Burnout:</strong> Address sustained high workload/low well-being.</li></ul>" 
     dt_insights_html_main_final = "<div class='alert-info insight-text' style='margin-top:1rem;'><p class='insight-title'>Focus Areas for Downtime Reduction:</p><ul><li><strong>Prioritize by Cause:</strong> Use pie chart to find primary downtime reasons.</li><li><strong>Analyze Trend for Patterns:</strong> Look for recurring high downtime in trend plot.</li><li><strong>Incident Frequency vs. Severity:</strong> Address both systemic minor issues and major ones.</li><li><strong>Disruption Correlation:</strong> Check if downtime spikes correlate with operational metric drops.</li></ul></div>"
 
     tab_configs_main_final_app = [
@@ -929,7 +929,7 @@ def main():
                 st.markdown("##### Select Time Range for Plots:")
                 start_time_ui_tab_loop, end_time_ui_tab_loop = time_range_input_section(tab_def_main_final_loop["key_prefix"], max_mins_ui_main_app_val, interval_duration_min_ui=active_mpi_main_app_val)
                 start_idx_tab_final_loop = int(start_time_ui_tab_loop // active_mpi_main_app_val) if active_mpi_main_app_val > 0 else 0
-                end_idx_tab_final_loop = int(end_time_ui_tab_loop // active_mpi_main_app_val) + 1 if active_mpi_main_app_val > 0 else 0 # end_idx is exclusive for slicing
+                end_idx_tab_final_loop = int(end_time_ui_tab_loop // active_mpi_main_app_val) + 1 if active_mpi_main_app_val > 0 else 0
                 disrupt_steps_for_plots_abs_tab_final_loop = [s for s in simulation_disruption_steps_absolute_main_val if start_idx_tab_final_loop <= s < end_idx_tab_final_loop]
 
                 if tab_def_main_final_loop.get("metrics_display"):
@@ -976,26 +976,19 @@ def main():
                                     st.markdown("<h6>Worker Positions (Snapshot)</h6>", unsafe_allow_html=True)
                                     min_s_val_slider = int(start_idx_tab_final_loop)
                                     max_s_val_slider = max(min_s_val_slider, int(end_idx_tab_final_loop - 1))
-                                    snap_slider_key_final_widget = f"{tab_def_main_final_loop['key_prefix']}_snap_step_slider_final" # Session state key for value
-                                    
-                                    # Initialize or clamp the session state value for the slider
+                                    snap_slider_key_final_widget = f"{tab_def_main_final_loop['key_prefix']}_snap_step_slider_final"
                                     current_slider_val_state_widget = st.session_state.get(snap_slider_key_final_widget, min_s_val_slider)
                                     clamped_value_for_slider_widget = max(min_s_val_slider, min(current_slider_val_state_widget, max_s_val_slider))
-                                    if min_s_val_slider == max_s_val_slider: clamped_value_for_slider_widget = min_s_val_slider # If range is a single point
+                                    if min_s_val_slider == max_s_val_slider: clamped_value_for_slider_widget = min_s_val_slider
                                     st.session_state[snap_slider_key_final_widget] = clamped_value_for_slider_widget
-
                                     slider_is_disabled_widget = (min_s_val_slider >= max_s_val_slider)
-
                                     if max_mins_ui_main_app_val < active_mpi_main_app_val :
                                         st.caption("Not enough data for time step snapshot selector.")
                                         snap_step_val_final_widget_val = min_s_val_slider 
                                     else:
-                                        snap_step_val_final_widget_val = st.slider("Time Step for Snapshot:", min_value=min_s_val_slider, max_value=max_s_val_slider, value=clamped_value_for_slider_widget, key=f"widget_render_{snap_slider_key_final_widget}", step=1, disabled=slider_is_disabled_widget)
-                                        if st.session_state[snap_slider_key_final_widget] != snap_step_val_final_widget_val : 
-                                            st.session_state[snap_slider_key_final_widget] = snap_step_val_final_widget_val
-                                            # st.rerun() # Consider if needed, usually yes for dynamic plots based on slider
-                                    
-                                    if not team_pos_df_all_spatial.empty and max_s_val_slider >= min_s_val_slider: # Use max_s_val_slider for check
+                                        snap_step_val_final_widget_val = st.slider("Time Step for Snapshot:", min_value=min_s_val_slider, max_value=max_s_val_slider, value=clamped_value_for_slider_widget, key=f"widget_actual_render_{snap_slider_key_final_widget}", step=1, disabled=slider_is_disabled_widget)
+                                        if st.session_state[snap_slider_key_final_widget] != snap_step_val_final_widget_val : st.session_state[snap_slider_key_final_widget] = snap_step_val_final_widget_val
+                                    if not team_pos_df_all_spatial.empty and max_s_val_slider >= min_s_val_slider:
                                         try: 
                                             fig_dist_final = plot_worker_distribution(team_pos_df_all_spatial, facility_config_spatial_tab_final.get('FACILITY_SIZE',(100,80)), facility_config_spatial_tab_final, use_3d_main_app_val, int(snap_step_val_final_widget_val), show_ee_exp_final, show_pl_exp_final, current_high_contrast_main_app_val)
                                             if fig_dist_final: st.plotly_chart(fig_dist_final, use_container_width=True, config=plot_cfg_interactive_final_ui)
