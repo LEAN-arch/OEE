@@ -7,7 +7,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# --- Accessible Color Definitions (Consistent with main.py) ---
+# ... (All color definitions and helper functions remain the same as the previous correct version) ...
+# --- HELPER FUNCTIONS - DEFINE THESE FIRST ---
 ACCESSIBLE_CATEGORICAL_PALETTE = ["#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7","#999999"]
 HIGH_CONTRAST_CATEGORICAL_PALETTE = ["#FFFFFF","#FFFF00","#FF69B4","#00FFFF","#39FF14","#FFA500","#BEBEBE","#FF0000"]
 ACCESSIBLE_SEQUENTIAL_PLOTLY_SCALES = ["Viridis", "Cividis", "Plasma", "Blues", "Greens", "Oranges"]
@@ -29,9 +30,8 @@ COLOR_AXIS_LINE_STD = "#4A5568"
 COLOR_AXIS_LINE_HC = "#777777"
 
 PLOTLY_TEMPLATE = "plotly_dark"
-EPSILON = 1e-9 # Small number to avoid zero ranges if necessary
+EPSILON = 1e-9
 
-# --- HELPER FUNCTIONS - DEFINE THESE FIRST ---
 def _apply_common_layout_settings(fig, title_text, high_contrast=False, yaxis_title=None, xaxis_title="Time Step (Interval)", yaxis_range=None, show_legend=True):
     font_color = COLOR_WHITE_TEXT if high_contrast else COLOR_LIGHT_TEXT
     title_font_color = COLOR_WHITE_TEXT
@@ -93,7 +93,7 @@ def _get_no_data_pie_figure(title_text, high_contrast=False):
     return fig
 
 # --- PLOTTING FUNCTIONS ---
-
+# ... (plot_key_metrics_summary and other functions remain the same as the previous correct version) ...
 def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: float, downtime: float,
                              target_compliance: float, target_proximity: float, target_wellbeing: float, target_downtime: float,
                              high_contrast: bool = False,
@@ -236,13 +236,6 @@ def plot_task_compliance_score(data, disruption_points, forecast_data=None, z_sc
     _apply_common_layout_settings(fig, "Task Compliance Score Trend", high_contrast, yaxis_title="Score (%)", yaxis_range=[max(0, min_val - 15), min(105, max_val + 15)])
     return fig
 
-# ... (Rest of the plotting functions: plot_collaboration_proximity_index, plot_operational_recovery, etc.
-#      These should be identical to the versions from the previous response where they were working,
-#      as the NameError was specific to the order of definitions.)
-#      Ensure they all correctly call the helper functions defined at the top.
-#      For brevity, I'm not repeating all of them here, but they would follow this structure.
-
-
 def plot_collaboration_proximity_index(data, disruption_points, forecast_data=None, high_contrast=False):
     if not data: return _get_no_data_figure("Collaboration Proximity Index Trend", high_contrast)
     cat_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
@@ -319,10 +312,10 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
          for area_name, area_details in config['WORK_AREAS'].items():
             if 'coords' in area_details: 
                 (x0,y0), (x1,y1) = area_details['coords']
-                try: # Ensure work_area_line_color is valid hex for rgba conversion
-                    fill_color_rgba = f"rgba({int(work_area_line_color[1:3],16)},{int(work_area_line_color[3:5],16)},{int(work_area_line_color[5:7],16)},0.05)" if work_area_line_color.startswith("#") and len(work_area_line_color) == 7 else "rgba(128,128,128,0.05)" # Default gray if not hex
+                try: 
+                    fill_color_rgba = f"rgba({int(work_area_line_color[1:3],16)},{int(work_area_line_color[3:5],16)},{int(work_area_line_color[5:7],16)},0.05)" if work_area_line_color.startswith("#") and len(work_area_line_color) == 7 else "rgba(128,128,128,0.05)" 
                 except ValueError:
-                    fill_color_rgba = "rgba(128,128,128,0.05)" # Default gray on error
+                    fill_color_rgba = "rgba(128,128,128,0.05)" 
 
                 shapes.append(go.layout.Shape(type="rect", x0=min(x0,x1), y0=min(y0,y1), x1=max(x0,x1), y1=max(y0,y1), line=dict(color=work_area_line_color, dash="dashdot", width=1.5), fillcolor=fill_color_rgba, layer="below"))
                 annotations.append(dict(x=(x0+x1)/2, y=min(y0,y1)-4, text=area_name, showarrow=False, font=dict(size=9, color=COLOR_NEUTRAL_GRAY), opacity=0.9, yanchor="top"))
@@ -338,7 +331,7 @@ def plot_worker_density_heatmap(team_positions_df, facility_size, config, show_e
     shapes = [go.layout.Shape(type="rect", x0=0, y0=0, x1=facility_width, y1=facility_height, line=dict(color=COLOR_NEUTRAL_GRAY, width=1.5), layer="below")];
     ee_point_color = COLOR_INFO_BLUE
     cat_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
-    work_area_line_color = cat_palette[0] if cat_palette else COLOR_INFO_BLUE # Fallback
+    work_area_line_color = cat_palette[0] if cat_palette else COLOR_INFO_BLUE 
     if show_entry_exit and 'ENTRY_EXIT_POINTS' in config:
         for point in config['ENTRY_EXIT_POINTS']: shapes.append(go.layout.Shape(type="circle", x0=point['coords'][0]-1, y0=point['coords'][1]-1, x1=point['coords'][0]+1, y1=point['coords'][1]+1, fillcolor=ee_point_color, line_color=COLOR_WHITE_TEXT, opacity=0.6, layer="above"))
     if show_prod_lines and 'WORK_AREAS' in config:
@@ -351,7 +344,7 @@ def plot_worker_wellbeing(scores, triggers, high_contrast=False):
     cat_palette = HIGH_CONTRAST_CATEGORICAL_PALETTE if high_contrast else ACCESSIBLE_CATEGORICAL_PALETTE
     fig = go.Figure(); x_vals = list(range(len(scores)))
     fig.add_trace(go.Scatter(x=x_vals, y=scores, mode='lines', name='Well-Being Index', line=dict(color=cat_palette[0], width=2.5), hovertemplate='Well-Being: %{y:.1f}%<extra></extra>'))
-    avg_wellbeing = np.mean([s for s in scores if s is not None and pd.notna(s)]) if any(s is not None and pd.notna(s) for s in scores) else None # handle None/NaN
+    avg_wellbeing = np.mean([s for s in scores if s is not None and pd.notna(s)]) if any(s is not None and pd.notna(s) for s in scores) else None 
     if avg_wellbeing is not None: fig.add_hline(y=avg_wellbeing, line=dict(color=COLOR_NEUTRAL_GRAY, width=1, dash="dot"), annotation_text=f"Avg: {avg_wellbeing:.1f}%", annotation_position="bottom left", annotation_font_size=10, annotation_font_color=COLOR_NEUTRAL_GRAY)
     trigger_styles = {'threshold': {'color': COLOR_CRITICAL_RED, 'symbol': 'x-thin-open', 'name': 'Threshold Alert'},'trend': {'color': COLOR_WARNING_AMBER, 'symbol': 'triangle-down-open', 'name': 'Trend Alert'},'disruption': {'color': COLOR_INFO_BLUE, 'symbol': 'star-open', 'name': 'Disruption Link'},'work_area_general': {'color': cat_palette[1], 'symbol': 'diamond-open', 'name': 'Work Area Alert'}}
     default_trigger_style = {'color': COLOR_NEUTRAL_GRAY, 'symbol': 'circle-open', 'name': 'Other Alert'}
@@ -362,9 +355,9 @@ def plot_worker_wellbeing(scores, triggers, high_contrast=False):
         valid_points = sorted(list(set(p for p in flat_points if isinstance(p, (int, float)) and 0 <= p < len(scores))))
         if valid_points: 
             style = trigger_styles.get(processed_trigger_type, default_trigger_style)
-            y_values_for_markers = [scores[p] for p in valid_points if scores[p] is not None and pd.notna(scores[p])] # Ensure y values are not None/NaN
-            valid_points_for_trace = [p for p_idx, p in enumerate(valid_points) if scores[p] is not None and pd.notna(scores[p])] # Align x with valid y
-            if y_values_for_markers: # Only add trace if there are valid y-values
+            y_values_for_markers = [scores[p] for p in valid_points if scores[p] is not None and pd.notna(scores[p])] 
+            valid_points_for_trace = [p for p_idx, p in enumerate(valid_points) if scores[p] is not None and pd.notna(scores[p])] 
+            if y_values_for_markers: 
                 fig.add_trace(go.Scatter(x=valid_points_for_trace, y=y_values_for_markers, mode='markers', name=style['name'], marker=dict(color=style['color'], size=10, symbol=style['symbol'], line=dict(width=1.5, color=COLOR_WHITE_TEXT)), hovertemplate=f'{style["name"]}: %{{y:.1f}}% at Step %{{x}}<extra></extra>'))
     _apply_common_layout_settings(fig, "Worker Well-Being Index Trend", high_contrast, yaxis_title="Index (%)", yaxis_range=[0, 105]); return fig
 
@@ -380,7 +373,7 @@ def plot_psychological_safety(data, high_contrast=False):
 def plot_downtime_trend(downtime_events_list, interval_threshold, high_contrast=False):
     if not downtime_events_list: return _get_no_data_figure("Downtime per Interval", high_contrast)
     fig = go.Figure()
-    downtime_durations = [event.get('duration', 0.0) for event in downtime_events_list if isinstance(event,dict)] # Ensure float
+    downtime_durations = [event.get('duration', 0.0) for event in downtime_events_list if isinstance(event,dict)] 
     x_vals = list(range(len(downtime_durations)))
     bar_colors = [COLOR_CRITICAL_RED if d > interval_threshold else COLOR_POSITIVE_GREEN for d in downtime_durations]
     hover_texts = [f"Duration: {event.get('duration', 0):.1f} min<br>Cause: {event.get('cause', 'Unknown')}" for event in downtime_events_list if isinstance(event, dict)]
@@ -388,10 +381,10 @@ def plot_downtime_trend(downtime_events_list, interval_threshold, high_contrast=
     threshold_line_color = COLOR_WARNING_AMBER; threshold_annot_font_color = COLOR_DARK_TEXT_ON_LIGHT_BG_HC if high_contrast else COLOR_LIGHT_TEXT; threshold_annot_bgcolor = "rgba(245, 158, 11, 0.7)"
     fig.add_hline(y=interval_threshold, line=dict(color=threshold_line_color, width=1.5, dash="longdash"), annotation_text=f"Alert Thresh: {interval_threshold} min", annotation_position="top right", annotation=dict(font_size=10, bgcolor=threshold_annot_bgcolor, borderpad=2, font_color=threshold_annot_font_color))
     
-    max_y_val = 10.0 # Default minimum y-axis
+    max_y_val = 10.0 
     if downtime_durations:
         max_y_val = max(max(downtime_durations) * 1.15, interval_threshold * 1.5, 10.0)
-    else: # if downtime_durations is empty but events_list was not (e.g. all were non-dicts)
+    else: 
         max_y_val = max(interval_threshold * 1.5, 10.0)
 
     _apply_common_layout_settings(fig, "Downtime per Interval", high_contrast, yaxis_title="Downtime (minutes)"); fig.update_yaxes(range=[0, max_y_val]); return fig
@@ -415,12 +408,13 @@ def plot_perceived_workload(data, high_workload_threshold, very_high_workload_th
     fig.add_hline(y=very_high_workload_threshold, line=dict(color=COLOR_CRITICAL_RED, width=1.5, dash="dash"), annotation_text=f"Very High ({very_high_workload_threshold})", annotation_position="top right", annotation_font=dict(color=COLOR_CRITICAL_RED, size=10))
     _apply_common_layout_settings(fig, "Perceived Workload Index (0-10 Scale)", high_contrast, yaxis_title="Workload Index", yaxis_range=[0, 10.5]); return fig
 
+
 def plot_downtime_causes_pie(downtime_events_list, high_contrast=False):
     if not downtime_events_list:
         return _get_no_data_pie_figure("Downtime Distribution by Cause", high_contrast)
 
     causes_summary = {}
-    total_downtime_duration_for_pie = 0.0 
+    total_downtime_duration_for_pie = 0.0
     for event in downtime_events_list:
         if not isinstance(event, dict):
             logger.warning(f"Skipping non-dict event in downtime_events_list for pie chart: {event}")
@@ -465,7 +459,8 @@ def plot_downtime_causes_pie(downtime_events_list, high_contrast=False):
         pull=[0.02]*num_causes, marker_colors=pie_colors,
         textinfo='label+percent', insidetextorientation='auto',
         hovertemplate="<b>Cause:</b> %{label}<br><b>Duration:</b> %{value:.1f} min<br><b>Share:</b> %{percent}<extra></extra>",
-        sort=True, direction='descending'
+        sort=True, 
+        direction='clockwise' # Corrected: Use 'clockwise' or 'counterclockwise'
     )])
 
     fig.update_traces(textfont_size=10,
