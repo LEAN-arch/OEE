@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 import random
-import math  # <--- THIS LINE IS CRITICAL AND WAS MISSING
+import math  # <<<<<<<<<<<<<<< THIS IS THE CRUCIAL IMPORT
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,18 +11,19 @@ EPSILON = 1e-6
 def _get_config_param(config, key, default):
     return config.get(key, default)
 
-# MODIFIED Function Signature: Added 'scheduled_events'
 def simulate_workplace_operations(num_team_members: int, num_steps: int, 
                                   scheduled_events: list, 
                                   team_initiative: str, config: dict):
     np.random.seed(42)
     random.seed(42)
 
+    # --- Configuration Parameters ---
     facility_width, facility_height = _get_config_param(config, 'FACILITY_SIZE', (100, 80))
     work_areas_config = _get_config_param(config, 'WORK_AREAS', {})
     event_type_params_config = _get_config_param(config, 'EVENT_TYPE_CONFIG', {}) 
     shift_duration_minutes_sim = float(_get_config_param(config, 'SHIFT_DURATION_MINUTES', 480))
     
+    # --- Initialize Metric Arrays ---
     _task_compliance_scores = np.zeros(num_steps)
     _collaboration_scores = np.zeros(num_steps)
     _operational_recovery_scores = np.zeros(num_steps)
@@ -37,6 +38,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
     _quality_rate_percent = np.ones(num_steps) * 100.0
     _throughput_percent_of_max = np.zeros(num_steps)
 
+    # --- Worker and Zone Setup ---
     team_positions_data = []
     worker_current_x = np.random.uniform(0, facility_width, num_team_members) if num_team_members > 0 else np.array([])
     worker_current_y = np.random.uniform(0, facility_height, num_team_members) if num_team_members > 0 else np.array([])
@@ -69,6 +71,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
     worker_fatigue = np.random.uniform(0.0, 0.1, num_team_members) if num_team_members > 0 else np.array([])
     zone_task_backlog = {zn: 0.0 for zn in work_areas_config.keys()}
 
+    # --- Simulation State Variables ---
     recovery_halflife_intervals = _get_config_param(config, 'RECOVERY_HALFLIFE_INTERVALS', 10)
         
     if num_steps > 0:
@@ -81,6 +84,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
     wellbeing_triggers_dict = {'threshold': [], 'trend': [], 'work_area': {wa: [] for wa in work_areas_config}, 'disruption': []}
     downtime_causes_list = _get_config_param(config, 'DOWNTIME_CAUSES_LIST', ["Equipment Failure", "Material Shortage", "Process Bottleneck", "Human Error", "Utility Outage", "External Supply Chain"])
 
+    # --- Main Simulation Loop ---
     for step in range(num_steps):
         current_minute_of_shift = step * 2 
 
@@ -288,12 +292,13 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
 
         current_downtime_duration = 0.0; current_downtime_cause = "None"
         downtime_prob_mod_val = active_event_effects.get("downtime_prob_modifier", 0.0)
-        downtime_mean_fact_val = active_event_effects.get("downtime_mean_factor", 1.0)  
+        downtime_mean_fact_val = active_event_effects.get("downtime_mean_factor", 1.0)   
 
         if downtime_prob_mod_val > 0 and random.random() < downtime_prob_mod_val:
             downtime_mean_event = _get_config_param(config, 'DOWNTIME_MEAN_MINUTES_PER_OCCURRENCE', 7.0) * downtime_mean_fact_val
             downtime_std_event = _get_config_param(config, 'DOWNTIME_STD_MINUTES_PER_OCCURRENCE', 3.0) * math.sqrt(downtime_mean_fact_val) 
             current_downtime_duration = max(0.0, np.random.normal(downtime_mean_event, downtime_std_event))
+            
             active_downtime_inducing_event_types = [
                 evt.get("Event Type") for evt in active_events_details_this_step
                 if event_type_params_config.get(evt.get("Event Type","Unknown"),{}).get("downtime_prob_modifier",0)>0 or \
