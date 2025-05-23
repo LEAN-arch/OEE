@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 import random
-import math  # <<<<<<<<<<<<<<< ENSURE THIS IS AT THE TOP AND UNCOMMENTED
+# import math  # Keep the global one or comment it out for this specific test
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,16 +14,15 @@ def _get_config_param(config, key, default):
 def simulate_workplace_operations(num_team_members: int, num_steps: int, 
                                   scheduled_events: list, 
                                   team_initiative: str, config: dict):
+    import math # << --- TRY ADDING THE IMPORT HERE FOR TESTING
     np.random.seed(42)
     random.seed(42)
 
-    # --- Configuration Parameters ---
     facility_width, facility_height = _get_config_param(config, 'FACILITY_SIZE', (100, 80))
     work_areas_config = _get_config_param(config, 'WORK_AREAS', {})
     event_type_params_config = _get_config_param(config, 'EVENT_TYPE_CONFIG', {}) 
     shift_duration_minutes_sim = float(_get_config_param(config, 'SHIFT_DURATION_MINUTES', 480))
     
-    # --- Initialize Metric Arrays ---
     _task_compliance_scores = np.zeros(num_steps)
     _collaboration_scores = np.zeros(num_steps)
     _operational_recovery_scores = np.zeros(num_steps)
@@ -38,7 +37,6 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
     _quality_rate_percent = np.ones(num_steps) * 100.0
     _throughput_percent_of_max = np.zeros(num_steps)
 
-    # --- Worker and Zone Setup ---
     team_positions_data = []
     worker_current_x = np.random.uniform(0, facility_width, num_team_members) if num_team_members > 0 else np.array([])
     worker_current_y = np.random.uniform(0, facility_height, num_team_members) if num_team_members > 0 else np.array([])
@@ -234,14 +232,14 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
         if step > 0 and _wellbeing_scores[step] < _wellbeing_scores[step - 1] - 12.0: 
             wellbeing_triggers_dict['trend'].append(step)
         if is_any_disruption_active_this_step and _wellbeing_scores[step] < (_wellbeing_scores[max(0, step - 1)] if step > 0 else _wellbeing_scores[0]) * 0.90:
-            for active_event in active_events_details_this_step: # Use detailed list here
+            for active_event in active_events_details_this_step:
                 if "Disruption" in active_event.get("Event Type",""): 
                     event_affected_zones = active_event.get("Affected Zones", [])
                     if num_team_members > 0:
                         for i in range(num_team_members):
                             worker_zone = worker_assigned_zone[i]
                             if (event_affected_zones and worker_zone in event_affected_zones) or (not event_affected_zones): 
-                                if worker_fatigue[i] > 0.65 or random.random() < active_event.get("Intensity", 1.0) * 0.1: # Use event-specific intensity
+                                if worker_fatigue[i] > 0.65 or random.random() < active_event.get("Intensity", 1.0) * 0.1: 
                                     if worker_zone in wellbeing_triggers_dict['work_area']:
                                         if step not in wellbeing_triggers_dict['work_area'][worker_zone]: 
                                             wellbeing_triggers_dict['work_area'][worker_zone].append(step)
@@ -294,7 +292,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
 
         if downtime_prob_mod_val > 0 and random.random() < downtime_prob_mod_val:
             downtime_mean_event = _get_config_param(config, 'DOWNTIME_MEAN_MINUTES_PER_OCCURRENCE', 7.0) * downtime_mean_fact_val
-            downtime_std_event = _get_config_param(config, 'DOWNTIME_STD_MINUTES_PER_OCCURRENCE', 3.0) * math.sqrt(downtime_mean_fact_val) 
+            downtime_std_event = _get_config_param(config, 'DOWNTIME_STD_MINUTES_PER_OCCURRENCE', 3.0) * math.sqrt(downtime_mean_fact_val) # Use math.sqrt
             current_downtime_duration = max(0.0, np.random.normal(downtime_mean_event, downtime_std_event))
             
             active_downtime_inducing_event_types = [
@@ -328,7 +326,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
         current_oee_calc = (_uptime_percent[step]/100) * (_throughput_percent_of_max[step]/100) * (_quality_rate_percent[step]/100)
         if not is_any_disruption_active_this_step: 
             prev_recovery = _operational_recovery_scores[max(0,step-1)]; target_potential_recovery = current_oee_calc * 100
-            recovery_rate_factor = 1.0 - math.exp(-1.0 / (recovery_halflife_intervals + EPSILON)) 
+            recovery_rate_factor = 1.0 - math.exp(-1.0 / (recovery_halflife_intervals + EPSILON)) # Use math.exp
             _operational_recovery_scores[step] = np.clip(prev_recovery + (target_potential_recovery - prev_recovery) * recovery_rate_factor, 0, 100)
         else: _operational_recovery_scores[step] = np.clip(current_oee_calc * 100, 0, 100)
         _productivity_loss_percent[step] = np.clip(100 - _operational_recovery_scores[step] + np.random.normal(0,0.5), 0, 100) 
@@ -355,10 +353,15 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
                         if scope == "All" or current_assigned_zone_for_worker_i in affected_zones_event:
                             is_on_scheduled_break_or_meeting = True
                             # Movement logic for break/meeting: go to break room if specified and applicable
-                            break_room_name = "Break Room" # Or get from config
+                            break_room_name = "Break Room" 
                             if break_room_name in work_areas_config and \
                                (event_type_active != "Team Meeting" or break_room_name in affected_zones_event):
                                 br_coords = work_areas_config[break_room_name].get('coords')
+                                if br_coords and len(br_coords) == 2:
+                                    target_x = random.uniform(min(br_coords[0][0],br_coords[1][0]), max(br_coords[0][0],br_coords[1][0]))
+                                    target_y = random.uniform(min(br_coords[0][1],br_coords[1][1]), max(br_coords[0][1],br_coords[1][1]))
+                            elif event_type_active == "Team Meeting" and "Break Room" in affected_zones_event and "Break Room" in work_areas_config: 
+                                br_coords = work_areas_config["Break Room"].get('coords')
                                 if br_coords and len(br_coords) == 2:
                                     target_x = random.uniform(min(br_coords[0][0],br_coords[1][0]), max(br_coords[0][0],br_coords[1][0]))
                                     target_y = random.uniform(min(br_coords[0][1],br_coords[1][1]), max(br_coords[0][1],br_coords[1][1]))
