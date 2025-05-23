@@ -22,7 +22,7 @@ if not logger.handlers:
                         filemode='a')
 logger.info("Main.py: Startup. Light theme adjustments.", extra={'user_action': 'System Startup'})
 
-st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.11\nInsights for operational excellence & psychosocial well-being."})
+st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.12\nInsights for operational excellence & psychosocial well-being."})
 
 # --- Light Theme Color Constants for CSS and Streamlit Elements ---
 COLOR_PAGE_BACKGROUND_LIGHT = "#F0F2F6"
@@ -233,6 +233,7 @@ st.markdown(f"""
             font-size: 1.75rem !important; font-weight: 600 !important; line-height: 1.3 !important; 
             margin: 1.2rem 0 1rem 0 !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
             /* Streamlit's divider argument handles the line color based on THEMED_DIVIDER_COLOR */
+            /* If custom color is needed, it's more complex CSS to target the <hr> */
             padding-bottom: 0.6rem !important; text-align: left !important;
         }}
 
@@ -408,7 +409,6 @@ st.markdown(f"""
         .onboarding-modal {{ 
             background-color: {COLOR_CONTENT_BACKGROUND_LIGHT} !important; 
             border: 1px solid {COLOR_BORDER_DARKER_LIGHT} !important; 
-            color: {COLOR_PRIMARY_TEXT_DARK} !important; /* Ensure text inside modal is dark */
         }}
         .onboarding-modal h3 {{ color: {COLOR_PRIMARY_TEXT_DARK} !important; }}
         .onboarding-modal p, .onboarding-modal ul {{ color: {COLOR_SECONDARY_TEXT_DARK} !important; }}
@@ -417,6 +417,7 @@ st.markdown(f"""
         .alert-warning {{ border-left: 5px solid {COLOR_WARNING_AMBER_BORDER}; background-color: {COLOR_WARNING_AMBER_BG_LIGHT}; }}
         .alert-positive {{ border-left: 5px solid {COLOR_POSITIVE_GREEN_BORDER}; background-color: {COLOR_POSITIVE_GREEN_BG_LIGHT}; }}
         .alert-info {{ border-left: 5px solid {COLOR_INFO_BLUE_BORDER}; background-color: {COLOR_INFO_BLUE_BG_LIGHT}; }}
+        /* Ensure text inside alerts is dark for readability on light backgrounds */
         .alert-critical .insight-title, .alert-critical .insight-text,
         .alert-warning .insight-title, .alert-warning .insight-text,
         .alert-positive .insight-title, .alert-positive .insight-text,
@@ -616,7 +617,6 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
         processed_events_sl.append(evt_sl_item)
     config_sl['SCHEDULED_EVENTS'] = processed_events_sl
     
-    # Worker Redistribution Logic
     if 'WORK_AREAS' in config_sl and isinstance(config_sl['WORK_AREAS'], dict) and config_sl['WORK_AREAS']:
         current_total_workers_in_cfg = sum(_get_config_value_sl_main(z_cfg, {}, 'workers', 0, data_type=int) for z_cfg in config_sl['WORK_AREAS'].values() if isinstance(z_cfg, dict))
         target_team_size_for_dist = config_sl['TEAM_SIZE']
@@ -694,14 +694,9 @@ def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int,
     start_time_key_ui = f"{tab_key_prefix}_start_time_min"
     end_time_key_ui = f"{tab_key_prefix}_end_time_min"
 
-    # Ensure interval_duration is positive float
-    if not isinstance(interval_duration_min_ui, (int, float)) or interval_duration_min_ui <= 0: interval_duration_min_ui = 2.0
-    else: interval_duration_min_ui = float(interval_duration_min_ui)
-    
-    # Ensure max_minutes_for_range_ui is valid float
+    interval_duration_min_ui = float(interval_duration_min_ui) if isinstance(interval_duration_min_ui, (int, float)) and interval_duration_min_ui > 0 else 2.0
     max_minutes_for_range_ui = float(max_minutes_for_range_ui) if isinstance(max_minutes_for_range_ui, (int, float)) and max_minutes_for_range_ui >=0 else 0.0
-
-    # Retrieve and clamp current values from session state, ensuring they are floats
+    
     current_start_ui_val = float(st.session_state.get(start_time_key_ui, 0.0))
     current_end_ui_val = float(st.session_state.get(end_time_key_ui, max_minutes_for_range_ui))
     current_start_ui_val = max(0.0, min(current_start_ui_val, max_minutes_for_range_ui))
@@ -715,21 +710,18 @@ def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int,
     new_start_time_val_ui_widget = cols_ui_time_range[0].number_input( "Start Time (min)", min_value=0.0, max_value=max_minutes_for_range_ui, value=current_start_ui_val, step=interval_duration_min_ui, key=f"widget_num_input_{start_time_key_ui}", help=f"Range: 0 to {int(max_minutes_for_range_ui)} min.")
     st.session_state[start_time_key_ui] = float(new_start_time_val_ui_widget)
     
-    end_time_min_for_widget_val_ui = st.session_state[start_time_key_ui] # This will be float
+    end_time_min_for_widget_val_ui = st.session_state[start_time_key_ui]
     new_end_time_val_ui_widget = cols_ui_time_range[1].number_input("End Time (min)", min_value=end_time_min_for_widget_val_ui, max_value=max_minutes_for_range_ui, value=current_end_ui_val, step=interval_duration_min_ui, key=f"widget_num_input_{end_time_key_ui}", help=f"Range: {int(end_time_min_for_widget_val_ui)} to {int(max_minutes_for_range_ui)} min.")
     st.session_state[end_time_key_ui] = float(new_end_time_val_ui_widget)
 
     if st.session_state[end_time_key_ui] < st.session_state[start_time_key_ui]: st.session_state[end_time_key_ui] = st.session_state[start_time_key_ui]
     
     if abs(prev_start_ui_val_state - st.session_state[start_time_key_ui]) > 1e-6 or \
-       abs(prev_end_ui_val_state - st.session_state[end_time_key_ui]) > 1e-6: # Compare floats with tolerance
+       abs(prev_end_ui_val_state - st.session_state[end_time_key_ui]) > 1e-6:
         st.rerun()
         
-    return int(st.session_state[start_time_key_ui]), int(st.session_state[end_time_key_ui]) # Return as int for indexing
-```
----
-**`main.py` (Chunk 4 of 4 - Indentation Triple-Checked & Slider Logic Refined)**
-```python
+    return int(st.session_state[start_time_key_ui]), int(st.session_state[end_time_key_ui])
+
 # --- MAIN APPLICATION FUNCTION ---
 def main():
     st.title("Workplace Shift Optimization Dashboard")
@@ -1069,7 +1061,7 @@ def main():
                                     alert_class_final = "alert-critical" if alert_type_final == "threshold" else "alert-warning" if alert_type_final == "trend" else "alert-info"
                                     alert_title_text_final = alert_type_final.replace("_", " ").title()
                                     st.markdown(f"<div class='{alert_class_final} insight-text'><strong>{alert_title_text_final} Alerts ({len(alert_steps_in_range_final)}x):</strong> Steps {alert_steps_in_range_final}.</div>", unsafe_allow_html=True); insights_count_wb_final += 1
-                        if insights_count_wb_final == 0: st.markdown(f"<p class='insight-text' style='color: {COLOR_POSITIVE_GREEN_BORDER};'>✅ No specific well-being alerts triggered in selected period.</p>", unsafe_allow_html=True) # Changed from CSS var
+                        if insights_count_wb_final == 0: st.markdown(f"<p class='insight-text' style='color: {COLOR_POSITIVE_GREEN_BORDER};'>✅ No specific well-being alerts triggered in selected period.</p>", unsafe_allow_html=True) # Using a defined constant
                 if tab_def_main_final_loop.get("insights_html"): st.markdown(tab_def_main_final_loop["insights_html"], unsafe_allow_html=True) 
             else: st.info(f"ℹ️ Run simulation or load data to view {tab_def_main_final_loop['name']}.", icon="📊")
 
