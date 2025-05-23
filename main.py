@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from config import DEFAULT_CONFIG, validate_config
-from visualizations import ( # visualizations.py should already be adapted for a light theme
+from visualizations import (
     plot_key_metrics_summary, plot_task_compliance_score, plot_collaboration_proximity_index,
     plot_operational_recovery, plot_operational_efficiency, plot_worker_distribution,
     plot_worker_density_heatmap, plot_worker_wellbeing, plot_psychological_safety,
@@ -22,7 +22,7 @@ if not logger.handlers:
                         filemode='a')
 logger.info("Main.py: Startup. Light theme adjustments.", extra={'user_action': 'System Startup'})
 
-st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.9\nInsights for operational excellence & psychosocial well-being."})
+st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.10\nInsights for operational excellence & psychosocial well-being."})
 
 # --- Light Theme Color Constants for CSS and Streamlit Elements ---
 COLOR_PAGE_BACKGROUND_LIGHT = "#F0F2F6"     # e.g., Streamlit's default light theme background
@@ -33,26 +33,28 @@ COLOR_PRIMARY_TEXT_DARK = "#262730"         # Default dark text
 COLOR_SECONDARY_TEXT_DARK = "#5E6474"       # Lighter dark text for captions, less important info
 COLOR_ACCENT_TEXT_DARK = "#0052CC"          # A contrasting blue for links or special text
 
-COLOR_CRITICAL_RED_BORDER = "#D62728"       # For alert borders
+COLOR_CRITICAL_RED_BORDER = "#D62728"
 COLOR_WARNING_AMBER_BORDER = "#FF7F0E"
 COLOR_POSITIVE_GREEN_BORDER = "#2CA02C"
 COLOR_INFO_BLUE_BORDER = "#1F77B4"
 
-COLOR_CRITICAL_RED_BG_LIGHT = "rgba(214, 39, 40, 0.1)"   # Light background for critical alert
-COLOR_WARNING_AMBER_BG_LIGHT = "rgba(255, 127, 14, 0.1)" # Light background for warning alert
-COLOR_POSITIVE_GREEN_BG_LIGHT = "rgba(44, 160, 44, 0.1)" # Light background for positive alert
-COLOR_INFO_BLUE_BG_LIGHT = "rgba(31, 119, 180, 0.1)"   # Light background for info alert
+COLOR_CRITICAL_RED_BG_LIGHT = "rgba(214, 39, 40, 0.1)"
+COLOR_WARNING_AMBER_BG_LIGHT = "rgba(255, 127, 14, 0.1)"
+COLOR_POSITIVE_GREEN_BG_LIGHT = "rgba(44, 160, 44, 0.1)"
+COLOR_INFO_BLUE_BG_LIGHT = "rgba(31, 119, 180, 0.1)"
 
-COLOR_BORDER_SUBTLE_LIGHT = "#D1D5DB"       # For subtle borders
-COLOR_BORDER_DARKER_LIGHT = "#A0AEC0"       # For more prominent borders
+COLOR_BORDER_SUBTLE_LIGHT = "#D1D5DB"
+COLOR_BORDER_DARKER_LIGHT = "#A0AEC0"
 
-COLOR_ACCENT_BUTTON_LIGHT_THEME = "#0063BF" # Primary button color
-COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME = "#0052A3" # Darker shade for hover
-COLOR_ACCENT_TAB_UNDERLINE_LIGHT = COLOR_ACCENT_BUTTON_LIGHT_THEME # For active tab
+COLOR_ACCENT_UI_LIGHT_THEME = "#0063BF" 
+COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME = "#0052A3" 
+COLOR_BUTTON_SIDEBAR_DEFAULT_BG_LIGHT = "#2CA02C" # Positive Green for default sidebar action
+COLOR_BUTTON_SIDEBAR_DEFAULT_HOVER_BG_LIGHT = "#228B22"
+COLOR_BUTTON_SECONDARY_BG_LIGHT = "#E0E0E0"
+COLOR_BUTTON_SECONDARY_HOVER_BG_LIGHT = "#BDBDBD"
+COLOR_BUTTON_REMOVE_BG_LIGHT = COLOR_CRITICAL_RED_BORDER
 
-# Themed color for Streamlit dividers (st.header, st.subheader) - MUST be a Streamlit theme color name
-THEMED_DIVIDER_COLOR = "gray" # "gray", "blue", "green", "orange", "red", "violet", "rainbow"
-
+THEMED_DIVIDER_COLOR = "gray"
 
 def safe_get(data_dict, path_str, default_val=None):
     current = data_dict
@@ -105,6 +107,7 @@ def get_actionable_insights(sim_data, current_config_dict_main):
     if not sim_data or not isinstance(sim_data, dict): 
         logger.warning("get_actionable_insights: sim_data is None or not a dict.", extra={'user_action': 'Insights - Invalid Input'})
         return insights
+    
     sim_cfg_params_insights_main = sim_data.get('config_params', {})
     def _get_insight_cfg(key, default): return _get_config_value_main(current_config_dict_main, sim_cfg_params_insights_main, key, default)
 
@@ -227,7 +230,8 @@ st.markdown(f"""
         div[data-testid="stTabs"] section[role="tabpanel"] > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div[data-testid="stVerticalBlock"] > div:nth-child(1) > div > h2 {{ 
             font-size: 1.75rem !important; font-weight: 600 !important; line-height: 1.3 !important; 
             margin: 1.2rem 0 1rem 0 !important; color: {COLOR_PRIMARY_TEXT_DARK} !important; 
-            border-bottom: 2px solid {COLOR_ACCENT_UI_LIGHT_THEME} !important; 
+            /* Streamlit's divider argument handles the line color based on THEMED_DIVIDER_COLOR */
+            /* If custom color is needed, it's more complex CSS to target the <hr> */
             padding-bottom: 0.6rem !important; text-align: left !important;
         }}
 
@@ -334,6 +338,7 @@ st.markdown(f"""
          [data-testid="stSidebar"] .stButton button[kind="primary"] {{ 
              background-color: {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important;
              border-color: {COLOR_ACCENT_BUTTON_LIGHT_THEME} !important;
+             color: #FFFFFF !important; /* Ensure text is white on this button */
         }}
         [data-testid="stSidebar"] .stButton button[kind="primary"]:hover {{
              background-color: {COLOR_ACCENT_BUTTON_HOVER_LIGHT_THEME} !important;
@@ -606,7 +611,7 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
         if 'step' not in evt_sl_item and 'Start Time (min)' in evt_sl_item:
             start_time_min_evt = _get_config_value_sl_main(evt_sl_item, {}, 'Start Time (min)', 0, data_type=float)
             if mpi_sl > 0 : evt_sl_item['step'] = int(start_time_min_evt // mpi_sl)
-            else: evt_sl_item['step'] = 0 # Fallback if mpi is somehow still zero
+            else: evt_sl_item['step'] = 0 
         processed_events_sl.append(evt_sl_item)
     config_sl['SCHEDULED_EVENTS'] = processed_events_sl
     
@@ -672,6 +677,7 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
     save_simulation_data(simulation_output_dict_sl_final_run) 
     return simulation_output_dict_sl_final_run
 
+# Helper specifically for run_simulation_logic's config access (if needed for complex defaults)
 def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_type=None):
     val = secondary_conf.get(key, primary_conf.get(key, default))
     if data_type:
@@ -681,18 +687,19 @@ def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_t
         except (ValueError, TypeError): return default
     return val
 
+# --- TIME RANGE INPUT WIDGETS ---
 def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int, st_col_obj = st, interval_duration_min_ui: int = 2):
     start_time_key_ui = f"{tab_key_prefix}_start_time_min"
     end_time_key_ui = f"{tab_key_prefix}_end_time_min"
-    if not isinstance(interval_duration_min_ui, (int, float)) or interval_duration_min_ui <= 0: interval_duration_min_ui = 2.0
-    else: interval_duration_min_ui = float(interval_duration_min_ui)
-    
-    max_minutes_for_range_ui = float(max_minutes_for_range_ui) if isinstance(max_minutes_for_range_ui, (int, float)) and max_minutes_for_range_ui >=0 else 0.0
 
+    interval_duration_min_ui = float(interval_duration_min_ui) if isinstance(interval_duration_min_ui, (int,float)) and interval_duration_min_ui > 0 else 2.0
+    max_minutes_for_range_ui = float(max_minutes_for_range_ui) if isinstance(max_minutes_for_range_ui, (int,float)) and max_minutes_for_range_ui >=0 else 0.0
+    
     current_start_ui_val = float(st.session_state.get(start_time_key_ui, 0.0))
     current_end_ui_val = float(st.session_state.get(end_time_key_ui, max_minutes_for_range_ui))
     current_start_ui_val = max(0.0, min(current_start_ui_val, max_minutes_for_range_ui))
     current_end_ui_val = max(current_start_ui_val, min(current_end_ui_val, max_minutes_for_range_ui))
+    
     st.session_state[start_time_key_ui], st.session_state[end_time_key_ui] = current_start_ui_val, current_end_ui_val
     
     prev_start_ui_val_state, prev_end_ui_val_state = current_start_ui_val, current_end_ui_val
@@ -714,14 +721,14 @@ def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int,
     return int(st.session_state[start_time_key_ui]), int(st.session_state[end_time_key_ui])
 ```
 ---
-**`main.py` (Chunk 4 of 4 - Indentation Triple-Checked & Slider Logic Refined)**
+**`main.py` (Chunk 4 of 4 - Indentation Verified)**
 ```python
 # --- MAIN APPLICATION FUNCTION ---
 def main():
     st.title("Workplace Shift Optimization Dashboard")
     
     mpi_global_app_main = DEFAULT_CONFIG.get("MINUTES_PER_INTERVAL", 2)
-    if mpi_global_app_main <= 0: mpi_global_app_main = 2.0 
+    if not isinstance(mpi_global_app_main, (int, float)) or mpi_global_app_main <= 0: mpi_global_app_main = 2.0 
     else: mpi_global_app_main = float(mpi_global_app_main)
 
     app_state_defaults_main_app = {
@@ -756,7 +763,7 @@ def main():
         simulation_disruption_steps_absolute_main_val = sim_cfg_main_app_active.get('DISRUPTION_EVENT_STEPS', [])
     else:
         shift_duration_from_sidebar_main_val = st.session_state.sb_shift_duration_num
-        sim_intervals_main_app_active_val = shift_duration_from_sidebar_main_val // active_mpi_main_app_val if active_mpi_main_app_val > 0 else 0
+        sim_intervals_main_app_active_val = int(shift_duration_from_sidebar_main_val // active_mpi_main_app_val) if active_mpi_main_app_val > 0 else 0
         max_mins_ui_main_app_val = float(max(0, sim_intervals_main_app_active_val * active_mpi_main_app_val - active_mpi_main_app_val)) if sim_intervals_main_app_active_val > 0 else 0.0
         if active_mpi_main_app_val > 0:
             for event_main_ui_item_cfg_val in st.session_state.sb_scheduled_events_list:
@@ -815,7 +822,7 @@ def main():
         if st.session_state.simulation_results and isinstance(st.session_state.simulation_results, dict):
             sim_data_ov_final = st.session_state.simulation_results
             sim_cfg_ov_final = sim_data_ov_final.get('config_params', DEFAULT_CONFIG)
-            effective_cfg_ov_final = {**DEFAULT_CONFIG, **sim_cfg_ov_final} # Prioritize sim_cfg over DEFAULT_CONFIG
+            effective_cfg_ov_final = {**DEFAULT_CONFIG, **sim_cfg_ov_final}
             target_compliance_ov_final = float(effective_cfg_ov_final.get('TARGET_COMPLIANCE', 75.0))
             target_collab_ov_final = float(effective_cfg_ov_final.get('TARGET_COLLABORATION', 65.0))
             target_wellbeing_ov_final = float(effective_cfg_ov_final.get('TARGET_WELLBEING', 75.0))
@@ -860,9 +867,9 @@ def main():
                 else: st.caption("No detailed overview data available (0 simulation steps).")
         else: st.info("ℹ️ Run a simulation or load data to view the Overview & Insights.", icon="📊")
     
-    op_insights_html_main_final = "<div class='alert-info insight-text' style='margin-top:1rem;'><p class='insight-title'>Review Operational Bottlenecks:</p><ul><li><b>Low Compliance/OEE:</b> Investigate root causes for low Task Compliance or OEE components.</li><li><b>Recovery Performance:</b> Slow recovery post-disruption may need better contingency plans.</li><li><b>Collaboration Impact:</b> Low Collaboration Metric might indicate communication issues.</li></ul><p class='insight-title'>Strategic Considerations:</p><p>Use 'Operational Initiative' to simulate changes and compare against baseline.</p></div>"
+    op_insights_html_main_final = f"<div class='alert-info insight-text' style='margin-top:1rem; background-color: {COLOR_INFO_BLUE_BG_LIGHT}; border-left-color: {COLOR_INFO_BLUE_BORDER};'><p class='insight-title' style='color: {COLOR_PRIMARY_TEXT_DARK};'>Review Operational Bottlenecks:</p><ul style='color: {COLOR_SECONDARY_TEXT_DARK};'><li><b>Low Compliance/OEE:</b> Investigate root causes for low Task Compliance or OEE components.</li><li><b>Recovery Performance:</b> Slow recovery post-disruption may need better contingency plans.</li><li><b>Collaboration Impact:</b> Low Collaboration Metric might indicate communication issues.</li></ul><p class='insight-title' style='color: {COLOR_PRIMARY_TEXT_DARK};'>Strategic Considerations:</p><p style='color: {COLOR_SECONDARY_TEXT_DARK};'>Use 'Operational Initiative' to simulate changes and compare against baseline.</p></div>"
     ww_static_insights_html_main_final = f"<h6 style='margin-top:1.5rem; color:{COLOR_PRIMARY_TEXT_DARK};'>💡 Considerations for Psychosocial Well-being:</h6><ul style='font-size:0.9rem; color: {COLOR_SECONDARY_TEXT_DARK}; padding-left:20px; margin-bottom:0;'><li><strong>Monitor Risk Factors:</strong> Review Well-being, Psych. Safety, Cohesion, Workload.</li><li><strong>Spatial Awareness:</strong> Correlate density/isolation with well-being.</li><li><strong>Evaluate Initiatives:</strong> Test strategies via 'Operational Initiative'.</li><li><strong>Empowerment & Control:</strong> Assess 'Increased Autonomy' impact.</li><li><strong>Prevent Burnout:</strong> Address sustained high workload/low well-being.</li></ul>" 
-    dt_insights_html_main_final = f"<div class='alert-info insight-text' style='margin-top:1rem;'><p class='insight-title'>Focus Areas for Downtime Reduction:</p><ul><li><strong>Prioritize by Cause:</strong> Use pie chart to find primary downtime reasons.</li><li><strong>Analyze Trend for Patterns:</strong> Look for recurring high downtime in trend plot.</li><li><strong>Incident Frequency vs. Severity:</strong> Address both systemic minor issues and major ones.</li><li><strong>Disruption Correlation:</strong> Check if downtime spikes correlate with operational metric drops.</li></ul></div>"
+    dt_insights_html_main_final = f"<div class='alert-info insight-text' style='margin-top:1rem; background-color: {COLOR_INFO_BLUE_BG_LIGHT}; border-left-color: {COLOR_INFO_BLUE_BORDER};'><p class='insight-title' style='color: {COLOR_PRIMARY_TEXT_DARK};'>Focus Areas for Downtime Reduction:</p><ul style='color: {COLOR_SECONDARY_TEXT_DARK};'><li><strong>Prioritize by Cause:</strong> Use pie chart to find primary downtime reasons.</li><li><strong>Analyze Trend for Patterns:</strong> Look for recurring high downtime in trend plot.</li><li><strong>Incident Frequency vs. Severity:</strong> Address both systemic minor issues and major ones.</li><li><strong>Disruption Correlation:</strong> Check if downtime spikes correlate with operational metric drops.</li></ul></div>"
 
     tab_configs_main_final_app = [
         {"name": "📈 Operational Metrics", "key_prefix": "op", "plots": [
@@ -973,7 +980,7 @@ def main():
                     current_plot_col_tab_final = plot_columns_tab_final[num_plots_in_row_tab_final % 2]
                     with current_plot_col_tab_final:
                         st.markdown(f"<h6>{plot_cfg_tab_item_final['title']}</h6>", unsafe_allow_html=True)
-                        with st.container(border=True):
+                        with st.container(border=True): # Border for each plot
                             plot_data_to_render_final = None; plot_kwargs_final = {"high_contrast": current_high_contrast_main_app_val}
                             try:
                                 if plot_cfg_tab_item_final.get("is_oee"):
@@ -1012,14 +1019,14 @@ def main():
                                     if plot_cfg_tab_item_final.get("is_event_based_aggregation"):
                                         num_steps_in_range_agg_final = end_idx_tab_final_loop - start_idx_tab_final_loop
                                         aggregated_data_agg_final = [0.0] * num_steps_in_range_agg_final if num_steps_in_range_agg_final > 0 else []
-                                        for evt_agg_final in raw_plot_data_tab_final:
+                                        for evt_agg_final in raw_plot_data_tab_final: # raw_plot_data_tab_final is downtime_events_log
                                             if isinstance(evt_agg_final,dict) and start_idx_tab_final_loop <= evt_agg_final.get('step',-1) < end_idx_tab_final_loop:
                                                 rel_step_agg_final = evt_agg_final['step'] - start_idx_tab_final_loop
                                                 if 0 <= rel_step_agg_final < num_steps_in_range_agg_final: aggregated_data_agg_final[rel_step_agg_final] += evt_agg_final.get('duration',0)
                                         plot_data_to_render_final = aggregated_data_agg_final
                                     elif plot_cfg_tab_item_final.get("is_event_based_filtering"):
                                         plot_data_to_render_final = [evt_filt_final for evt_filt_final in raw_plot_data_tab_final if isinstance(evt_filt_final,dict) and start_idx_tab_final_loop <= evt_filt_final.get('step',-1) < end_idx_tab_final_loop]
-                                        if "disruption_points" in plot_kwargs_final: del plot_kwargs_final["disruption_points"]
+                                        if "disruption_points" in plot_kwargs_final: del plot_kwargs_final["disruption_points"] # Pie doesn't use disruption lines
                                     elif isinstance(raw_plot_data_tab_final, list): plot_data_to_render_final = raw_plot_data_tab_final[start_idx_tab_final_loop:min(end_idx_tab_final_loop, len(raw_plot_data_tab_final))] if start_idx_tab_final_loop < len(raw_plot_data_tab_final) else []
                                     elif isinstance(raw_plot_data_tab_final, pd.DataFrame): plot_data_to_render_final = _slice_dataframe_by_step_indices(raw_plot_data_tab_final, start_idx_tab_final_loop, end_idx_tab_final_loop)
                                     
@@ -1055,7 +1062,7 @@ def main():
                                     alert_class_final = "alert-critical" if alert_type_final == "threshold" else "alert-warning" if alert_type_final == "trend" else "alert-info"
                                     alert_title_text_final = alert_type_final.replace("_", " ").title()
                                     st.markdown(f"<div class='{alert_class_final} insight-text'><strong>{alert_title_text_final} Alerts ({len(alert_steps_in_range_final)}x):</strong> Steps {alert_steps_in_range_final}.</div>", unsafe_allow_html=True); insights_count_wb_final += 1
-                        if insights_count_wb_final == 0: st.markdown(f"<p class='insight-text' style='color: {COLOR_POSITIVE_GREEN_CSS};'>✅ No specific well-being alerts triggered in selected period.</p>", unsafe_allow_html=True) # Use CSS var for color
+                        if insights_count_wb_final == 0: st.markdown(f"<p class='insight-text' style='color: {COLOR_POSITIVE_GREEN_BORDER};'>✅ No specific well-being alerts triggered in selected period.</p>", unsafe_allow_html=True) # Use a defined color
                 if tab_def_main_final_loop.get("insights_html"): st.markdown(tab_def_main_final_loop["insights_html"], unsafe_allow_html=True) 
             else: st.info(f"ℹ️ Run simulation or load data to view {tab_def_main_final_loop['name']}.", icon="📊")
 
