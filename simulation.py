@@ -19,7 +19,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
 
     facility_width, facility_height = _get_config_param(config, 'FACILITY_SIZE', (100, 80))
     work_areas_config = _get_config_param(config, 'WORK_AREAS', {})
-    event_type_params_config = _get_config_param(config, 'EVENT_TYPE_CONFIG', {}) # Get event type specifics
+    event_type_params_config = _get_config_param(config, 'EVENT_TYPE_CONFIG', {}) 
     shift_duration_minutes_sim = float(_get_config_param(config, 'SHIFT_DURATION_MINUTES', 480))
     
     _task_compliance_scores = np.zeros(num_steps)
@@ -77,9 +77,9 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
     for step in range(num_steps):
         current_minute_of_shift = step * 2 
 
-        active_event_effects = {
+        active_event_effects = { 
             "compliance_reduction_factor": 0.0, "wellbeing_drop_factor": 0.0,
-            "downtime_prob_modifier": 0.0, "downtime_mean_factor": 1.0,
+            "downtime_prob_modifier": 0.0, "downtime_mean_factor": 1.0, # Default to 1.0 for multiplicative factor
             "fatigue_rate_modifier": 1.0, "fatigue_recovery_factor": 0.0,
             "wellbeing_boost_abs": 0.0, "cohesion_boost_abs": 0.0,
             "psych_safety_boost_abs": 0.0,
@@ -100,14 +100,13 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
             if event_start_min <= current_minute_of_shift < event_start_min + event_duration_min:
                 active_event_types_this_step.add(event_type)
                 active_events_details_this_step.append(event_def) 
-                event_params = event_type_params_config.get(event_type, {}) # Get params for this event type, or empty dict
+                event_params = event_type_params_config.get(event_type, {}) 
                 
                 logger.debug(f"Step {step} ({current_minute_of_shift} min): Event '{event_type}' ACTIVE. Config Params: {event_params}")
 
                 if "Disruption" in event_type: 
                     is_any_disruption_active_this_step = True
                     intensity = event_def.get("Intensity", 1.0)
-                    # Use .get() with defaults for all accessed event_params keys
                     active_event_effects["compliance_reduction_factor"] = max(
                         active_event_effects["compliance_reduction_factor"], 
                         event_params.get("compliance_reduction_factor", 0.0) * intensity
@@ -116,11 +115,12 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
                         active_event_effects["wellbeing_drop_factor"],
                         event_params.get("wellbeing_drop_factor", 0.0) * intensity
                     )
+                    # Ensure robust access with defaults
                     active_event_effects["downtime_prob_modifier"] += event_params.get("downtime_prob_modifier", 0.0) 
-                    active_event_effects["downtime_mean_factor"] *= event_params.get("downtime_mean_factor", 1.0) # Default to 1 (no change)
+                    active_event_effects["downtime_mean_factor"] *= event_params.get("downtime_mean_factor", 1.0) # Default to 1.0
                     active_event_effects["fatigue_rate_modifier"] = max(
                         active_event_effects["fatigue_rate_modifier"], 
-                        event_params.get("fatigue_rate_modifier", 1.0) # Default to 1 (no change)
+                        event_params.get("fatigue_rate_modifier", 1.0) 
                     )
                     if current_minute_of_shift == event_start_min and step < num_steps: 
                          wellbeing_triggers_dict['disruption'].append(step)
@@ -131,7 +131,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
                         event_params.get("fatigue_recovery_factor", 0.0)
                     )
                     active_event_effects["wellbeing_boost_abs"] += event_params.get("wellbeing_boost_abs", 0.0)
-                    productivity_multiplier_event = event_params.get("productivity_multiplier", 1.0)
+                    productivity_multiplier_event = event_params.get("productivity_multiplier", 1.0) # Default to 1 if not specified
                     if event_def.get("Scope", "All") == "All":
                         for zn in active_event_effects["zone_productivity_multiplier"].keys():
                             active_event_effects["zone_productivity_multiplier"][zn] = min(active_event_effects["zone_productivity_multiplier"][zn], productivity_multiplier_event)
@@ -140,7 +140,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
                     active_event_effects["cohesion_boost_abs"] += event_params.get("cohesion_boost_abs", 0.0)
                     active_event_effects["psych_safety_boost_abs"] += event_params.get("psych_safety_boost_abs",0.0)
                     affected_zones = event_def.get("Affected Zones", [])
-                    prod_multiplier = event_params.get("productivity_multiplier", 0.1)
+                    prod_multiplier = event_params.get("productivity_multiplier", 0.1) # Default to low productivity
                     if "All" in affected_zones or not affected_zones:
                         for zn in active_event_effects["zone_productivity_multiplier"].keys(): active_event_effects["zone_productivity_multiplier"][zn] = min(active_event_effects["zone_productivity_multiplier"][zn], prod_multiplier)
                     else:
@@ -149,34 +149,40 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
                 
                 elif event_type == "Maintenance":
                     active_event_effects["downtime_prob_modifier"] += event_params.get("downtime_prob_modifier", 0.0)
+                    # Robustly get downtime_mean_factor for maintenance as well
+                    active_event_effects["downtime_mean_factor"] *= event_params.get("downtime_mean_factor", 1.0) 
                     affected_zones_maint = event_def.get("Affected Zones", [])
-                    uptime_mult = event_params.get("specific_zone_uptime_multiplier", 0.1) # Default to 0.1 if not specified
+                    uptime_mult = event_params.get("specific_zone_uptime_multiplier", 0.1) 
                     if "All" in affected_zones_maint or not affected_zones_maint:
                          for zn in active_event_effects["zone_uptime_multiplier"].keys(): active_event_effects["zone_uptime_multiplier"][zn] = min(active_event_effects["zone_uptime_multiplier"][zn], uptime_mult)
                     else:
                         for zn in affected_zones_maint:
                             if zn in active_event_effects["zone_uptime_multiplier"]: active_event_effects["zone_uptime_multiplier"][zn] = min(active_event_effects["zone_uptime_multiplier"][zn], uptime_mult)
                 
-                # Handle "Custom Event" or other types if specific logic is needed
-                elif event_type == "Custom Event": # Example, ensure "Custom Event" is in EVENT_TYPE_CONFIG
+                elif event_type == "Custom Event": 
                     active_event_effects["wellbeing_drop_factor"] = max(
                         active_event_effects["wellbeing_drop_factor"],
-                        event_params.get("wellbeing_drop_factor", 0.0) # Default to 0 if not in config
+                        event_params.get("wellbeing_drop_factor", 0.0) 
                     )
                     active_event_effects["fatigue_rate_modifier"] = max(
                         active_event_effects["fatigue_rate_modifier"],
-                        event_params.get("fatigue_rate_modifier", 1.0) # Default to 1 if not in config
+                        event_params.get("fatigue_rate_modifier", 1.0) 
                     )
+                    # Add robust access for other custom event params if they affect shared effects
+                    active_event_effects["downtime_prob_modifier"] += event_params.get("downtime_prob_modifier", 0.0)
+                    active_event_effects["downtime_mean_factor"] *= event_params.get("downtime_mean_factor", 1.0)
 
 
-        # --- Task Backlog and Workload ---
+        # --- Task Backlog and Workload --- (rest of the loop continues)
         avg_fatigue_current_step = np.mean(worker_fatigue) if num_team_members > 0 else 0.0
         for zone_name, zone_details in work_areas_config.items():
             tasks_arriving = zone_details.get('tasks_per_interval', 0) * (1.0 + (0.1*random.random()-0.05) if is_any_disruption_active_this_step else 0.0)
             workers_in_this_zone_count = worker_assigned_zone.count(zone_name) if num_team_members > 0 else 0
             prev_compliance_score = _task_compliance_scores[max(0, step - 1)] if step > 0 else _get_config_param(config, 'BASE_TASK_COMPLETION_PROB', 0.95) * 100.0
             compliance_factor_for_processing = prev_compliance_score / 100.0
+            
             zone_prod_mult = active_event_effects["zone_productivity_multiplier"].get(zone_name, 1.0)
+
             zone_processing_capacity = workers_in_this_zone_count * \
                                      zone_details.get('base_productivity', 0.8) * \
                                      (1.0 - avg_fatigue_current_step * 0.3) * \
@@ -186,7 +192,7 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
 
         total_backlog_current_step = sum(zone_task_backlog.values())
         max_concurrent_total_facility = sum(zd.get('max_concurrent_tasks', zd.get('tasks_per_interval', 0) * 1.5) for zd in work_areas_config.values())
-        if max_concurrent_total_facility == 0: max_concurrent_total_facility = EPSILON # Avoid division by zero if no tasks configured
+        if max_concurrent_total_facility == 0: max_concurrent_total_facility = EPSILON 
         workload_pressure_from_backlog_metric = total_backlog_current_step / (max_concurrent_total_facility + EPSILON)
         _perceived_workload_scores[step] = np.clip(workload_pressure_from_backlog_metric * 10.0 + (step / (num_steps + EPSILON)) * 1.5, 0, 10)
 
@@ -304,9 +310,12 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
 
         # --- Downtime ---
         current_downtime_duration = 0.0; current_downtime_cause = "None"
-        if active_event_effects["downtime_prob_modifier"] > 0 and random.random() < active_event_effects["downtime_prob_modifier"]:
-            downtime_mean_event = _get_config_param(config, 'DOWNTIME_MEAN_MINUTES_PER_OCCURRENCE', 7.0) * active_event_effects["downtime_mean_modifier"]
-            downtime_std_event = _get_config_param(config, 'DOWNTIME_STD_MINUTES_PER_OCCURRENCE', 3.0) * math.sqrt(active_event_effects["downtime_mean_modifier"])
+        downtime_prob_mod = active_event_effects.get("downtime_prob_modifier", 0.0) # Get with default
+        downtime_mean_fact = active_event_effects.get("downtime_mean_factor", 1.0)   # Get with default
+
+        if downtime_prob_mod > 0 and random.random() < downtime_prob_mod:
+            downtime_mean_event = _get_config_param(config, 'DOWNTIME_MEAN_MINUTES_PER_OCCURRENCE', 7.0) * downtime_mean_fact
+            downtime_std_event = _get_config_param(config, 'DOWNTIME_STD_MINUTES_PER_OCCURRENCE', 3.0) * math.sqrt(downtime_mean_fact)
             current_downtime_duration = max(0.0, np.random.normal(downtime_mean_event, downtime_std_event))
             
             active_downtime_event_types = [evt.get("Event Type") for evt in active_events_details_this_step
@@ -352,11 +361,11 @@ def simulate_workplace_operations(num_team_members: int, num_steps: int,
                     target_x, target_y = random.uniform(min(zx0,zx1), max(zx0,zx1)), random.uniform(min(zy0,zy1), max(zy0,zy1)) 
                 
                 is_on_scheduled_break_or_meeting = False
-                for active_event in active_events_details_this_step: 
-                    event_type_active = active_event.get("Event Type")
+                for active_event_detail in active_events_details_this_step: 
+                    event_type_active = active_event_detail.get("Event Type")
                     if event_type_active in ["Scheduled Break", "Short Pause", "Team Meeting"]:
-                        scope = active_event.get("Scope", "All")
-                        affected_zones_event = active_event.get("Affected Zones", [])
+                        scope = active_event_detail.get("Scope", "All")
+                        affected_zones_event = active_event_detail.get("Affected Zones", [])
                         if scope == "All" or current_assigned_zone_for_worker_i in affected_zones_event:
                             is_on_scheduled_break_or_meeting = True
                             if "Break Room" in work_areas_config and event_type_active != "Team Meeting": 
