@@ -22,7 +22,7 @@ if not logger.handlers:
                         filemode='a')
 logger.info("Main.py: Startup. Imports parsed, logger configured.", extra={'user_action': 'System Startup'})
 
-st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.3\nInsights for operational excellence & psychosocial well-being."})
+st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.4\nInsights for operational excellence & psychosocial well-being."})
 
 COLOR_CRITICAL_RED_CSS = "#E53E3E"; COLOR_WARNING_AMBER_CSS = "#F59E0B"; COLOR_POSITIVE_GREEN_CSS = "#10B981"; COLOR_INFO_BLUE_CSS = "#3B82F6"; COLOR_ACCENT_INDIGO_CSS = "#4F46E5"
 THEMED_DIVIDER_COLOR = "violet"
@@ -139,7 +139,7 @@ def get_actionable_insights(sim_data, current_config_dict_main):
                 intended_workers_ia = zone_details_ia.get('workers', 0)
                 coords_ia = zone_details_ia.get('coords'); area_m2_ia = 1.0
                 if coords_ia and isinstance(coords_ia, list) and len(coords_ia) == 2 and \
-                   all(isinstance(p_ia, tuple) and len(p_ia)==2 and all(isinstance(c_ia, (int,float)) for c_tuple_val_ia in coords_ia for c_ia in c_tuple_val_ia) for p_ia in coords_ia): # Make sure coords_ia[0] and coords_ia[1] are tuples of numbers
+                   all(isinstance(p_ia, tuple) and len(p_ia)==2 and all(isinstance(c_ia, (int,float)) for c_tuple_val_ia in coords_ia for c_ia in c_tuple_val_ia) for p_ia in coords_ia):
                     if len(coords_ia[0]) == 2 and len(coords_ia[1]) == 2: # Further check tuple lengths
                         (x0_ia,y0_ia), (x1_ia,y1_ia) = coords_ia[0], coords_ia[1]; area_m2_ia = abs(x1_ia-x0_ia) * abs(y1_ia-y0_ia)
                 if abs(area_m2_ia) < 1e-6: area_m2_ia = 1.0 
@@ -158,7 +158,8 @@ def get_actionable_insights(sim_data, current_config_dict_main):
     
     logger.info(f"get_actionable_insights: Generated {len(insights)} insights.", extra={'user_action': 'Actionable Insights - End'})
     return insights
-    def aggregate_downtime_by_step(raw_downtime_event_log, num_total_steps_agg):
+
+def aggregate_downtime_by_step(raw_downtime_event_log, num_total_steps_agg):
     """Aggregates durations from a raw log of downtime events for each simulation step."""
     downtime_per_step_agg = [0.0] * num_total_steps_agg
     if not isinstance(raw_downtime_event_log, list):
@@ -396,11 +397,10 @@ def render_settings_sidebar():
                             pdf_data_dict_sb[col_name_pdf_sb] = _prepare_timeseries_for_export(safe_get(sim_res_pdf_sb, path_pdf_sb, []), num_steps_pdf_export_sb)
                         
                         raw_downtime_log_pdf_sb = safe_get(sim_res_pdf_sb, 'downtime_events_log', [])
-                        # For PDF, we need downtime aggregated per step.
                         pdf_data_dict_sb['Downtime (min/interval)'] = aggregate_downtime_by_step(raw_downtime_log_pdf_sb, num_steps_pdf_export_sb)
 
                         df_for_report_sb = pd.DataFrame(pdf_data_dict_sb)
-                        generate_pdf_report(df_for_report_sb, sim_cfg_pdf_export_sb) # Pass sim_config_params too
+                        generate_pdf_report(df_for_report_sb, sim_cfg_pdf_export_sb)
                         st.success("✅ LaTeX report 'workplace_report.tex' generated.")
                     except SystemExit: pass
                     except Exception as e_pdf_sb: 
@@ -415,7 +415,7 @@ def render_settings_sidebar():
 
                 if num_steps_csv_exp_sb > 0:
                     csv_data_dict_sb = {'step': list(range(num_steps_csv_exp_sb)), 'time_minutes': [i * mpi_csv_exp_sb for i in range(num_steps_csv_exp_sb)]}
-                    export_metrics_map_csv_sb = { # Reusing PDF map for consistency, can be customized
+                    export_metrics_map_csv_sb = { 
                         'task_compliance.data': 'task_compliance_percent',
                         'collaboration_metric.data': 'collaboration_metric_percent',
                         'operational_recovery': 'operational_recovery_percent',
@@ -427,7 +427,7 @@ def render_settings_sidebar():
                         'worker_wellbeing.perceived_workload_scores': 'perceived_workload_score_0_10'
                     }
                     for path_csv_sb, col_name_csv_sb in export_metrics_map_csv_sb.items():
-                        csv_data_dict_sb[col_name_csv_sb.replace(' (%)','_percent').replace(' (0-10)','_0_10').replace(' ','_')] = _prepare_timeseries_for_export(safe_get(sim_res_csv_exp_sb, path_csv_sb, []), num_steps_csv_exp_sb)
+                        csv_data_dict_sb[col_name_csv_sb] = _prepare_timeseries_for_export(safe_get(sim_res_csv_exp_sb, path_csv_sb, []), num_steps_csv_exp_sb)
                     
                     raw_downtime_csv_sb = safe_get(sim_res_csv_exp_sb, 'downtime_events_log', [])
                     csv_data_dict_sb['downtime_minutes_per_interval'] = aggregate_downtime_by_step(raw_downtime_csv_sb, num_steps_csv_exp_sb)
@@ -490,7 +490,7 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
                 for zone_k_sl_zero in config_sl['WORK_AREAS']: 
                     if isinstance(config_sl['WORK_AREAS'][zone_k_sl_zero], dict):
                         config_sl['WORK_AREAS'][zone_k_sl_zero]['workers'] = 0
-            elif distributable_areas: # Only proceed if there are areas to distribute to
+            elif distributable_areas:
                 sum_workers_in_dist_areas = sum(_get_config_value_sl_main(z_dist, {}, 'workers', 0, data_type=int) for z_dist in distributable_areas.values())
                 if sum_workers_in_dist_areas > 0: 
                     ratio_sl = target_team_size_for_dist / sum_workers_in_dist_areas
@@ -506,13 +506,11 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
                     assign_count_sl = 0
                     for zone_k_sl_even in distributable_areas:
                         config_sl['WORK_AREAS'][zone_k_sl_even]['workers'] = base_w_sl + (1 if assign_count_sl < rem_w_sl else 0); assign_count_sl +=1
-            
             all_area_keys = set(config_sl['WORK_AREAS'].keys()); dist_area_keys = set(distributable_areas.keys())
             non_dist_keys = all_area_keys - dist_area_keys
-            for r_zone_k in non_dist_keys: # Ensure non-distributable (like rest areas explicitly marked so) have 0 workers from redistribution
+            for r_zone_k in non_dist_keys:
                 if isinstance(config_sl['WORK_AREAS'][r_zone_k], dict) and config_sl['WORK_AREAS'][r_zone_k].get('is_rest_area'):
                      config_sl['WORK_AREAS'][r_zone_k]['workers'] = 0
-
 
     validate_config(config_sl)
     logger.info(f"Running simulation with config: Team Size={config_sl['TEAM_SIZE']}, Duration={config_sl['SHIFT_DURATION_MINUTES']}min ({config_sl['SHIFT_DURATION_INTERVALS']} intervals of {mpi_sl}min), Scheduled Events: {len(config_sl['SCHEDULED_EVENTS'])}, Initiative: {team_initiative_sl}", extra={'user_action': 'Run Simulation - Start'})
@@ -530,8 +528,8 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
         'SHIFT_DURATION_INTERVALS': config_sl['SHIFT_DURATION_INTERVALS'], 'MINUTES_PER_INTERVAL': mpi_sl, 
         'SCHEDULED_EVENTS': config_sl['SCHEDULED_EVENTS'], 'TEAM_INITIATIVE': team_initiative_sl, 
         'WORK_AREAS_EFFECTIVE': config_sl.get('WORK_AREAS', {}).copy(),
-        'ENTRY_EXIT_POINTS': config_sl.get('ENTRY_EXIT_POINTS', []).copy(), # Pass E/E points for spatial plots
-        'FACILITY_SIZE': config_sl.get('FACILITY_SIZE', (100,80)) # Pass facility size
+        'ENTRY_EXIT_POINTS': config_sl.get('ENTRY_EXIT_POINTS', []).copy(),
+        'FACILITY_SIZE': config_sl.get('FACILITY_SIZE', (100,80))
     }
     
     disruption_steps_final_sl_run = [evt.get('step') for evt in config_sl['SCHEDULED_EVENTS'] if isinstance(evt,dict) and "Disruption" in evt.get("Event Type","") and isinstance(evt.get('step'),int)]
@@ -540,7 +538,7 @@ def run_simulation_logic(team_size_sl, shift_duration_sl, scheduled_events_from_
     save_simulation_data(simulation_output_dict_sl_final_run) 
     return simulation_output_dict_sl_final_run
 
-def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_type=None):
+def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_type=None): # Renamed to avoid conflict
     val = secondary_conf.get(key, primary_conf.get(key, default))
     if data_type:
         try:
@@ -583,7 +581,7 @@ def main():
         'form_event_type': "Major Disruption", 'form_event_start': 0, 'form_event_duration': max(mpi_global_app_main, 10),
     }
     default_max_mins_main_app_init = DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] - mpi_global_app_main if DEFAULT_CONFIG['SHIFT_DURATION_MINUTES'] > mpi_global_app_main else 0
-    for prefix_main_app_init in ['op', 'ww', 'dt']: # Operational, WorkerWellbeing, DownTime tabs
+    for prefix_main_app_init in ['op', 'ww', 'dt']:
         app_state_defaults_main_app[f'{prefix_main_app_init}_start_time_min'] = 0
         app_state_defaults_main_app[f'{prefix_main_app_init}_end_time_min'] = default_max_mins_main_app_init
     for key_main_app_init, val_main_app_init in app_state_defaults_main_app.items():
@@ -595,7 +593,7 @@ def main():
 
     active_mpi_main_app_val = mpi_global_app_main
     max_mins_ui_main_app_val = default_max_mins_main_app_init
-    simulation_disruption_steps_absolute_main_val = [] # Stores absolute step numbers of disruptions
+    simulation_disruption_steps_absolute_main_val = []
 
     if st.session_state.simulation_results and isinstance(st.session_state.simulation_results, dict):
         sim_cfg_main_app_active = st.session_state.simulation_results.get('config_params', {})
@@ -604,16 +602,16 @@ def main():
         sim_intervals_main_app_active_val = sim_cfg_main_app_active.get('SHIFT_DURATION_INTERVALS', 0)
         max_mins_ui_main_app_val = max(0, sim_intervals_main_app_active_val * active_mpi_main_app_val - active_mpi_main_app_val) if sim_intervals_main_app_active_val > 0 else 0
         simulation_disruption_steps_absolute_main_val = sim_cfg_main_app_active.get('DISRUPTION_EVENT_STEPS', [])
-    else: # No simulation results, derive from current sidebar settings
+    else:
         shift_duration_from_sidebar_main_val = st.session_state.sb_shift_duration_num
         sim_intervals_main_app_active_val = shift_duration_from_sidebar_main_val // active_mpi_main_app_val if active_mpi_main_app_val > 0 else 0
         max_mins_ui_main_app_val = max(0, sim_intervals_main_app_active_val * active_mpi_main_app_val - active_mpi_main_app_val) if sim_intervals_main_app_active_val > 0 else 0
-        for event_main_ui_item_cfg_val in st.session_state.sb_scheduled_events_list: # Use current list from sidebar
+        for event_main_ui_item_cfg_val in st.session_state.sb_scheduled_events_list:
             if "Disruption" in event_main_ui_item_cfg_val.get("Event Type","") and isinstance(event_main_ui_item_cfg_val.get("Start Time (min)"), (int,float)):
                 simulation_disruption_steps_absolute_main_val.append(int(event_main_ui_item_cfg_val["Start Time (min)"] // active_mpi_main_app_val))
         simulation_disruption_steps_absolute_main_val = sorted(list(set(simulation_disruption_steps_absolute_main_val)))
     
-    for prefix_main_ui_clamp_val_final in ['op', 'ww', 'dt']: # Ensure UI time ranges are clamped
+    for prefix_main_ui_clamp_val_final in ['op', 'ww', 'dt']:
         st.session_state[f"{prefix_main_ui_clamp_val_final}_start_time_min"] = max(0, min(st.session_state.get(f"{prefix_main_ui_clamp_val_final}_start_time_min",0), max_mins_ui_main_app_val))
         st.session_state[f"{prefix_main_ui_clamp_val_final}_end_time_min"] = max(st.session_state[f"{prefix_main_ui_clamp_val_final}_start_time_min"], min(st.session_state.get(f"{prefix_main_ui_clamp_val_final}_end_time_min",max_mins_ui_main_app_val), max_mins_ui_main_app_val))
 
