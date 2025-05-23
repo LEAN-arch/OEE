@@ -415,9 +415,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # --- END OF CHUNK 2 of 6 (CSS) ---
-```
 
----
 **`main.py` - CHUNK 3 of 6 (`render_settings_sidebar`)**
 ```python
 # --- render_settings_sidebar ---
@@ -577,9 +575,7 @@ def render_settings_sidebar():
             st.session_state.sb_debug_mode_checkbox)
 
 # --- END OF CHUNK 3 of 6 (`render_settings_sidebar`) ---
-```
 
----
 **`main.py` - CHUNK 4 of 6 (`run_simulation_logic` and `time_range_input_section`)**
 ```python
 # --- run_simulation_logic ---
@@ -740,9 +736,6 @@ def time_range_input_section(tab_key_prefix: str, max_minutes: int, st_col_obj =
     return int(st.session_state[start_time_key]), int(st.session_state[end_time_key])
 
 # --- END OF CHUNK 4 of 6 ---
-```
-
----
 **`main.py` - CHUNK 5 of 6 (Start of `main()` and Tab Loop)**
 ```python
 # --- MAIN FUNCTION ---
@@ -998,9 +991,6 @@ def main():
         }
     ]
     # --- END OF CHUNK 4 of 5 ---
-```
-
----
 **`main.py` - CHUNK 5 of 5 (Tab Rendering Loop and End)**
 ```python
     # --- Tab Rendering Loop ---
