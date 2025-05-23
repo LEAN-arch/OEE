@@ -7,8 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# ... (All color definitions and helper functions remain the same as the previous correct version) ...
-# --- HELPER FUNCTIONS - DEFINE THESE FIRST ---
+# --- Accessible Color Definitions (Consistent with main.py) ---
 ACCESSIBLE_CATEGORICAL_PALETTE = ["#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7","#999999"]
 HIGH_CONTRAST_CATEGORICAL_PALETTE = ["#FFFFFF","#FFFF00","#FF69B4","#00FFFF","#39FF14","#FFA500","#BEBEBE","#FF0000"]
 ACCESSIBLE_SEQUENTIAL_PLOTLY_SCALES = ["Viridis", "Cividis", "Plasma", "Blues", "Greens", "Oranges"]
@@ -23,15 +22,16 @@ COLOR_ACCENT_INDIGO = "#4F46E5"
 
 COLOR_WHITE_TEXT = "#FFFFFF"
 COLOR_LIGHT_TEXT = "#EAEAEA"
-COLOR_DARK_TEXT_ON_LIGHT_BG_HC = "#000000"
+COLOR_DARK_TEXT_ON_LIGHT_BG_HC = "#000000" # For text on light-colored elements in HC mode
 COLOR_SUBTLE_GRID_STD = "#374151"
 COLOR_SUBTLE_GRID_HC = "#555555"
 COLOR_AXIS_LINE_STD = "#4A5568"
 COLOR_AXIS_LINE_HC = "#777777"
 
 PLOTLY_TEMPLATE = "plotly_dark"
-EPSILON = 1e-9
+EPSILON = 1e-9 # Small constant to prevent division by zero or zero-width ranges
 
+# --- HELPER FUNCTIONS - DEFINE THESE FIRST ---
 def _apply_common_layout_settings(fig, title_text, high_contrast=False, yaxis_title=None, xaxis_title="Time Step (Interval)", yaxis_range=None, show_legend=True):
     font_color = COLOR_WHITE_TEXT if high_contrast else COLOR_LIGHT_TEXT
     title_font_color = COLOR_WHITE_TEXT
@@ -93,7 +93,7 @@ def _get_no_data_pie_figure(title_text, high_contrast=False):
     return fig
 
 # --- PLOTTING FUNCTIONS ---
-# ... (plot_key_metrics_summary and other functions remain the same as the previous correct version) ...
+
 def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: float, downtime: float,
                              target_compliance: float, target_proximity: float, target_wellbeing: float, target_downtime: float,
                              high_contrast: bool = False,
@@ -136,20 +136,23 @@ def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: flo
         if suffix == "%":
             axis_max_val = 100.0
         else:
-            axis_max_val = max(value * 1.25, target * 1.5, base_max_val)
+            axis_max_val = max(value * 1.25, target * 1.5, base_max_val) # Ensure scale can show value and target
         
-        if axis_max_val <= value : axis_max_val = value * 1.25 
-        if axis_max_val <= target : axis_max_val = target * 1.5 
-        if axis_max_val <= EPSILON: axis_max_val = base_max_val
+        if axis_max_val <= value : axis_max_val = value * 1.25 # Ensure value is within range with some headroom
+        if axis_max_val <= target : axis_max_val = target * 1.5 # Ensure target is within range with some headroom
+        if axis_max_val <= EPSILON: axis_max_val = base_max_val # Final fallback if still zero or negative
 
         steps_config = []
         if lower_is_better: 
             s1_upper = target  
             s2_upper = target * 1.25 if target > EPSILON else axis_max_val / 2.0 
-            if s1_upper == 0 and s2_upper == 0: 
-                s1_upper = EPSILON 
-                s2_upper = axis_max_val / 2.0
+            if s1_upper < 0: s1_upper = 0 # Prevent negative ranges
+            if s2_upper < s1_upper: s2_upper = s1_upper + EPSILON
 
+            if target == 0.0 : # Special case for 0 target downtime (or similar)
+                s1_upper = EPSILON # Tiny green zone for 0
+                s2_upper = axis_max_val / 2.0 if axis_max_val > EPSILON else EPSILON * 2
+            
             steps_config = [
                 {'range': [0, s1_upper], 'color': color_positive},
                 {'range': [s1_upper, s2_upper], 'color': color_warning},
@@ -160,6 +163,9 @@ def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: flo
             s2_upper = target       
             if s1_upper >= s2_upper and target > EPSILON: 
                 s1_upper = target * 0.7 
+            if s1_upper < 0: s1_upper = 0
+            if s2_upper < s1_upper: s2_upper = s1_upper + EPSILON
+
 
             steps_config = [
                 {'range': [0, s1_upper], 'color': color_negative},
@@ -171,22 +177,23 @@ def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: flo
         current_lower_bound = 0.0
         for i, step in enumerate(steps_config):
             s_lower, s_upper = step['range']
-            s_lower = float(s_lower) if s_lower is not None else current_lower_bound
-            s_upper = float(s_upper) if s_upper is not None else axis_max_val
+            s_lower = float(s_lower) if pd.notna(s_lower) else current_lower_bound
+            s_upper = float(s_upper) if pd.notna(s_upper) else axis_max_val
+            
             s_lower = max(current_lower_bound, s_lower) 
             s_upper = min(max(s_lower + EPSILON, s_upper), axis_max_val) 
+
             if s_upper > s_lower: 
                 valid_steps.append({'range': [s_lower, s_upper], 'color': step['color']})
                 current_lower_bound = s_upper
-            elif i == len(steps_config) - 1 and not valid_steps: 
-                 valid_steps.append({'range': [0, axis_max_val], 'color': accent_color})
+        
+        if not valid_steps: 
+            logger.error(f"Gauge '{title}': All steps became invalid after cleaning. Original steps: {steps_config}. Axis_max: {axis_max_val}. Using a single fallback step.")
+            valid_steps = [{'range': [0, axis_max_val], 'color': accent_color}]
+
 
         logger.debug(f"Gauge '{title}': axis_max_val={axis_max_val}, valid_steps={valid_steps}")
         
-        if not valid_steps: 
-            logger.error(f"Gauge '{title}': All steps became invalid. Using a single fallback step.")
-            valid_steps = [{'range': [0, axis_max_val], 'color': accent_color}]
-
         fig.add_trace(go.Indicator(
             mode="gauge+number+delta", value=value,
             delta={'reference': target,
@@ -208,7 +215,6 @@ def plot_key_metrics_summary(compliance: float, proximity: float, wellbeing: flo
         fig.update_layout(height=180, margin=dict(l=10,r=10,t=30,b=10), paper_bgcolor="rgba(0,0,0,0)", font=dict(color=font_color_gauge))
         figs.append(fig)
     return figs
-
 
 def plot_task_compliance_score(data, disruption_points, forecast_data=None, z_scores=None, high_contrast=False):
     if not data: return _get_no_data_figure("Task Compliance Score Trend", high_contrast)
@@ -303,7 +309,7 @@ def plot_worker_distribution(team_positions_df, facility_size, config, use_3d=Fa
 
     shapes = [go.layout.Shape(type="rect", x0=0, y0=0, x1=facility_width, y1=facility_height, line=dict(color=COLOR_NEUTRAL_GRAY, width=1.5), fillcolor="rgba(0,0,0,0)", layer="below")]; annotations = []
     font_c = COLOR_WHITE_TEXT if high_contrast else COLOR_LIGHT_TEXT
-    ee_point_color = COLOR_INFO_BLUE; work_area_line_color = cat_palette[len(zone_names) % len(cat_palette)] if cat_palette else COLOR_INFO_BLUE # Fallback for work_area_line_color
+    ee_point_color = COLOR_INFO_BLUE; work_area_line_color = cat_palette[len(zone_names) % len(cat_palette)] if cat_palette else COLOR_INFO_BLUE 
     if show_entry_exit and 'ENTRY_EXIT_POINTS' in config:
         for point in config['ENTRY_EXIT_POINTS']:
             shapes.append(go.layout.Shape(type="circle", x0=point['coords'][0]-1.5, y0=point['coords'][1]-1.5, x1=point['coords'][0]+1.5, y1=point['coords'][1]+1.5, fillcolor=ee_point_color, line_color=COLOR_WHITE_TEXT, line_width=1, opacity=0.9, layer="above"))
@@ -382,8 +388,9 @@ def plot_downtime_trend(downtime_events_list, interval_threshold, high_contrast=
     fig.add_hline(y=interval_threshold, line=dict(color=threshold_line_color, width=1.5, dash="longdash"), annotation_text=f"Alert Thresh: {interval_threshold} min", annotation_position="top right", annotation=dict(font_size=10, bgcolor=threshold_annot_bgcolor, borderpad=2, font_color=threshold_annot_font_color))
     
     max_y_val = 10.0 
-    if downtime_durations:
-        max_y_val = max(max(downtime_durations) * 1.15, interval_threshold * 1.5, 10.0)
+    if downtime_durations: # Ensure there are durations to calculate max from
+        max_duration = max(downtime_durations) if downtime_durations else 0
+        max_y_val = max(max_duration * 1.15, interval_threshold * 1.5, 10.0)
     else: 
         max_y_val = max(interval_threshold * 1.5, 10.0)
 
@@ -407,7 +414,6 @@ def plot_perceived_workload(data, high_workload_threshold, very_high_workload_th
     fig.add_hline(y=high_workload_threshold, line=dict(color=COLOR_WARNING_AMBER, width=1.5, dash="dash"), annotation_text=f"High ({high_workload_threshold})", annotation_position="bottom right", annotation_font=dict(color=COLOR_WARNING_AMBER, size=10))
     fig.add_hline(y=very_high_workload_threshold, line=dict(color=COLOR_CRITICAL_RED, width=1.5, dash="dash"), annotation_text=f"Very High ({very_high_workload_threshold})", annotation_position="top right", annotation_font=dict(color=COLOR_CRITICAL_RED, size=10))
     _apply_common_layout_settings(fig, "Perceived Workload Index (0-10 Scale)", high_contrast, yaxis_title="Workload Index", yaxis_range=[0, 10.5]); return fig
-
 
 def plot_downtime_causes_pie(downtime_events_list, high_contrast=False):
     if not downtime_events_list:
@@ -460,7 +466,7 @@ def plot_downtime_causes_pie(downtime_events_list, high_contrast=False):
         textinfo='label+percent', insidetextorientation='auto',
         hovertemplate="<b>Cause:</b> %{label}<br><b>Duration:</b> %{value:.1f} min<br><b>Share:</b> %{percent}<extra></extra>",
         sort=True, 
-        direction='clockwise' # Corrected: Use 'clockwise' or 'counterclockwise'
+        direction='clockwise' # CORRECTED VALUE
     )])
 
     fig.update_traces(textfont_size=10,
