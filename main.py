@@ -22,10 +22,10 @@ if not logger.handlers:
                         filemode='a')
 logger.info("Main.py: Startup. Imports parsed, logger configured.", extra={'user_action': 'System Startup'})
 
-st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.4\nInsights for operational excellence & psychosocial well-being."})
+st.set_page_config(page_title="Workplace Shift Optimization Dashboard", layout="wide", initial_sidebar_state="expanded", menu_items={'Get Help': 'mailto:support@example.com', 'Report a bug': "mailto:bugs@example.com", 'About': "# Workplace Shift Optimization Dashboard\nVersion 1.3.5\nInsights for operational excellence & psychosocial well-being."})
 
 COLOR_CRITICAL_RED_CSS = "#E53E3E"; COLOR_WARNING_AMBER_CSS = "#F59E0B"; COLOR_POSITIVE_GREEN_CSS = "#10B981"; COLOR_INFO_BLUE_CSS = "#3B82F6"; COLOR_ACCENT_INDIGO_CSS = "#4F46E5"
-THEMED_DIVIDER_COLOR = "violet"
+THEMED_DIVIDER_COLOR = "violet" 
 
 def safe_get(data_dict, path_str, default_val=None):
     current = data_dict
@@ -140,7 +140,7 @@ def get_actionable_insights(sim_data, current_config_dict_main):
                 coords_ia = zone_details_ia.get('coords'); area_m2_ia = 1.0
                 if coords_ia and isinstance(coords_ia, list) and len(coords_ia) == 2 and \
                    all(isinstance(p_ia, tuple) and len(p_ia)==2 and all(isinstance(c_ia, (int,float)) for c_tuple_val_ia in coords_ia for c_ia in c_tuple_val_ia) for p_ia in coords_ia):
-                    if len(coords_ia[0]) == 2 and len(coords_ia[1]) == 2: # Further check tuple lengths
+                    if len(coords_ia[0]) == 2 and len(coords_ia[1]) == 2:
                         (x0_ia,y0_ia), (x1_ia,y1_ia) = coords_ia[0], coords_ia[1]; area_m2_ia = abs(x1_ia-x0_ia) * abs(y1_ia-y0_ia)
                 if abs(area_m2_ia) < 1e-6: area_m2_ia = 1.0 
                 avg_density_ia = workers_in_zone_avg_ia / area_m2_ia if area_m2_ia > 0 else 0
@@ -550,19 +550,27 @@ def _get_config_value_sl_main(primary_conf, secondary_conf, key, default, data_t
 def time_range_input_section(tab_key_prefix: str, max_minutes_for_range_ui: int, st_col_obj = st, interval_duration_min_ui: int = 2):
     start_time_key_ui = f"{tab_key_prefix}_start_time_min"
     end_time_key_ui = f"{tab_key_prefix}_end_time_min"
-    if interval_duration_min_ui <=0: interval_duration_min_ui = 2 
-    current_start_ui_val = st.session_state.get(start_time_key_ui, 0)
-    current_end_ui_val = st.session_state.get(end_time_key_ui, max_minutes_for_range_ui)
-    current_start_ui_val = max(0, min(current_start_ui_val, max_minutes_for_range_ui))
+    if not isinstance(interval_duration_min_ui, (int, float)) or interval_duration_min_ui <= 0: interval_duration_min_ui = 2.0
+    else: interval_duration_min_ui = float(interval_duration_min_ui)
+    
+    max_minutes_for_range_ui = float(max_minutes_for_range_ui) if isinstance(max_minutes_for_range_ui, (int, float)) and max_minutes_for_range_ui >=0 else 0.0
+
+    current_start_ui_val = float(st.session_state.get(start_time_key_ui, 0.0))
+    current_end_ui_val = float(st.session_state.get(end_time_key_ui, max_minutes_for_range_ui))
+    current_start_ui_val = max(0.0, min(current_start_ui_val, max_minutes_for_range_ui))
     current_end_ui_val = max(current_start_ui_val, min(current_end_ui_val, max_minutes_for_range_ui))
     st.session_state[start_time_key_ui], st.session_state[end_time_key_ui] = current_start_ui_val, current_end_ui_val
+    
     prev_start_ui_val_state, prev_end_ui_val_state = current_start_ui_val, current_end_ui_val
     cols_ui_time_range = st_col_obj.columns(2)
-    new_start_time_val_ui_widget = cols_ui_time_range[0].number_input( "Start Time (min)", 0, max_minutes_for_range_ui, current_start_ui_val, interval_duration_min_ui, key=f"widget_num_input_{start_time_key_ui}", help=f"Range: 0 to {max_minutes_for_range_ui} min.")
-    st.session_state[start_time_key_ui] = new_start_time_val_ui_widget
+    
+    new_start_time_val_ui_widget = cols_ui_time_range[0].number_input( "Start Time (min)", min_value=0.0, max_value=max_minutes_for_range_ui, value=current_start_ui_val, step=interval_duration_min_ui, key=f"widget_num_input_{start_time_key_ui}", help=f"Range: 0 to {int(max_minutes_for_range_ui)} min.")
+    st.session_state[start_time_key_ui] = float(new_start_time_val_ui_widget)
+    
     end_time_min_for_widget_val_ui = st.session_state[start_time_key_ui]
-    new_end_time_val_ui_widget = cols_ui_time_range[1].number_input("End Time (min)", end_time_min_for_widget_val_ui, max_minutes_for_range_ui, current_end_ui_val, interval_duration_min_ui, key=f"widget_num_input_{end_time_key_ui}", help=f"Range: {end_time_min_for_widget_val_ui} to {max_minutes_for_range_ui} min.")
-    st.session_state[end_time_key_ui] = new_end_time_val_ui_widget
+    new_end_time_val_ui_widget = cols_ui_time_range[1].number_input("End Time (min)", min_value=end_time_min_for_widget_val_ui, max_value=max_minutes_for_range_ui, value=current_end_ui_val, step=interval_duration_min_ui, key=f"widget_num_input_{end_time_key_ui}", help=f"Range: {int(end_time_min_for_widget_val_ui)} to {int(max_minutes_for_range_ui)} min.")
+    st.session_state[end_time_key_ui] = float(new_end_time_val_ui_widget)
+
     if st.session_state[end_time_key_ui] < st.session_state[start_time_key_ui]: st.session_state[end_time_key_ui] = st.session_state[start_time_key_ui]
     if prev_start_ui_val_state != st.session_state[start_time_key_ui] or prev_end_ui_val_state != st.session_state[end_time_key_ui]: st.rerun()
     return int(st.session_state[start_time_key_ui]), int(st.session_state[end_time_key_ui])
