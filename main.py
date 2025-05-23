@@ -797,20 +797,25 @@ def main():
                                 spatial_plot_cols_final = st.columns(2)
                                 with spatial_plot_cols_final[0]: 
                                     st.markdown("<h6>Worker Positions (Snapshot)</h6>", unsafe_allow_html=True)
-                                    min_snap_step_final, max_snap_step_final = start_idx_tab_final_loop, max(start_idx_tab_final_loop, end_idx_tab_final_loop -1) 
+                                    min_s_val = int(start_idx_tab_final_loop)
+                                    max_s_val = max(min_s_val, int(end_idx_tab_final_loop - 1))
                                     snap_slider_key_final = f"{tab_def_main_final_loop['key_prefix']}_snap_step_slider_final"
-                                    # Ensure slider value is initialized and clamped correctly
-                                    if snap_slider_key_final not in st.session_state: st.session_state[snap_slider_key_final] = min_snap_step_final
-                                    st.session_state[snap_slider_key_final] = max(min_snap_step_final, min(st.session_state[snap_slider_key_final], max_snap_step_final))
-                                    
-                                    snap_step_val_final = st.slider("Time Step for Snapshot:", min_value=min_snap_step_final, max_value=max_snap_step_final, value=st.session_state[snap_slider_key_final], key=f"widget_actual_{snap_slider_key_final}", step=1, disabled=(min_snap_step_final >= max_snap_step_final))
-                                    if st.session_state[snap_slider_key_final] != snap_step_val_final : # Update if slider changed it
-                                        st.session_state[snap_slider_key_final] = snap_step_val_final
-                                        # st.rerun() # Optional: rerun if plot should update instantly on slider change
+                                    current_slider_val_state = st.session_state.get(snap_slider_key_final, min_s_val)
+                                    clamped_value_for_slider = max(min_s_val, min(current_slider_val_state, max_s_val))
+                                    if min_s_val == max_s_val: clamped_value_for_slider = min_s_val
+                                    st.session_state[snap_slider_key_final] = clamped_value_for_slider
+                                    slider_is_disabled = (min_s_val >= max_s_val)
 
-                                    if not team_pos_df_all_spatial.empty and max_snap_step_final >= min_snap_step_final:
+                                    if max_mins_ui_main_app_val < active_mpi_main_app_val :
+                                        st.caption("Not enough data for time step snapshot selector.")
+                                        snap_step_val_final = min_s_val
+                                    else:
+                                        snap_step_val_final = st.slider("Time Step for Snapshot:", min_value=min_s_val, max_value=max_s_val, value=clamped_value_for_slider, key=f"widget_actual_render_{snap_slider_key_final}", step=1, disabled=slider_is_disabled)
+                                        if st.session_state[snap_slider_key_final] != snap_step_val_final : st.session_state[snap_slider_key_final] = snap_step_val_final
+                                    
+                                    if not team_pos_df_all_spatial.empty and max_s_val >= min_s_val:
                                         try: 
-                                            fig_dist_final = plot_worker_distribution(team_pos_df_all_spatial, facility_config_spatial_tab_final.get('FACILITY_SIZE',(100,80)), facility_config_spatial_tab_final, use_3d_main_app_val, snap_step_val_final, show_ee_exp_final, show_pl_exp_final, current_high_contrast_main_app_val)
+                                            fig_dist_final = plot_worker_distribution(team_pos_df_all_spatial, facility_config_spatial_tab_final.get('FACILITY_SIZE',(100,80)), facility_config_spatial_tab_final, use_3d_main_app_val, int(snap_step_val_final), show_ee_exp_final, show_pl_exp_final, current_high_contrast_main_app_val)
                                             if fig_dist_final: st.plotly_chart(fig_dist_final, use_container_width=True, config=plot_cfg_interactive_final_ui)
                                             else: st.caption("Worker distribution plot error."); logger.warning("plot_worker_distribution returned None.")
                                         except Exception as e_dist_final: logger.error(f"Spatial Dist Plot Error: {e_dist_final}", exc_info=True); st.error(f"⚠️ Error plotting Worker Positions: {e_dist_final}.")
@@ -904,7 +909,7 @@ def main():
                                 wa_alert_found_final = False; wa_details_html_final = ""
                                 for zone_final, zone_steps_raw_list_final in alert_steps_raw_final.items():
                                     zone_steps_in_range_final = [s for s in (zone_steps_raw_list_final if isinstance(zone_steps_raw_list_final, list) else []) if start_idx_tab_final_loop <= s < end_idx_tab_final_loop]
-                                    if zone_steps_in_range_final: wa_alert_found_final = True; wa_details_html_final += f"  - {zone_final}: {len(zone_steps_in_range_final)} alerts at steps {zone_steps_in_range_final}<br>"
+                                    if zone_steps_in_range_final: wa_alert_found_final = True; wa_details_html_final += f"  - {zone_final}: {len(zone_steps_in_range_final)} alerts at steps {zone_steps_in_range_final}<br>"
                                 if wa_alert_found_final: st.markdown(f"<div class='alert-warning insight-text'><strong>Work Area Specific Alerts:</strong><br>{wa_details_html_final}</div>", unsafe_allow_html=True); insights_count_wb_final +=1
                             elif isinstance(alert_steps_raw_final, list):
                                 alert_steps_in_range_final = [s for s in alert_steps_raw_final if start_idx_tab_final_loop <= s < end_idx_tab_final_loop]
